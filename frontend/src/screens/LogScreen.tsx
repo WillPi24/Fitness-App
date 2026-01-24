@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { CalendarList } from 'react-native-calendars';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../components/Card';
 import { ErrorBanner } from '../components/ErrorBanner';
@@ -109,6 +110,7 @@ export function LogScreen() {
 
   const today = new Date();
   const todayIso = useMemo(() => formatISODate(today), [today]);
+  const insets = useSafeAreaInsets();
   const [selectedDate, setSelectedDate] = useState(todayIso);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [exercisePickerOpen, setExercisePickerOpen] = useState(false);
@@ -429,7 +431,10 @@ export function LogScreen() {
         </View>
       </Modal>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: spacing.lg + insets.top }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.calendarCard}>
           <Pressable style={styles.monthButton} onPress={() => setCalendarOpen(true)}>
             <Text style={styles.monthLabel}>{monthLabel}</Text>

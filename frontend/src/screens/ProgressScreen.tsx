@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BarChart } from '../components/BarChart';
 import { Card } from '../components/Card';
@@ -23,6 +24,7 @@ function formatShortDate(date: Date) {
 
 export function ProgressScreen() {
   const { workouts, isLoading, error, clearError } = useWorkoutStore();
+  const insets = useSafeAreaInsets();
 
   const progress = useMemo(() => {
     const sets = workouts.flatMap((workout) =>
@@ -112,7 +114,7 @@ export function ProgressScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingTop: spacing.lg + insets.top }]}>
         <Text style={styles.title}>Lifetime progress</Text>
         <Text style={styles.subtitle}>Trends across every logged session.</Text>
 

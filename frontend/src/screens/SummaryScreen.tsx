@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../components/Card';
 import { ErrorBanner } from '../components/ErrorBanner';
@@ -10,6 +11,7 @@ const weekInMs = 7 * 24 * 60 * 60 * 1000;
 
 export function SummaryScreen() {
   const { workouts, isLoading, error, clearError } = useWorkoutStore();
+  const insets = useSafeAreaInsets();
 
   const summary = useMemo(() => {
     const now = Date.now();
@@ -60,7 +62,7 @@ export function SummaryScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingTop: spacing.lg + insets.top }]}>
         <Text style={styles.title}>Weekly summary</Text>
         <Text style={styles.subtitle}>Keep tabs on volume and consistency.</Text>
 
