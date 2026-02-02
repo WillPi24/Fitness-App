@@ -8,9 +8,11 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { CalorieScreen } from './src/screens/CalorieScreen';
 import { LogScreen } from './src/screens/LogScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { SummaryScreen } from './src/screens/SummaryScreen';
+import { CalorieProvider } from './src/store/calorieStore';
 import { WorkoutProvider } from './src/store/workoutStore';
 import { colors } from './src/theme';
 
@@ -40,7 +42,8 @@ export default function App() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <WorkoutProvider>
-          <NavigationContainer theme={navTheme}>
+          <CalorieProvider>
+            <NavigationContainer theme={navTheme}>
             <StatusBar style="dark" />
             <Tab.Navigator
               screenOptions={({ route }) => ({
@@ -53,6 +56,8 @@ export default function App() {
                   const iconName =
                     route.name === 'Log'
                       ? 'edit'
+                      : route.name === 'Calories'
+                      ? 'pie-chart'
                       : route.name === 'Summary'
                       ? 'calendar'
                       : 'bar-chart-2';
@@ -61,10 +66,12 @@ export default function App() {
               })}
             >
               <Tab.Screen name="Log" component={LogScreen} />
+              <Tab.Screen name="Calories" component={CalorieScreen} />
               <Tab.Screen name="Summary" component={SummaryScreen} />
               <Tab.Screen name="Progress" component={ProgressScreen} />
             </Tab.Navigator>
           </NavigationContainer>
+          </CalorieProvider>
         </WorkoutProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
