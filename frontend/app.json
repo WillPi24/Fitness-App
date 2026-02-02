@@ -13,9 +13,30 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Allow FitnessApp to access your location to track outdoor runs.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow FitnessApp to track your run route even when the screen is locked.",
+        "NSLocationAlwaysUsageDescription": "Allow FitnessApp to track your run route even when the screen is locked.",
+        "UIBackgroundModes": [
+          "location",
+          "location"
+        ]
+      },
+      "bundleIdentifier": "com.anonymous.FitnessApp"
     },
     "android": {
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -33,7 +54,8 @@
         {
           "cameraPermission": "Allow FitnessApp to scan food barcodes for calorie tracking."
         }
-      ]
+      ],
+      "expo-location"
     ]
   }
 }

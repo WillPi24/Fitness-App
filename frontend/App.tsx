@@ -11,8 +11,10 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { CalorieScreen } from './src/screens/CalorieScreen';
 import { LogScreen } from './src/screens/LogScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
+import { RunScreen } from './src/screens/RunScreen';
 import { SummaryScreen } from './src/screens/SummaryScreen';
 import { CalorieProvider } from './src/store/calorieStore';
+import { RunProvider } from './src/store/runStore';
 import { WorkoutProvider } from './src/store/workoutStore';
 import { colors } from './src/theme';
 
@@ -41,38 +43,43 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <WorkoutProvider>
-          <CalorieProvider>
-            <NavigationContainer theme={navTheme}>
-            <StatusBar style="dark" />
-            <Tab.Navigator
-              screenOptions={({ route }) => ({
-                headerShown: false,
-                tabBarStyle: styles.tabBar,
-                tabBarActiveTintColor: colors.accent,
-                tabBarInactiveTintColor: colors.muted,
-                tabBarLabelStyle: styles.tabLabel,
-                tabBarIcon: ({ color, size }) => {
-                  const iconName =
-                    route.name === 'Log'
-                      ? 'edit'
-                      : route.name === 'Calories'
-                      ? 'pie-chart'
-                      : route.name === 'Summary'
-                      ? 'calendar'
-                      : 'bar-chart-2';
-                  return <Feather name={iconName} size={size} color={color} />;
-                },
-              })}
-            >
-              <Tab.Screen name="Log" component={LogScreen} />
-              <Tab.Screen name="Calories" component={CalorieScreen} />
-              <Tab.Screen name="Summary" component={SummaryScreen} />
-              <Tab.Screen name="Progress" component={ProgressScreen} />
-            </Tab.Navigator>
-          </NavigationContainer>
-          </CalorieProvider>
-        </WorkoutProvider>
+        <RunProvider>
+          <WorkoutProvider>
+            <CalorieProvider>
+              <NavigationContainer theme={navTheme}>
+                <StatusBar style="dark" />
+                <Tab.Navigator
+                  screenOptions={({ route }) => ({
+                    headerShown: false,
+                    tabBarStyle: styles.tabBar,
+                    tabBarActiveTintColor: colors.accent,
+                    tabBarInactiveTintColor: colors.muted,
+                    tabBarLabelStyle: styles.tabLabel,
+                    tabBarIcon: ({ color, size }) => {
+                      const iconName =
+                        route.name === 'Log'
+                          ? 'edit'
+                          : route.name === 'Calories'
+                          ? 'pie-chart'
+                          : route.name === 'Summary'
+                          ? 'calendar'
+                          : route.name === 'Run'
+                          ? 'map'
+                          : 'bar-chart-2';
+                      return <Feather name={iconName} size={size} color={color} />;
+                    },
+                  })}
+                >
+                  <Tab.Screen name="Log" component={LogScreen} />
+                  <Tab.Screen name="Run" component={RunScreen} />
+                  <Tab.Screen name="Calories" component={CalorieScreen} />
+                  <Tab.Screen name="Summary" component={SummaryScreen} />
+                  <Tab.Screen name="Progress" component={ProgressScreen} />
+                </Tab.Navigator>
+              </NavigationContainer>
+            </CalorieProvider>
+          </WorkoutProvider>
+        </RunProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );
