@@ -9,6 +9,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -18,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../components/Card';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { FoodSearchResult, searchFoods } from '../services/foodSearch';
+import { FoodSearchResult, searchFoods, searchSimpleFoods } from '../services/foodSearch';
 import { CalorieDay, Meal, useCalorieStore } from '../store/calorieStore';
 import { colors, spacing, typography } from '../theme';
 
@@ -108,6 +109,7 @@ export function CalorieScreen() {
   const [nameSuggestions, setNameSuggestions] = useState<FoodSearchResult[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [simpleSearchEnabled, setSimpleSearchEnabled] = useState(true);
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const selectedDateObj = useMemo(() => parseISODate(selectedDate), [selectedDate]);
@@ -193,15 +195,22 @@ export function CalorieScreen() {
 
     setIsSearchingFoods(true);
     try {
-      const results = await searchFoods(query);
-      setSearchResults(results);
+      if (simpleSearchEnabled) {
+        // Use local curated list - instant results
+        const results = searchSimpleFoods(query);
+        setSearchResults(results);
+      } else {
+        // Use USDA API - more comprehensive
+        const results = await searchFoods(query);
+        setSearchResults(results);
+      }
     } catch (err) {
       console.error('Search failed:', err);
       setSearchResults([]);
     } finally {
       setIsSearchingFoods(false);
     }
-  }, []);
+  }, [simpleSearchEnabled]);
 
   const handleAddMeal = () => {
     const mealId = addMeal(selectedDate);
@@ -553,6 +562,26 @@ export function CalorieScreen() {
                 <Feather name="x" size={20} color={colors.muted} />
               </Pressable>
             )}
+          </View>
+
+          <View style={styles.searchToggleRow}>
+            <View style={styles.searchToggleInfo}>
+              <Text style={styles.searchToggleLabel}>Simple search</Text>
+              <Text style={styles.searchToggleHint}>
+                {simpleSearchEnabled ? 'Common foods only' : 'Full USDA database'}
+              </Text>
+            </View>
+            <Switch
+              value={simpleSearchEnabled}
+              onValueChange={(value) => {
+                setSimpleSearchEnabled(value);
+                if (searchQuery) {
+                  handleSearch(searchQuery);
+                }
+              }}
+              trackColor={{ false: colors.border, true: colors.accentSoft }}
+              thumbColor={simpleSearchEnabled ? colors.accent : colors.muted}
+            />
           </View>
 
           <View style={styles.quickActions}>
@@ -1421,6 +1450,32 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     ...typography.body,
     color: colors.text,
+  },
+  searchToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchToggleInfo: {
+    flex: 1,
+  },
+  searchToggleLabel: {
+    ...typography.body,
+    fontFamily: 'SpaceGrotesk_500Medium',
+    color: colors.text,
+  },
+  searchToggleHint: {
+    ...typography.body,
+    fontSize: 12,
+    color: colors.muted,
   },
   quickActions: {
     flexDirection: 'row',
