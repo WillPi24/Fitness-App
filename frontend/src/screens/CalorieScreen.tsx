@@ -13,12 +13,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { CalendarList } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../components/Card';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { FoodSearchResult, searchFoods } from '../services/foodSearch';
-import { Meal, useCalorieStore } from '../store/calorieStore';
+import { CalorieDay, Meal, useCalorieStore } from '../store/calorieStore';
 import { colors, spacing, typography } from '../theme';
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -60,6 +61,10 @@ function formatShortDate(date: Date) {
   return `${weekDays[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`;
 }
 
+function monthsBetween(start: Date, end: Date) {
+  return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+}
+
 export function CalorieScreen() {
   const {
     calorieDays,
@@ -85,6 +90,8 @@ export function CalorieScreen() {
   const todayIso = useMemo(() => formatISODate(today), []);
   const insets = useSafeAreaInsets();
   const [selectedDate, setSelectedDate] = useState(todayIso);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
   const [foodPickerOpen, setFoodPickerOpen] = useState(false);
   const [entryModalOpen, setEntryModalOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -111,6 +118,47 @@ export function CalorieScreen() {
     const start = startOfWeek(selectedDateObj);
     return Array.from({ length: 7 }, (_, index) => addDays(start, index));
   }, [selectedDateObj]);
+
+  const earliestCalorieDate = useMemo(() => {
+    if (calorieDays.length === 0) {
+      return selectedDate;
+    }
+    return calorieDays.reduce((minDate, day) => (day.date < minDate ? day.date : minDate), calorieDays[0].date);
+  }, [calorieDays, selectedDate]);
+
+  const markedDates = useMemo(() => {
+    const marks: Record<string, { marked?: boolean; selected?: boolean; selectedColor?: string; selectedTextColor?: string; dotColor?: string }> = {};
+    calorieDays.forEach((day) => {
+      if (!marks[day.date]) {
+        marks[day.date] = { marked: true, dotColor: colors.accent };
+      }
+    });
+    const existing = marks[selectedDate] ?? {};
+    marks[selectedDate] = {
+      ...existing,
+      selected: true,
+      selectedColor: colors.accent,
+      selectedTextColor: '#fff',
+    };
+    return marks;
+  }, [calorieDays, selectedDate]);
+
+  const calendarPastRange = useMemo(() => {
+    const earliest = parseISODate(earliestCalorieDate);
+    return Math.max(0, monthsBetween(earliest, selectedDateObj));
+  }, [earliestCalorieDate, selectedDateObj]);
+
+  const calendarFutureRange = useMemo(() => {
+    const todayDate = new Date();
+    return Math.max(0, monthsBetween(selectedDateObj, todayDate));
+  }, [selectedDateObj]);
+
+  const historyDays = useMemo(() => {
+    return calorieDays
+      .filter((day) => day.date !== selectedDate)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 10);
+  }, [calorieDays, selectedDate]);
 
   const dayData = useMemo(() => {
     return calorieDays.find((d) => d.date === selectedDate);
@@ -431,6 +479,55 @@ export function CalorieScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Calendar Modal */}
+      <Modal visible={calendarOpen} transparent animationType="slide" onRequestClose={() => setCalendarOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.calendarModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Pick a date</Text>
+              <Pressable onPress={() => setCalendarOpen(false)}>
+                <Text style={styles.modalClose}>Close</Text>
+              </Pressable>
+            </View>
+            <CalendarList
+              current={selectedDate}
+              minDate={earliestCalorieDate}
+              maxDate={todayIso}
+              pastScrollRange={calendarPastRange}
+              futureScrollRange={calendarFutureRange}
+              horizontal
+              pagingEnabled
+              enableSwipeMonths
+              hideExtraDays
+              firstDay={WEEK_STARTS_ON}
+              markedDates={markedDates}
+              onDayPress={(day) => {
+                setSelectedDate(day.dateString);
+                setCalendarOpen(false);
+              }}
+              theme={{
+                backgroundColor: colors.surface,
+                calendarBackground: colors.surface,
+                textSectionTitleColor: colors.muted,
+                textSectionTitleDisabledColor: colors.muted,
+                dayTextColor: colors.text,
+                todayTextColor: colors.accent,
+                monthTextColor: colors.text,
+                textMonthFontFamily: typography.headline.fontFamily,
+                textMonthFontSize: typography.headline.fontSize,
+                textDayFontFamily: typography.body.fontFamily,
+                textDayFontSize: typography.body.fontSize,
+                textDayHeaderFontFamily: typography.label.fontFamily,
+                textDayHeaderFontSize: typography.label.fontSize,
+                selectedDayBackgroundColor: colors.accent,
+                selectedDayTextColor: '#fff',
+                arrowColor: colors.accent,
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+
       {/* Food Picker Modal */}
       <Modal visible={foodPickerOpen} animationType="slide" onRequestClose={handleCancelEntry}>
         <View style={[styles.foodPickerContainer, { paddingTop: insets.top }]}>
@@ -720,7 +817,10 @@ export function CalorieScreen() {
       >
         {/* Week Selector */}
         <View style={styles.calendarCard}>
-          <Text style={styles.monthLabel}>{monthLabel}</Text>
+          <Pressable style={styles.monthButton} onPress={() => setCalendarOpen(true)}>
+            <Text style={styles.monthLabel}>{monthLabel}</Text>
+            <Feather name="chevron-down" size={18} color={colors.muted} />
+          </Pressable>
           <View style={styles.weekRow}>
             {weekDates.map((date) => {
               const iso = formatISODate(date);
@@ -815,6 +915,71 @@ export function CalorieScreen() {
             dayData.meals.map(renderMealCard)
           )}
         </View>
+
+        {/* History Section */}
+        {historyDays.length > 0 && (
+          <View style={styles.historySection}>
+            <Pressable
+              style={styles.historyHeader}
+              onPress={() => setHistoryExpanded(!historyExpanded)}
+            >
+              <Text style={styles.sectionTitle}>Meal History</Text>
+              <Feather
+                name={historyExpanded ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={colors.muted}
+              />
+            </Pressable>
+            {historyExpanded && (
+              <View style={styles.historyList}>
+                {historyDays.map((day) => {
+                  const dayDate = parseISODate(day.date);
+                  const dayLabel = formatShortDate(dayDate);
+                  const dayTotals = day.meals.reduce(
+                    (acc, meal) => {
+                      meal.foods.forEach((food) => {
+                        acc.calories += food.calories;
+                        acc.protein += food.protein;
+                        acc.carbs += food.carbs;
+                        acc.fat += food.fat;
+                      });
+                      return acc;
+                    },
+                    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+                  );
+
+                  return (
+                    <Pressable
+                      key={day.date}
+                      onPress={() => setSelectedDate(day.date)}
+                    >
+                      <Card style={styles.historyCard}>
+                        <View style={styles.historyCardHeader}>
+                          <Text style={styles.historyDate}>{dayLabel}</Text>
+                          <Text style={styles.historyCalories}>{dayTotals.calories} kcal</Text>
+                        </View>
+                        <Text style={styles.historyMacros}>
+                          P: {dayTotals.protein}g | C: {dayTotals.carbs}g | F: {dayTotals.fat}g
+                        </Text>
+                        <View style={styles.historyMeals}>
+                          {day.meals.map((meal) => (
+                            <View key={meal.id} style={styles.historyMealRow}>
+                              <Text style={styles.historyMealName}>{meal.name}</Text>
+                              <Text style={styles.historyMealFoods}>
+                                {meal.foods.length} {meal.foods.length === 1 ? 'item' : 'items'} -{' '}
+                                {meal.foods.reduce((sum, f) => sum + f.calories, 0)} kcal
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      </Card>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -831,6 +996,11 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   calendarCard: {
+    gap: spacing.sm,
+  },
+  monthButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   monthLabel: {
@@ -1045,6 +1215,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(27, 31, 36, 0.6)',
     justifyContent: 'flex-end',
+  },
+  calendarModal: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: spacing.lg,
+    maxHeight: '85%',
   },
   modalDismiss: {
     flex: 1,
@@ -1366,5 +1543,58 @@ const styles = StyleSheet.create({
     color: colors.muted,
     padding: spacing.sm,
     textAlign: 'center',
+  },
+  historySection: {
+    gap: spacing.md,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  historyList: {
+    gap: spacing.sm,
+  },
+  historyCard: {
+    gap: spacing.sm,
+  },
+  historyCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  historyDate: {
+    ...typography.headline,
+    color: colors.text,
+  },
+  historyCalories: {
+    ...typography.body,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
+    color: colors.accent,
+  },
+  historyMacros: {
+    ...typography.body,
+    color: colors.muted,
+  },
+  historyMeals: {
+    gap: spacing.xs,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  historyMealRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  historyMealName: {
+    ...typography.body,
+    color: colors.text,
+  },
+  historyMealFoods: {
+    ...typography.body,
+    fontSize: 13,
+    color: colors.muted,
   },
 });
