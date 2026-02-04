@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '../components/Card';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { FoodSearchResult, searchFoods, searchSimpleFoods } from '../services/foodSearch';
-import { CalorieDay, Meal, useCalorieStore } from '../store/calorieStore';
+import { CalorieDay, Meal, SavedMeal, SavedMealFood, useCalorieStore } from '../store/calorieStore';
 import { colors, spacing, typography } from '../theme';
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -81,6 +81,11 @@ export function CalorieScreen() {
     saveFoodEntry,
     cancelDraftEntry,
     removeFoodItem,
+    savedMeals,
+    createSavedMeal,
+    updateSavedMeal,
+    deleteSavedMeal,
+    addSavedMealToDay,
     isLoading,
     isSearching,
     error,
@@ -110,6 +115,12 @@ export function CalorieScreen() {
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [simpleSearchEnabled, setSimpleSearchEnabled] = useState(true);
+  const [savedMealsOpen, setSavedMealsOpen] = useState(false);
+  const [savedMealEditMode, setSavedMealEditMode] = useState<'list' | 'create' | 'edit'>('list');
+  const [editingSavedMeal, setEditingSavedMeal] = useState<SavedMeal | null>(null);
+  const [savedMealName, setSavedMealName] = useState('');
+  const [savedMealFoods, setSavedMealFoods] = useState<SavedMealFood[]>([]);
+  const [addingFoodToSavedMeal, setAddingFoodToSavedMeal] = useState(false);
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const selectedDateObj = useMemo(() => parseISODate(selectedDate), [selectedDate]);
@@ -387,6 +398,96 @@ export function CalorieScreen() {
     setRenameInput('');
   };
 
+  const handleOpenSavedMeals = () => {
+    setFoodPickerOpen(false);
+    setSavedMealEditMode('list');
+    setSavedMealsOpen(true);
+  };
+
+  const handleCloseSavedMeals = () => {
+    setSavedMealsOpen(false);
+    setSavedMealEditMode('list');
+    setEditingSavedMeal(null);
+    setSavedMealName('');
+    setSavedMealFoods([]);
+    setAddingFoodToSavedMeal(false);
+  };
+
+  const handleStartCreateSavedMeal = () => {
+    setSavedMealEditMode('create');
+    setSavedMealName('');
+    setSavedMealFoods([]);
+  };
+
+  const handleStartEditSavedMeal = (meal: SavedMeal) => {
+    setEditingSavedMeal(meal);
+    setSavedMealName(meal.name);
+    setSavedMealFoods([...meal.foods]);
+    setSavedMealEditMode('edit');
+  };
+
+  const handleSaveSavedMeal = () => {
+    if (savedMealEditMode === 'create') {
+      createSavedMeal(savedMealName, savedMealFoods);
+    } else if (savedMealEditMode === 'edit' && editingSavedMeal) {
+      updateSavedMeal(editingSavedMeal.id, savedMealName, savedMealFoods);
+    }
+    setSavedMealEditMode('list');
+    setEditingSavedMeal(null);
+    setSavedMealName('');
+    setSavedMealFoods([]);
+  };
+
+  const handleDeleteSavedMeal = (id: string) => {
+    deleteSavedMeal(id);
+  };
+
+  const handleUseSavedMeal = (meal: SavedMeal) => {
+    if (currentMealId) {
+      addSavedMealToDay(meal.id, selectedDate, currentMealId);
+      handleCloseSavedMeals();
+    }
+  };
+
+  const handleAddFoodToSavedMealTemplate = () => {
+    setAddingFoodToSavedMeal(true);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleSelectFoodForSavedMeal = (food: FoodSearchResult) => {
+    const newFood: SavedMealFood = {
+      id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      name: food.name,
+      calories: food.calories,
+      protein: food.protein,
+      carbs: food.carbs,
+      fat: food.fat,
+      servingSize: food.servingSize,
+      servings: 1,
+    };
+    setSavedMealFoods((prev) => [...prev, newFood]);
+    setAddingFoodToSavedMeal(false);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleRemoveFoodFromSavedMeal = (foodId: string) => {
+    setSavedMealFoods((prev) => prev.filter((f) => f.id !== foodId));
+  };
+
+  const getSavedMealTotals = (foods: SavedMealFood[]) => {
+    return foods.reduce(
+      (acc, food) => ({
+        calories: acc.calories + food.calories * food.servings,
+        protein: acc.protein + food.protein * food.servings,
+        carbs: acc.carbs + food.carbs * food.servings,
+        fat: acc.fat + food.fat * food.servings,
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    );
+  };
+
   const renderMealCard = (meal: Meal) => {
     const mealCalories = meal.foods.reduce((sum, f) => sum + f.calories, 0);
     const isRenaming = renamingMealId === meal.id;
@@ -589,9 +690,9 @@ export function CalorieScreen() {
               <Feather name="camera" size={20} color={colors.accent} />
               <Text style={styles.quickActionText}>Scan Barcode</Text>
             </Pressable>
-            <Pressable style={styles.quickActionButton} onPress={handleManualEntry}>
-              <Feather name="edit-3" size={20} color={colors.accent} />
-              <Text style={styles.quickActionText}>Enter Manually</Text>
+            <Pressable style={styles.quickActionButton} onPress={handleOpenSavedMeals}>
+              <Feather name="bookmark" size={20} color={colors.accent} />
+              <Text style={styles.quickActionText}>Saved Meals</Text>
             </Pressable>
           </View>
 
@@ -837,6 +938,232 @@ export function CalorieScreen() {
               )}
             </View>
           </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Saved Meals Modal */}
+      <Modal visible={savedMealsOpen} animationType="slide" onRequestClose={handleCloseSavedMeals}>
+        <View style={[styles.foodPickerContainer, { paddingTop: insets.top }]}>
+          <View style={styles.foodPickerHeader}>
+            <Text style={styles.modalTitle}>
+              {savedMealEditMode === 'list'
+                ? 'Saved Meals'
+                : savedMealEditMode === 'create'
+                ? 'New Saved Meal'
+                : 'Edit Saved Meal'}
+            </Text>
+            <Pressable
+              onPress={
+                savedMealEditMode === 'list'
+                  ? handleCloseSavedMeals
+                  : () => {
+                      setSavedMealEditMode('list');
+                      setAddingFoodToSavedMeal(false);
+                    }
+              }
+            >
+              <Text style={styles.modalClose}>
+                {savedMealEditMode === 'list' ? 'Cancel' : 'Back'}
+              </Text>
+            </Pressable>
+          </View>
+
+          {savedMealEditMode === 'list' && !addingFoodToSavedMeal && (
+            <ScrollView style={styles.savedMealsList}>
+              {savedMeals.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Feather name="bookmark" size={48} color={colors.muted} />
+                  <Text style={styles.emptyStateText}>No saved meals yet</Text>
+                  <Text style={styles.emptyStateHint}>
+                    Create meal templates to quickly add your favorite combinations
+                  </Text>
+                </View>
+              ) : (
+                savedMeals.map((meal) => {
+                  const mealTotals = getSavedMealTotals(meal.foods);
+                  return (
+                    <Pressable
+                      key={meal.id}
+                      style={styles.savedMealItem}
+                      onPress={() => handleUseSavedMeal(meal)}
+                    >
+                      <View style={styles.savedMealInfo}>
+                        <Text style={styles.savedMealName}>{meal.name}</Text>
+                        <Text style={styles.savedMealStats}>
+                          {mealTotals.calories} kcal • {meal.foods.length}{' '}
+                          {meal.foods.length === 1 ? 'item' : 'items'}
+                        </Text>
+                        <Text style={styles.savedMealMacros}>
+                          P: {mealTotals.protein}g C: {mealTotals.carbs}g F: {mealTotals.fat}g
+                        </Text>
+                      </View>
+                      <View style={styles.savedMealActions}>
+                        <Pressable
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleStartEditSavedMeal(meal);
+                          }}
+                          hitSlop={8}
+                        >
+                          <Feather name="edit-2" size={18} color={colors.muted} />
+                        </Pressable>
+                        <Pressable
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSavedMeal(meal.id);
+                          }}
+                          hitSlop={8}
+                        >
+                          <Feather name="trash-2" size={18} color={colors.danger} />
+                        </Pressable>
+                      </View>
+                    </Pressable>
+                  );
+                })
+              )}
+              <Pressable style={styles.createSavedMealButton} onPress={handleStartCreateSavedMeal}>
+                <Feather name="plus" size={20} color={colors.accent} />
+                <Text style={styles.createSavedMealText}>Create New Meal</Text>
+              </Pressable>
+            </ScrollView>
+          )}
+
+          {(savedMealEditMode === 'create' || savedMealEditMode === 'edit') &&
+            !addingFoodToSavedMeal && (
+              <ScrollView style={styles.savedMealEditor}>
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Meal Name</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={savedMealName}
+                    onChangeText={setSavedMealName}
+                    placeholder="e.g., My Breakfast"
+                    placeholderTextColor={colors.muted}
+                  />
+                </View>
+
+                <Text style={styles.savedMealSectionTitle}>Foods</Text>
+                {savedMealFoods.length === 0 ? (
+                  <Text style={styles.emptyText}>No foods added yet</Text>
+                ) : (
+                  savedMealFoods.map((food) => (
+                    <View key={food.id} style={styles.savedMealFoodItem}>
+                      <View style={styles.savedMealFoodInfo}>
+                        <Text style={styles.savedMealFoodName}>{food.name}</Text>
+                        <Text style={styles.savedMealFoodMacros}>
+                          {food.calories} kcal | P: {food.protein}g | C: {food.carbs}g | F:{' '}
+                          {food.fat}g
+                        </Text>
+                      </View>
+                      <Pressable
+                        onPress={() => handleRemoveFoodFromSavedMeal(food.id)}
+                        hitSlop={8}
+                      >
+                        <Feather name="x" size={20} color={colors.danger} />
+                      </Pressable>
+                    </View>
+                  ))
+                )}
+
+                <Pressable
+                  style={styles.addFoodToSavedMealButton}
+                  onPress={handleAddFoodToSavedMealTemplate}
+                >
+                  <Feather name="plus" size={18} color={colors.accent} />
+                  <Text style={styles.addFoodToSavedMealText}>Add Food</Text>
+                </Pressable>
+
+                {savedMealFoods.length > 0 && (
+                  <View style={styles.savedMealTotals}>
+                    <Text style={styles.savedMealTotalsTitle}>Total</Text>
+                    <Text style={styles.savedMealTotalsText}>
+                      {getSavedMealTotals(savedMealFoods).calories} kcal
+                    </Text>
+                    <Text style={styles.savedMealTotalsMacros}>
+                      P: {getSavedMealTotals(savedMealFoods).protein}g C:{' '}
+                      {getSavedMealTotals(savedMealFoods).carbs}g F:{' '}
+                      {getSavedMealTotals(savedMealFoods).fat}g
+                    </Text>
+                  </View>
+                )}
+
+                <Pressable
+                  style={[
+                    styles.saveButton,
+                    (!savedMealName.trim() || savedMealFoods.length === 0) &&
+                      styles.saveButtonDisabled,
+                  ]}
+                  onPress={handleSaveSavedMeal}
+                  disabled={!savedMealName.trim() || savedMealFoods.length === 0}
+                >
+                  <Text style={styles.saveButtonText}>
+                    {savedMealEditMode === 'create' ? 'Save Meal' : 'Update Meal'}
+                  </Text>
+                </Pressable>
+              </ScrollView>
+            )}
+
+          {addingFoodToSavedMeal && (
+            <View style={styles.addFoodToSavedMealContainer}>
+              <View style={styles.searchContainer}>
+                <Feather name="search" size={20} color={colors.muted} style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  value={searchQuery}
+                  onChangeText={handleSearch}
+                  placeholder="Search foods"
+                  placeholderTextColor={colors.muted}
+                  autoFocus
+                />
+                {searchQuery.length > 0 && (
+                  <Pressable
+                    onPress={() => {
+                      setSearchQuery('');
+                      setSearchResults([]);
+                    }}
+                  >
+                    <Feather name="x" size={20} color={colors.muted} />
+                  </Pressable>
+                )}
+              </View>
+
+              {isSearchingFoods ? (
+                <View style={styles.searchLoading}>
+                  <ActivityIndicator color={colors.accent} />
+                  <Text style={styles.searchLoadingText}>Searching...</Text>
+                </View>
+              ) : (
+                <ScrollView style={styles.searchResults} keyboardShouldPersistTaps="handled">
+                  {searchResults.map((food) => (
+                    <Pressable
+                      key={food.id}
+                      style={styles.searchResultItem}
+                      onPress={() => handleSelectFoodForSavedMeal(food)}
+                    >
+                      <View style={styles.searchResultInfo}>
+                        <Text style={styles.searchResultName} numberOfLines={1}>
+                          {food.name}
+                        </Text>
+                        <Text style={styles.searchResultMacros}>
+                          {food.calories} kcal | P: {food.protein}g | C: {food.carbs}g | F:{' '}
+                          {food.fat}g
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
+
+              <View style={styles.addFoodToSavedMealFooter}>
+                <Pressable
+                  style={styles.secondaryButton}
+                  onPress={() => setAddingFoodToSavedMeal(false)}
+                >
+                  <Text style={styles.secondaryButtonText}>Cancel</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
         </View>
       </Modal>
 
@@ -1651,5 +1978,151 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontSize: 13,
     color: colors.muted,
+  },
+  savedMealsList: {
+    flex: 1,
+    padding: spacing.lg,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    gap: spacing.md,
+  },
+  emptyStateText: {
+    ...typography.headline,
+    color: colors.text,
+  },
+  emptyStateHint: {
+    ...typography.body,
+    color: colors.muted,
+    textAlign: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  savedMealItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: 12,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  savedMealInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  savedMealName: {
+    ...typography.body,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
+    color: colors.text,
+  },
+  savedMealStats: {
+    ...typography.body,
+    fontSize: 13,
+    color: colors.accent,
+  },
+  savedMealMacros: {
+    ...typography.body,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  savedMealActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  createSavedMealButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.accentSoft,
+    borderRadius: 12,
+    marginTop: spacing.md,
+  },
+  createSavedMealText: {
+    ...typography.label,
+    color: colors.accent,
+  },
+  savedMealEditor: {
+    flex: 1,
+    padding: spacing.lg,
+  },
+  savedMealSectionTitle: {
+    ...typography.label,
+    color: colors.text,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  savedMealFoodItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: 12,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  savedMealFoodInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  savedMealFoodName: {
+    ...typography.body,
+    color: colors.text,
+  },
+  savedMealFoodMacros: {
+    ...typography.body,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  addFoodToSavedMealButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.accentSoft,
+    borderRadius: 12,
+    marginTop: spacing.sm,
+  },
+  addFoodToSavedMealText: {
+    ...typography.label,
+    color: colors.accent,
+  },
+  savedMealTotals: {
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  savedMealTotalsTitle: {
+    ...typography.label,
+    color: colors.muted,
+  },
+  savedMealTotalsText: {
+    ...typography.headline,
+    color: colors.text,
+  },
+  savedMealTotalsMacros: {
+    ...typography.body,
+    color: colors.muted,
+  },
+  saveButtonDisabled: {
+    opacity: 0.5,
+  },
+  addFoodToSavedMealContainer: {
+    flex: 1,
+  },
+  addFoodToSavedMealFooter: {
+    padding: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
 });

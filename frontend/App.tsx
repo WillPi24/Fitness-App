@@ -63,16 +63,16 @@ export default function App() {
                           ? 'pie-chart'
                           : route.name === 'Summary'
                           ? 'calendar'
-                          : route.name === 'Run'
+                          : route.name === 'Cardio'
                           ? 'map'
                           : 'bar-chart-2';
                       return <Feather name={iconName} size={size} color={color} />;
                     },
                   })}
                 >
-                  <Tab.Screen name="Log" component={LogScreen} />
-                  <Tab.Screen name="Run" component={RunScreen} />
                   <Tab.Screen name="Calories" component={CalorieScreen} />
+                  <Tab.Screen name="Log" component={LogScreen} />
+                  <Tab.Screen name="Cardio" component={RunScreen} />
                   <Tab.Screen name="Summary" component={SummaryScreen} />
                   <Tab.Screen name="Progress" component={ProgressScreen} />
                 </Tab.Navigator>

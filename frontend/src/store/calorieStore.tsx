@@ -45,6 +45,25 @@ export type DraftFoodEntry = {
   baseFat?: number;
 };
 
+export type SavedMealFood = {
+  id: string;
+  name: string;
+  brand?: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  servingSize: number;
+  servings: number;
+};
+
+export type SavedMeal = {
+  id: string;
+  name: string;
+  foods: SavedMealFood[];
+  createdAt: number;
+};
+
 type CalorieContextValue = {
   calorieDays: CalorieDay[];
   draftEntry: DraftFoodEntry | null;
@@ -59,6 +78,12 @@ type CalorieContextValue = {
   saveFoodEntry: (date: string) => void;
   cancelDraftEntry: () => void;
   removeFoodItem: (date: string, mealId: string, foodId: string) => void;
+  // Saved meals
+  savedMeals: SavedMeal[];
+  createSavedMeal: (name: string, foods: SavedMealFood[]) => void;
+  updateSavedMeal: (id: string, name: string, foods: SavedMealFood[]) => void;
+  deleteSavedMeal: (id: string) => void;
+  addSavedMealToDay: (savedMealId: string, date: string, targetMealId: string) => void;
   isLoading: boolean;
   isSearching: boolean;
   error: string | null;
@@ -68,6 +93,7 @@ type CalorieContextValue = {
 const CALORIE_DAYS_KEY = 'fitnessapp.calorieDays.v2';
 const DAILY_GOAL_KEY = 'fitnessapp.calorieGoal.v1';
 const DRAFT_ENTRY_KEY = 'fitnessapp.draftFoodEntry.v2';
+const SAVED_MEALS_KEY = 'fitnessapp.savedMeals.v1';
 
 const CalorieContext = createContext<CalorieContextValue | undefined>(undefined);
 
@@ -158,10 +184,42 @@ function isDraftFoodEntry(value: unknown): value is DraftFoodEntry {
   );
 }
 
+function isSavedMealFood(value: unknown): value is SavedMealFood {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const food = value as SavedMealFood;
+  return (
+    typeof food.id === 'string' &&
+    typeof food.name === 'string' &&
+    typeof food.calories === 'number' &&
+    typeof food.protein === 'number' &&
+    typeof food.carbs === 'number' &&
+    typeof food.fat === 'number' &&
+    typeof food.servingSize === 'number' &&
+    typeof food.servings === 'number'
+  );
+}
+
+function isSavedMeal(value: unknown): value is SavedMeal {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const meal = value as SavedMeal;
+  return (
+    typeof meal.id === 'string' &&
+    typeof meal.name === 'string' &&
+    Array.isArray(meal.foods) &&
+    meal.foods.every(isSavedMealFood) &&
+    typeof meal.createdAt === 'number'
+  );
+}
+
 export function CalorieProvider({ children }: { children: React.ReactNode }) {
   const [calorieDays, setCalorieDays] = useState<CalorieDay[]>([]);
   const [draftEntry, setDraftEntry] = useState<DraftFoodEntry | null>(null);
   const [dailyGoal, setDailyGoalState] = useState<number>(2000);
+  const [savedMeals, setSavedMeals] = useState<SavedMeal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -170,10 +228,11 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [daysRaw, goalRaw, draftRaw] = await Promise.all([
+        const [daysRaw, goalRaw, draftRaw, savedMealsRaw] = await Promise.all([
           AsyncStorage.getItem(CALORIE_DAYS_KEY),
           AsyncStorage.getItem(DAILY_GOAL_KEY),
           AsyncStorage.getItem(DRAFT_ENTRY_KEY),
+          AsyncStorage.getItem(SAVED_MEALS_KEY),
         ]);
 
         if (daysRaw) {
@@ -195,6 +254,14 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
           const parsedDraft = JSON.parse(draftRaw);
           if (isDraftFoodEntry(parsedDraft)) {
             setDraftEntry(parsedDraft);
+          }
+        }
+
+        if (savedMealsRaw) {
+          const parsedMeals = JSON.parse(savedMealsRaw);
+          if (Array.isArray(parsedMeals)) {
+            const safeMeals = parsedMeals.filter(isSavedMeal);
+            setSavedMeals(safeMeals);
           }
         }
       } catch (loadError) {
@@ -259,6 +326,22 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
 
     saveDailyGoal();
   }, [dailyGoal]);
+
+  useEffect(() => {
+    const saveSavedMeals = async () => {
+      if (!hasLoadedRef.current) {
+        return;
+      }
+      try {
+        await AsyncStorage.setItem(SAVED_MEALS_KEY, JSON.stringify(savedMeals));
+      } catch (saveError) {
+        console.error('Failed to save saved meals', saveError);
+        setError('Unable to save meal templates.');
+      }
+    };
+
+    saveSavedMeals();
+  }, [savedMeals]);
 
   const setDailyGoal = (goal: number) => {
     if (goal > 0) {
@@ -494,6 +577,102 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const createSavedMeal = (name: string, foods: SavedMealFood[]) => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError('Meal name cannot be empty.');
+      return;
+    }
+    if (foods.length === 0) {
+      setError('Add at least one food to the meal.');
+      return;
+    }
+
+    const newMeal: SavedMeal = {
+      id: generateId(),
+      name: trimmed,
+      foods,
+      createdAt: Date.now(),
+    };
+
+    setSavedMeals((prev) => [...prev, newMeal]);
+  };
+
+  const updateSavedMeal = (id: string, name: string, foods: SavedMealFood[]) => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError('Meal name cannot be empty.');
+      return;
+    }
+    if (foods.length === 0) {
+      setError('Add at least one food to the meal.');
+      return;
+    }
+
+    setSavedMeals((prev) =>
+      prev.map((meal) =>
+        meal.id === id ? { ...meal, name: trimmed, foods } : meal
+      )
+    );
+  };
+
+  const deleteSavedMeal = (id: string) => {
+    setSavedMeals((prev) => prev.filter((meal) => meal.id !== id));
+  };
+
+  const addSavedMealToDay = (savedMealId: string, date: string, targetMealId: string) => {
+    const savedMeal = savedMeals.find((m) => m.id === savedMealId);
+    if (!savedMeal) {
+      setError('Saved meal not found.');
+      return;
+    }
+
+    const foodItems: FoodItem[] = savedMeal.foods.map((food) => ({
+      id: generateId(),
+      name: food.name,
+      brand: food.brand,
+      calories: food.calories,
+      protein: food.protein,
+      carbs: food.carbs,
+      fat: food.fat,
+      servingSize: food.servingSize,
+      servings: food.servings,
+      timestamp: Date.now(),
+    }));
+
+    setCalorieDays((prev) => {
+      const existingDay = prev.find((day) => day.date === date);
+
+      if (!existingDay) {
+        const newMeal: Meal = { id: targetMealId, name: 'Meal 1', foods: foodItems };
+        return [...prev, { date, meals: [newMeal] }];
+      }
+
+      const mealExists = existingDay.meals.some((m) => m.id === targetMealId);
+
+      if (mealExists) {
+        return prev.map((day) =>
+          day.date === date
+            ? {
+                ...day,
+                meals: day.meals.map((meal) =>
+                  meal.id === targetMealId
+                    ? { ...meal, foods: [...meal.foods, ...foodItems] }
+                    : meal
+                ),
+              }
+            : day
+        );
+      } else {
+        const mealNumber = existingDay.meals.length + 1;
+        const newMeal: Meal = { id: targetMealId, name: `Meal ${mealNumber}`, foods: foodItems };
+        return prev.map((day) =>
+          day.date === date ? { ...day, meals: [...day.meals, newMeal] } : day
+        );
+      }
+    });
+  };
+
   const value = useMemo(
     () => ({
       calorieDays,
@@ -509,12 +688,17 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       saveFoodEntry,
       cancelDraftEntry,
       removeFoodItem,
+      savedMeals,
+      createSavedMeal,
+      updateSavedMeal,
+      deleteSavedMeal,
+      addSavedMealToDay,
       isLoading,
       isSearching,
       error,
       clearError: () => setError(null),
     }),
-    [calorieDays, draftEntry, dailyGoal, isLoading, isSearching, error]
+    [calorieDays, draftEntry, dailyGoal, savedMeals, isLoading, isSearching, error]
   );
 
   return <CalorieContext.Provider value={value}>{children}</CalorieContext.Provider>;

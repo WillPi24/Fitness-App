@@ -142,7 +142,7 @@ export function RunScreen() {
         contentContainerStyle={[styles.content, { paddingTop: spacing.lg + insets.top, paddingBottom: spacing.xl + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Run tracker</Text>
+        <Text style={styles.title}>Cardio tracker</Text>
         <Text style={styles.subtitle}>Track outdoor runs with GPS or log indoor distance.</Text>
 
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
