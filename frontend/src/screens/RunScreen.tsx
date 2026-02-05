@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -33,12 +34,19 @@ function formatDistanceKm(meters: number) {
 }
 
 function formatPace(elapsedMs: number, meters: number) {
-  if (meters <= 0) {
+  if (!Number.isFinite(elapsedMs) || !Number.isFinite(meters) || meters < 10) {
     return '--';
   }
   const minutesPerKm = (elapsedMs / 60000) / (meters / 1000);
-  const minutes = Math.floor(minutesPerKm);
-  const seconds = Math.round((minutesPerKm - minutes) * 60);
+  if (!Number.isFinite(minutesPerKm) || minutesPerKm <= 0) {
+    return '--';
+  }
+  let minutes = Math.floor(minutesPerKm);
+  let seconds = Math.round((minutesPerKm - minutes) * 60);
+  if (seconds >= 60) {
+    minutes += 1;
+    seconds = 0;
+  }
   const paddedSeconds = `${seconds}`.padStart(2, '0');
   return `${minutes}:${paddedSeconds} /km`;
 }
@@ -74,6 +82,7 @@ export function RunScreen() {
   const [runType, setRunType] = useState<'outdoor' | 'indoor'>('outdoor');
   const [timerTick, setTimerTick] = useState(Date.now());
   const [indoorDistance, setIndoorDistance] = useState('');
+  const [confirmAction, setConfirmAction] = useState<'finish' | 'discard' | null>(null);
 
   useEffect(() => {
     if (!activeRun || activeRun.isPaused) {
@@ -131,6 +140,15 @@ export function RunScreen() {
     if (Number.isFinite(numeric) && numeric >= 0) {
       await updateIndoorDistance(numeric * 1000);
     }
+  };
+
+  const handleConfirm = async () => {
+    if (confirmAction === 'finish') {
+      await finishRun();
+    } else if (confirmAction === 'discard') {
+      await discardRun();
+    }
+    setConfirmAction(null);
   };
 
   return (
@@ -265,21 +283,26 @@ export function RunScreen() {
                     />
                   </View>
                 ) : null}
-                <View style={styles.controlRow}>
+                <View
+                  style={[
+                    styles.controlRow,
+                    activeRun.type === 'indoor' && styles.controlRowSpaced,
+                  ]}
+                >
                   {activeRun.isPaused ? (
-                    <Pressable style={styles.primaryButton} onPress={resumeRun}>
-                      <Text style={styles.primaryButtonText}>Resume</Text>
+                    <Pressable style={styles.controlButton} onPress={resumeRun}>
+                      <Text style={styles.controlButtonText}>Resume</Text>
                     </Pressable>
                   ) : (
-                    <Pressable style={styles.secondaryButton} onPress={pauseRun}>
-                      <Text style={styles.secondaryButtonText}>Pause</Text>
+                    <Pressable style={styles.controlButton} onPress={pauseRun}>
+                      <Text style={styles.controlButtonText}>Pause</Text>
                     </Pressable>
                   )}
-                  <Pressable style={styles.primaryButton} onPress={finishRun}>
-                    <Text style={styles.primaryButtonText}>Finish</Text>
+                  <Pressable style={styles.controlButton} onPress={() => setConfirmAction('finish')}>
+                    <Text style={styles.controlButtonText}>Finish</Text>
                   </Pressable>
                 </View>
-                <Pressable style={styles.tertiaryButton} onPress={discardRun}>
+                <Pressable style={styles.tertiaryButton} onPress={() => setConfirmAction('discard')}>
                   <Text style={styles.tertiaryButtonText}>Discard run</Text>
                 </Pressable>
               </Card>
@@ -308,6 +331,29 @@ export function RunScreen() {
           </>
         )}
       </ScrollView>
+
+      <Modal visible={confirmAction !== null} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <Card style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              {confirmAction === 'finish' ? 'Finish this run?' : 'Discard this run?'}
+            </Text>
+            <Text style={styles.modalText}>
+              {confirmAction === 'finish'
+                ? 'This will save your run to history.'
+                : 'This will permanently remove the active run.'}
+            </Text>
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalGhostButton} onPress={() => setConfirmAction(null)}>
+                <Text style={styles.modalGhostText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalPrimaryButton} onPress={handleConfirm}>
+                <Text style={styles.modalPrimaryText}>Confirm</Text>
+              </Pressable>
+            </View>
+          </Card>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -424,9 +470,23 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.accent,
   },
+  controlButton: {
+    backgroundColor: colors.accent,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    flex: 1,
+  },
+  controlButtonText: {
+    ...typography.body,
+    color: '#fff',
+  },
   controlRow: {
     flexDirection: 'row',
     gap: spacing.md,
+  },
+  controlRowSpaced: {
+    marginTop: spacing.md,
   },
   tertiaryButton: {
     marginTop: spacing.sm,
@@ -475,5 +535,52 @@ const styles = StyleSheet.create({
   runValue: {
     ...typography.headline,
     color: colors.text,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 20, 26, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 340,
+    gap: spacing.sm,
+  },
+  modalTitle: {
+    ...typography.headline,
+    color: colors.text,
+  },
+  modalText: {
+    ...typography.body,
+    color: colors.muted,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  modalGhostButton: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  modalGhostText: {
+    ...typography.body,
+    color: colors.text,
+  },
+  modalPrimaryButton: {
+    backgroundColor: colors.accent,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  modalPrimaryText: {
+    ...typography.body,
+    color: '#fff',
   },
 });

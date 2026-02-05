@@ -22,7 +22,7 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = FitnessApp/Info.plist; sourceTree = "<group>"; };
 		1EE3818460C0F829CDA29606 /* libPods-FitnessApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-FitnessApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1FF8098726EF28F11D524C67 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-FitnessApp/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		62B54D2897954EBAE33C3ABE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = FitnessApp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		62B54D2897954EBAE33C3ABE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = FitnessApp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		76E3AA1FC72036EEC831AA09 /* Pods-FitnessApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FitnessApp.release.xcconfig"; path = "Target Support Files/Pods-FitnessApp/Pods-FitnessApp.release.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = FitnessApp/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
@@ -119,7 +119,6 @@
 				E5B0CF570969D87D2D78A010 /* Pods-FitnessApp.debug.xcconfig */,
 				76E3AA1FC72036EEC831AA09 /* Pods-FitnessApp.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -343,6 +342,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = FitnessApp/FitnessApp.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NV56Y254WP;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -361,7 +361,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.anonymous.FitnessApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.willp.Fitnessapp;
 				PRODUCT_NAME = FitnessApp;
 				SWIFT_OBJC_BRIDGING_HEADER = "FitnessApp/FitnessApp-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -379,6 +379,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = FitnessApp/FitnessApp.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NV56Y254WP;
 				INFOPLIST_FILE = FitnessApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -392,7 +393,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = com.anonymous.FitnessApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.willp.Fitnessapp;
 				PRODUCT_NAME = FitnessApp;
 				SWIFT_OBJC_BRIDGING_HEADER = "FitnessApp/FitnessApp-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
