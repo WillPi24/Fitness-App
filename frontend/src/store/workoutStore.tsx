@@ -58,6 +58,7 @@ type WorkoutContextValue = {
   workouts: WorkoutSession[];
   activeWorkout: DraftWorkout | null;
   startWorkout: (date: string) => void;
+  discardActiveWorkout: () => void;
   addExercise: (date: string, name: string) => void;
   updateExerciseName: (exerciseId: string, name: string) => void;
   removeExercise: (exerciseId: string) => void;
@@ -329,6 +330,11 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const discardActiveWorkout = () => {
+    setActiveWorkout(null);
+    setError(null);
+  };
+
   const addExercise = (date: string, name: string) => {
     const trimmed = name.trim();
     if (!trimmed) {
@@ -519,6 +525,7 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
       workouts,
       activeWorkout,
       startWorkout,
+      discardActiveWorkout,
       addExercise,
       updateExerciseName,
       removeExercise,

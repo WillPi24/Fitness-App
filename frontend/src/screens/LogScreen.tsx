@@ -95,6 +95,7 @@ export function LogScreen() {
     workouts,
     activeWorkout,
     startWorkout,
+    discardActiveWorkout,
     addExercise,
     updateExerciseName,
     removeExercise,
@@ -120,6 +121,7 @@ export function LogScreen() {
   >(null);
   const [completionPreview, setCompletionPreview] = useState<WorkoutCompletionPreview | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMode, setConfirmMode] = useState<'complete' | 'discard' | null>(null);
   const [timerTick, setTimerTick] = useState(Date.now());
 
   useEffect(() => {
@@ -236,22 +238,39 @@ export function LogScreen() {
     startWorkout(selectedDate);
   };
 
+  const handleCloseConfirm = () => {
+    setConfirmOpen(false);
+    setCompletionPreview(null);
+    setConfirmMode(null);
+  };
+
   const handleEndWorkout = () => {
     clearError();
+    if (activeWorkout && activeWorkout.exercises.length === 0) {
+      setCompletionPreview(null);
+      setConfirmMode('discard');
+      setConfirmOpen(true);
+      return;
+    }
     const preview = previewWorkoutCompletion();
     if (preview) {
       setCompletionPreview(preview);
+      setConfirmMode('complete');
       setConfirmOpen(true);
     }
   };
 
   const handleConfirmWorkout = () => {
+    if (confirmMode === 'discard') {
+      discardActiveWorkout();
+      handleCloseConfirm();
+      return;
+    }
     if (!completionPreview) {
       return;
     }
     confirmWorkoutCompletion(completionPreview.workout);
-    setConfirmOpen(false);
-    setCompletionPreview(null);
+    handleCloseConfirm();
   };
 
   const renderExerciseOption = (item: ExerciseOption) => (
@@ -282,22 +301,28 @@ export function LogScreen() {
         <View key={set.id} style={styles.setRow}>
           <Text style={styles.setLabel}>Set {setIndex + 1}</Text>
           <View style={styles.setInputs}>
-            <TextInput
-              style={styles.setInput}
-              value={set.weight}
-              onChangeText={(value) => updateSet(exercise.id, set.id, 'weight', value)}
-              placeholder="kg"
-              placeholderTextColor={colors.muted}
-              keyboardType="numeric"
-            />
-            <TextInput
-              style={styles.setInput}
-              value={set.reps}
-              onChangeText={(value) => updateSet(exercise.id, set.id, 'reps', value)}
-              placeholder="reps"
-              placeholderTextColor={colors.muted}
-              keyboardType="numeric"
-            />
+            <View style={styles.setInputWrapper}>
+              <TextInput
+                style={styles.setInput}
+                value={set.weight}
+                onChangeText={(value) => updateSet(exercise.id, set.id, 'weight', value)}
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+                keyboardType="numeric"
+              />
+              <Text style={styles.setInputSuffix}>kg</Text>
+            </View>
+            <View style={styles.setInputWrapper}>
+              <TextInput
+                style={styles.setInput}
+                value={set.reps}
+                onChangeText={(value) => updateSet(exercise.id, set.id, 'reps', value)}
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+                keyboardType="numeric"
+              />
+              <Text style={styles.setInputSuffix}>reps</Text>
+            </View>
           </View>
           <Pressable onPress={() => removeSet(exercise.id, set.id)}>
             <Text style={styles.setRemove}>Delete</Text>
@@ -365,46 +390,55 @@ export function LogScreen() {
 
       <Modal visible={exercisePickerOpen} transparent animationType="slide" onRequestClose={() => setExercisePickerOpen(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.pickerModal}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Pick an exercise</Text>
-              <Pressable onPress={() => setExercisePickerOpen(false)}>
-                <Text style={styles.modalClose}>Close</Text>
-              </Pressable>
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: 'padding', android: undefined })}
+            style={styles.pickerModalWrapper}
+          >
+            <View style={styles.pickerModal}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Pick an exercise</Text>
+                <Pressable onPress={() => setExercisePickerOpen(false)}>
+                  <Text style={styles.modalClose}>Close</Text>
+                </Pressable>
+              </View>
+              <TextInput
+                style={styles.searchInput}
+                value={exerciseSearch}
+                onChangeText={setExerciseSearch}
+                placeholder="Search by name, muscle, or equipment"
+                placeholderTextColor={colors.muted}
+              />
+              {exerciseSearch.trim() ? (
+                <Pressable style={styles.customOption} onPress={handleUseCustomExercise}>
+                  <Text style={styles.customOptionText}>
+                    Use custom exercise: "{exerciseSearch.trim()}"
+                  </Text>
+                </Pressable>
+              ) : null}
+              <ScrollView contentContainerStyle={styles.optionList} keyboardShouldPersistTaps="handled">
+                {filteredExercises.length === 0 ? (
+                  <Text style={styles.emptyOptions}>
+                    No matches. Try a different search or add a custom exercise.
+                  </Text>
+                ) : (
+                  filteredExercises.map(renderExerciseOption)
+                )}
+              </ScrollView>
             </View>
-            <TextInput
-              style={styles.searchInput}
-              value={exerciseSearch}
-              onChangeText={setExerciseSearch}
-              placeholder="Search by name, muscle, or equipment"
-              placeholderTextColor={colors.muted}
-            />
-            {exerciseSearch.trim() ? (
-              <Pressable style={styles.customOption} onPress={handleUseCustomExercise}>
-                <Text style={styles.customOptionText}>
-                  Use custom exercise: "{exerciseSearch.trim()}"
-                </Text>
-              </Pressable>
-            ) : null}
-            <ScrollView contentContainerStyle={styles.optionList} keyboardShouldPersistTaps="handled">
-              {filteredExercises.length === 0 ? (
-                <Text style={styles.emptyOptions}>
-                  No matches. Try a different search or add a custom exercise.
-                </Text>
-              ) : (
-                filteredExercises.map(renderExerciseOption)
-              )}
-            </ScrollView>
-          </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
-      <Modal visible={confirmOpen} transparent animationType="fade" onRequestClose={() => setConfirmOpen(false)}>
-        <View style={styles.modalBackdrop}>
+      <Modal visible={confirmOpen} transparent animationType="fade" onRequestClose={handleCloseConfirm}>
+        <View style={styles.confirmBackdrop}>
           <View style={styles.confirmModal}>
             <Text style={styles.modalTitle}>End workout?</Text>
-            <Text style={styles.sectionSubtitle}>Confirm to save this session and lock it in.</Text>
-            {completionPreview ? (
+            <Text style={styles.sectionSubtitle}>
+              {confirmMode === 'discard'
+                ? 'No exercises were added. End this workout without saving anything?'
+                : 'Confirm to save this session and lock it in.'}
+            </Text>
+            {confirmMode === 'complete' && completionPreview ? (
               completionPreview.personalRecords.length === 0 ? (
                 <Text style={styles.emptyText}>No personal bests this time. Keep pushing!</Text>
               ) : (
@@ -422,9 +456,11 @@ export function LogScreen() {
               )
             ) : null}
             <Pressable style={styles.confirmButton} onPress={handleConfirmWorkout}>
-              <Text style={styles.confirmButtonText}>Confirm workout</Text>
+              <Text style={styles.confirmButtonText}>
+                {confirmMode === 'discard' ? 'End without saving' : 'Confirm workout'}
+              </Text>
             </Pressable>
-            <Pressable style={styles.cancelButton} onPress={() => setConfirmOpen(false)}>
+            <Pressable style={styles.cancelButton} onPress={handleCloseConfirm}>
               <Text style={styles.cancelButtonText}>Keep editing</Text>
             </Pressable>
           </View>
@@ -500,12 +536,6 @@ export function LogScreen() {
               <View style={styles.actionRow}>
                 <Pressable style={styles.primaryButton} onPress={handleStartWorkout}>
                   <Text style={styles.primaryButtonText}>Start workout</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.secondaryButton}
-                  onPress={() => openExercisePicker({ type: 'new' })}
-                >
-                  <Text style={styles.secondaryButtonText}>Add exercise</Text>
                 </Pressable>
               </View>
             </View>
@@ -692,6 +722,7 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: spacing.sm,
   },
   primaryButton: {
@@ -757,18 +788,29 @@ const styles = StyleSheet.create({
   },
   setInputs: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  setInput: {
-    flex: 1,
+  setInputWrapper: {
+    width: '44%',
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
-    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     backgroundColor: '#fff',
+  },
+  setInput: {
+    flex: 1,
+    paddingVertical: spacing.sm,
     ...typography.body,
     color: colors.text,
+  },
+  setInputSuffix: {
+    ...typography.label,
+    color: colors.muted,
+    marginLeft: spacing.xs,
   },
   setRemove: {
     ...typography.label,
@@ -843,6 +885,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(27, 31, 36, 0.6)',
     justifyContent: 'flex-end',
   },
+  confirmBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(27, 31, 36, 0.6)',
+    justifyContent: 'center',
+  },
   calendarModal: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
@@ -856,6 +903,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: spacing.lg,
     maxHeight: '85%',
+  },
+  pickerModalWrapper: {
+    flex: 1,
+    justifyContent: 'flex-end',
   },
   confirmModal: {
     backgroundColor: colors.surface,
