@@ -136,6 +136,31 @@ function parseUsdaFdcId(foodId: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function buildFallbackQueries(name: string): string[] {
+  const base = name.trim();
+  const noParens = base.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+  const firstSegment = noParens.split(',')[0]?.trim() || '';
+  const noSlashes = firstSegment.replace(/\//g, ' ').replace(/\s+/g, ' ').trim();
+
+  return Array.from(new Set([base, noParens, firstSegment, noSlashes].filter((query) => query.length >= 2)));
+}
+
+async function fetchUsdaMicronutrientsByFdcId(fdcId: number): Promise<Micronutrients | null> {
+  try {
+    const response = await fetch(`${USDA_FOOD_DETAILS_URL}/${fdcId}?api_key=${USDA_API_KEY}`);
+    if (!response.ok) {
+      return null;
+    }
+    const details: USDAFoodDetailsResponse = await response.json();
+    const normalizedNutrients = normalizeUSDAFoodNutrients(details.foodNutrients || []);
+    const micronutrients = micronutrientsFromUSDA(normalizedNutrients);
+    return hasMicronutrients(micronutrients) ? micronutrients : null;
+  } catch (error) {
+    console.error('USDA food details lookup failed:', error);
+    return null;
+  }
+}
+
 // USDA Nutrient IDs
 const NUTRIENT_IDS = {
   CALORIES: 1008,
@@ -194,36 +219,46 @@ export async function hydrateFoodMicronutrients(food: FoodSearchResult): Promise
 
   const fdcId = parseUsdaFdcId(food.id);
   if (fdcId !== null) {
-    try {
-      const response = await fetch(`${USDA_FOOD_DETAILS_URL}/${fdcId}?api_key=${USDA_API_KEY}`);
-      if (response.ok) {
-        const details: USDAFoodDetailsResponse = await response.json();
-        const normalizedNutrients = normalizeUSDAFoodNutrients(details.foodNutrients || []);
-        const micronutrients = micronutrientsFromUSDA(normalizedNutrients);
-        if (hasMicronutrients(micronutrients)) {
-          return {
-            ...food,
-            micronutrients,
-            hasMicronutrientData: true,
-          };
-        }
-      }
-    } catch (error) {
-      console.error('USDA food details lookup failed:', error);
+    const micronutrients = await fetchUsdaMicronutrientsByFdcId(fdcId);
+    if (micronutrients) {
+      return {
+        ...food,
+        micronutrients,
+        hasMicronutrientData: true,
+      };
     }
   }
 
   try {
-    const fallbackResults = await searchFoods(food.name);
-    const best = fallbackResults.find((result) => result.hasMicronutrientData);
-    if (!best) {
-      return food;
+    const fallbackQueries = buildFallbackQueries(food.name);
+    for (const query of fallbackQueries) {
+      const fallbackResults = await searchFoods(query);
+      const best = fallbackResults.find((result) => result.hasMicronutrientData);
+      if (best) {
+        return {
+          ...food,
+          micronutrients: best.micronutrients,
+          hasMicronutrientData: true,
+        };
+      }
+
+      // Search results can omit micronutrients; use food-details endpoint for top matches.
+      for (const candidate of fallbackResults.slice(0, 3)) {
+        const candidateFdcId = parseUsdaFdcId(candidate.id);
+        if (candidateFdcId === null) {
+          continue;
+        }
+        const candidateMicronutrients = await fetchUsdaMicronutrientsByFdcId(candidateFdcId);
+        if (candidateMicronutrients) {
+          return {
+            ...food,
+            micronutrients: candidateMicronutrients,
+            hasMicronutrientData: true,
+          };
+        }
+      }
     }
-    return {
-      ...food,
-      micronutrients: best.micronutrients,
-      hasMicronutrientData: true,
-    };
+    return food;
   } catch (error) {
     console.error('Fallback micronutrient lookup failed:', error);
     return food;

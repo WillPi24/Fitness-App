@@ -93,6 +93,21 @@ type CalorieContextValue = {
   saveFoodEntry: (date: string) => void;
   cancelDraftEntry: () => void;
   removeFoodItem: (date: string, mealId: string, foodId: string) => void;
+  updateFoodItem: (
+    date: string,
+    mealId: string,
+    foodId: string,
+    updates: {
+      servingSize: number;
+      servings: number;
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+      micronutrients: Micronutrients;
+      hasMicronutrientData: boolean;
+    }
+  ) => void;
   // Saved meals
   savedMeals: SavedMeal[];
   createSavedMeal: (name: string, foods: SavedMealFood[]) => void;
@@ -109,6 +124,7 @@ const CALORIE_DAYS_KEY = 'fitnessapp.calorieDays.v2';
 const DAILY_GOAL_KEY = 'fitnessapp.calorieGoal.v1';
 const DRAFT_ENTRY_KEY = 'fitnessapp.draftFoodEntry.v2';
 const SAVED_MEALS_KEY = 'fitnessapp.savedMeals.v1';
+const DEFAULT_MEAL_NAME_PATTERN = /^Meal \d+$/i;
 
 const CalorieContext = createContext<CalorieContextValue | undefined>(undefined);
 
@@ -713,6 +729,64 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const updateFoodItem = (
+    date: string,
+    mealId: string,
+    foodId: string,
+    updates: {
+      servingSize: number;
+      servings: number;
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+      micronutrients: Micronutrients;
+      hasMicronutrientData: boolean;
+    }
+  ) => {
+    if (!Number.isFinite(updates.servings) || updates.servings <= 0) {
+      setError('Serving quantity must be greater than 0.');
+      return;
+    }
+    if (!Number.isFinite(updates.servingSize) || updates.servingSize <= 0) {
+      setError('Serving size must be greater than 0.');
+      return;
+    }
+
+    setCalorieDays((prev) =>
+      prev.map((day) =>
+        day.date === date
+          ? {
+              ...day,
+              meals: day.meals.map((meal) =>
+                meal.id === mealId
+                  ? {
+                      ...meal,
+                      foods: meal.foods.map((food) => {
+                        if (food.id !== foodId) {
+                          return food;
+                        }
+                        return {
+                          ...food,
+                          servingSize: updates.servingSize,
+                          servings: updates.servings,
+                          calories: Math.round(updates.calories),
+                          protein: Math.round(updates.protein),
+                          carbs: Math.round(updates.carbs),
+                          fat: Math.round(updates.fat),
+                          micronutrients: normalizeMicronutrients(updates.micronutrients),
+                          hasMicronutrientData: updates.hasMicronutrientData,
+                        };
+                      }),
+                    }
+                  : meal
+              ),
+            }
+          : day
+      )
+    );
+  };
+
   const createSavedMeal = (name: string, foods: SavedMealFood[]) => {
     const trimmed = name.trim();
     if (!trimmed) {
@@ -762,6 +836,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       setError('Saved meal not found.');
       return;
     }
+    const savedMealName = savedMeal.name.trim();
 
     const foodItems: FoodItem[] = savedMeal.foods.map((food) => ({
       id: generateId(),
@@ -782,7 +857,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       const existingDay = prev.find((day) => day.date === date);
 
       if (!existingDay) {
-        const newMeal: Meal = { id: targetMealId, name: 'Meal 1', foods: foodItems };
+        const newMeal: Meal = { id: targetMealId, name: savedMealName || 'Meal 1', foods: foodItems };
         return [...prev, { date, meals: [newMeal] }];
       }
 
@@ -795,7 +870,14 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
                 ...day,
                 meals: day.meals.map((meal) =>
                   meal.id === targetMealId
-                    ? { ...meal, foods: [...meal.foods, ...foodItems] }
+                    ? {
+                        ...meal,
+                        name:
+                          savedMealName && DEFAULT_MEAL_NAME_PATTERN.test(meal.name.trim())
+                            ? savedMealName
+                            : meal.name,
+                        foods: [...meal.foods, ...foodItems],
+                      }
                     : meal
                 ),
               }
@@ -803,7 +885,11 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
         );
       } else {
         const mealNumber = existingDay.meals.length + 1;
-        const newMeal: Meal = { id: targetMealId, name: `Meal ${mealNumber}`, foods: foodItems };
+        const newMeal: Meal = {
+          id: targetMealId,
+          name: savedMealName || `Meal ${mealNumber}`,
+          foods: foodItems,
+        };
         return prev.map((day) =>
           day.date === date ? { ...day, meals: [...day.meals, newMeal] } : day
         );
@@ -826,6 +912,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       saveFoodEntry,
       cancelDraftEntry,
       removeFoodItem,
+      updateFoodItem,
       savedMeals,
       createSavedMeal,
       updateSavedMeal,

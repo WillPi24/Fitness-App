@@ -24,10 +24,11 @@ import {
   addMicronutrients,
   createEmptyMicronutrients,
   formatMicronutrientValue,
+  normalizeMicronutrients,
   scaleMicronutrients,
 } from '../nutrition/micronutrients';
 import { FoodSearchResult, hydrateFoodMicronutrients, searchFoods, searchSimpleFoods } from '../services/foodSearch';
-import { CalorieDay, Meal, SavedMeal, SavedMealFood, useCalorieStore } from '../store/calorieStore';
+import { CalorieDay, FoodItem, Meal, SavedMeal, SavedMealFood, useCalorieStore } from '../store/calorieStore';
 import { colors, spacing, typography } from '../theme';
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -88,6 +89,7 @@ export function CalorieScreen() {
     saveFoodEntry,
     cancelDraftEntry,
     removeFoodItem,
+    updateFoodItem,
     savedMeals,
     createSavedMeal,
     updateSavedMeal,
@@ -130,6 +132,40 @@ export function CalorieScreen() {
   const [addingFoodToSavedMeal, setAddingFoodToSavedMeal] = useState(false);
   const [micronutrientsExpanded, setMicronutrientsExpanded] = useState(false);
   const [isHydratingMicronutrients, setIsHydratingMicronutrients] = useState(false);
+  const [editingFoodTarget, setEditingFoodTarget] = useState<
+    | {
+        source: 'meal';
+        mealId: string;
+        foodId: string;
+        name: string;
+        brand?: string;
+        servingSize: number;
+        servings: number;
+        calories: number;
+        protein: number;
+        carbs: number;
+        fat: number;
+        micronutrients: FoodItem['micronutrients'];
+        hasMicronutrientData: boolean;
+      }
+    | {
+        source: 'saved';
+        foodId: string;
+        name: string;
+        brand?: string;
+        servingSize: number;
+        servings: number;
+        calories: number;
+        protein: number;
+        carbs: number;
+        fat: number;
+        micronutrients: SavedMealFood['micronutrients'];
+        hasMicronutrientData: boolean;
+      }
+    | null
+  >(null);
+  const [editServingSizeInput, setEditServingSizeInput] = useState('');
+  const [editServingsInput, setEditServingsInput] = useState('');
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const selectedDateObj = useMemo(() => parseISODate(selectedDate), [selectedDate]);
@@ -574,6 +610,172 @@ export function CalorieScreen() {
     setSavedMealFoods((prev) => prev.filter((f) => f.id !== foodId));
   };
 
+  const formatServingsLabel = (servings: number) => {
+    const rounded = Math.round(servings * 100) / 100;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+  };
+
+  const openMealFoodEditor = (mealId: string, food: FoodItem) => {
+    setEditingFoodTarget({
+      source: 'meal',
+      mealId,
+      foodId: food.id,
+      name: food.name,
+      brand: food.brand,
+      servingSize: food.servingSize,
+      servings: food.servings,
+      calories: food.calories,
+      protein: food.protein,
+      carbs: food.carbs,
+      fat: food.fat,
+      micronutrients: { ...food.micronutrients },
+      hasMicronutrientData: food.hasMicronutrientData,
+    });
+    setEditServingSizeInput(String(food.servingSize));
+    setEditServingsInput(String(food.servings));
+  };
+
+  const openSavedFoodEditor = (food: SavedMealFood) => {
+    setEditingFoodTarget({
+      source: 'saved',
+      foodId: food.id,
+      name: food.name,
+      brand: food.brand,
+      servingSize: food.servingSize,
+      servings: food.servings,
+      calories: food.calories,
+      protein: food.protein,
+      carbs: food.carbs,
+      fat: food.fat,
+      micronutrients: { ...food.micronutrients },
+      hasMicronutrientData: food.hasMicronutrientData,
+    });
+    setEditServingSizeInput(String(food.servingSize));
+    setEditServingsInput(String(food.servings));
+  };
+
+  const closeFoodEditor = () => {
+    setEditingFoodTarget(null);
+    setEditServingSizeInput('');
+    setEditServingsInput('');
+  };
+
+  const parsedEditServingSize = Number(editServingSizeInput);
+  const parsedEditServings = Number(editServingsInput);
+  const isEditFoodInputValid =
+    Number.isFinite(parsedEditServingSize) &&
+    parsedEditServingSize > 0 &&
+    Number.isFinite(parsedEditServings) &&
+    parsedEditServings > 0;
+
+  const editedFoodPreview = useMemo(() => {
+    if (!editingFoodTarget || !isEditFoodInputValid) {
+      return null;
+    }
+
+    if (editingFoodTarget.source === 'meal') {
+      const currentTotalGrams = Math.max(
+        editingFoodTarget.servingSize * editingFoodTarget.servings,
+        1
+      );
+      const newTotalGrams = parsedEditServingSize * parsedEditServings;
+      const totalScale = newTotalGrams / currentTotalGrams;
+
+      const calories = Math.round(editingFoodTarget.calories * totalScale);
+      const protein = Math.round(editingFoodTarget.protein * totalScale);
+      const carbs = Math.round(editingFoodTarget.carbs * totalScale);
+      const fat = Math.round(editingFoodTarget.fat * totalScale);
+      const micronutrients = scaleMicronutrients(
+        normalizeMicronutrients(editingFoodTarget.micronutrients),
+        totalScale
+      );
+
+      return {
+        source: 'meal' as const,
+        servingSize: parsedEditServingSize,
+        servings: parsedEditServings,
+        calories,
+        protein,
+        carbs,
+        fat,
+        micronutrients,
+        hasMicronutrientData:
+          editingFoodTarget.hasMicronutrientData && Object.values(micronutrients).some((value) => value > 0),
+        previewCalories: calories,
+        previewProtein: protein,
+        previewCarbs: carbs,
+        previewFat: fat,
+      };
+    }
+
+    const currentServingSize = Math.max(editingFoodTarget.servingSize, 1);
+    const perServingScale = parsedEditServingSize / currentServingSize;
+
+    const calories = Math.round(editingFoodTarget.calories * perServingScale);
+    const protein = Math.round(editingFoodTarget.protein * perServingScale);
+    const carbs = Math.round(editingFoodTarget.carbs * perServingScale);
+    const fat = Math.round(editingFoodTarget.fat * perServingScale);
+    const micronutrients = scaleMicronutrients(
+      normalizeMicronutrients(editingFoodTarget.micronutrients),
+      perServingScale
+    );
+
+    return {
+      source: 'saved' as const,
+      servingSize: parsedEditServingSize,
+      servings: parsedEditServings,
+      calories,
+      protein,
+      carbs,
+      fat,
+      micronutrients,
+      hasMicronutrientData:
+        editingFoodTarget.hasMicronutrientData && Object.values(micronutrients).some((value) => value > 0),
+      previewCalories: Math.round(calories * parsedEditServings),
+      previewProtein: Math.round(protein * parsedEditServings),
+      previewCarbs: Math.round(carbs * parsedEditServings),
+      previewFat: Math.round(fat * parsedEditServings),
+    };
+  }, [editingFoodTarget, isEditFoodInputValid, parsedEditServingSize, parsedEditServings]);
+
+  const handleSaveEditedFood = () => {
+    if (!editingFoodTarget || !editedFoodPreview) {
+      return;
+    }
+
+    if (editingFoodTarget.source === 'meal') {
+      updateFoodItem(selectedDate, editingFoodTarget.mealId, editingFoodTarget.foodId, {
+        servingSize: editedFoodPreview.servingSize,
+        servings: editedFoodPreview.servings,
+        calories: editedFoodPreview.calories,
+        protein: editedFoodPreview.protein,
+        carbs: editedFoodPreview.carbs,
+        fat: editedFoodPreview.fat,
+        micronutrients: editedFoodPreview.micronutrients,
+        hasMicronutrientData: editedFoodPreview.hasMicronutrientData,
+      });
+    } else {
+      setSavedMealFoods((prev) =>
+        prev.map((food) =>
+          food.id === editingFoodTarget.foodId
+            ? {
+                ...food,
+                servingSize: editedFoodPreview.servingSize,
+                servings: editedFoodPreview.servings,
+                calories: editedFoodPreview.calories,
+                protein: editedFoodPreview.protein,
+                carbs: editedFoodPreview.carbs,
+                fat: editedFoodPreview.fat,
+                micronutrients: editedFoodPreview.micronutrients,
+                hasMicronutrientData: editedFoodPreview.hasMicronutrientData,
+              }
+            : food
+        )
+      );
+    }
+    closeFoodEditor();
+  };
+
   const getSavedMealTotals = (foods: SavedMealFood[]) => {
     return foods.reduce(
       (acc, food) => ({
@@ -626,7 +828,7 @@ export function CalorieScreen() {
         ) : (
           meal.foods.map((food) => (
             <View key={food.id} style={styles.foodRow}>
-              <View style={styles.foodInfo}>
+              <Pressable style={styles.foodInfo} onPress={() => openMealFoodEditor(meal.id, food)}>
                 <Text style={styles.foodName}>
                   {food.name}
                   {food.brand ? ` (${food.brand})` : ''}
@@ -634,7 +836,11 @@ export function CalorieScreen() {
                 <Text style={styles.foodMacros}>
                   {food.calories} kcal | P: {food.protein}g | C: {food.carbs}g | F: {food.fat}g
                 </Text>
-              </View>
+                <Text style={styles.foodQuantityHint}>
+                  Qty: {formatServingsLabel(food.servings)} serving
+                  {food.servings === 1 ? '' : 's'} (tap to edit)
+                </Text>
+              </Pressable>
               <Pressable onPress={() => handleDeleteFood(meal.id, food.id)} hitSlop={8}>
                 <Feather name="x" size={18} color={colors.danger} />
               </Pressable>
@@ -685,6 +891,97 @@ export function CalorieScreen() {
             </Pressable>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={editingFoodTarget !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={closeFoodEditor}
+      >
+        <View style={styles.modalBackdrop}>
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: 'padding', android: undefined })}
+            style={styles.entryModalWrapper}
+          >
+            <View style={styles.entryModal}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Edit Food</Text>
+                <Pressable onPress={closeFoodEditor}>
+                  <Text style={styles.modalClose}>Cancel</Text>
+                </Pressable>
+              </View>
+
+              {editingFoodTarget ? (
+                <ScrollView keyboardShouldPersistTaps="handled">
+                  <View style={styles.formGroup}>
+                    <Text style={styles.formLabel}>Food Name</Text>
+                    <TextInput
+                      style={[styles.formInput, styles.readOnlyInput]}
+                      value={editingFoodTarget.name}
+                      editable={false}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <Text style={styles.formLabel}>Brand</Text>
+                    <TextInput
+                      style={[styles.formInput, styles.readOnlyInput]}
+                      value={editingFoodTarget.brand || ''}
+                      editable={false}
+                      placeholder="No brand"
+                      placeholderTextColor={colors.muted}
+                    />
+                  </View>
+
+                  <Text style={styles.formSectionTitle}>Adjust quantity</Text>
+                  <View style={styles.formRow}>
+                    <View style={styles.formGroupHalf}>
+                      <Text style={styles.formLabel}>Serving Size (g)</Text>
+                      <TextInput
+                        style={styles.formInput}
+                        value={editServingSizeInput}
+                        onChangeText={setEditServingSizeInput}
+                        placeholder="100"
+                        placeholderTextColor={colors.muted}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                    <View style={styles.formGroupHalf}>
+                      <Text style={styles.formLabel}>Servings</Text>
+                      <TextInput
+                        style={styles.formInput}
+                        value={editServingsInput}
+                        onChangeText={setEditServingsInput}
+                        placeholder="1"
+                        placeholderTextColor={colors.muted}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                  </View>
+
+                  {editedFoodPreview ? (
+                    <View style={styles.editFoodPreview}>
+                      <Text style={styles.editFoodPreviewTitle}>Updated totals</Text>
+                      <Text style={styles.editFoodPreviewText}>
+                        {editedFoodPreview.previewCalories} kcal | P: {editedFoodPreview.previewProtein}g | C:{' '}
+                        {editedFoodPreview.previewCarbs}g | F: {editedFoodPreview.previewFat}g
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <Pressable
+                    style={[styles.saveButton, !isEditFoodInputValid ? styles.saveButtonDisabled : null]}
+                    onPress={handleSaveEditedFood}
+                    disabled={!isEditFoodInputValid}
+                  >
+                    <Text style={styles.saveButtonText}>Save Changes</Text>
+                  </Pressable>
+                </ScrollView>
+              ) : null}
+            </View>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {/* Calendar Modal */}
@@ -767,7 +1064,7 @@ export function CalorieScreen() {
             <View style={styles.searchToggleInfo}>
               <Text style={styles.searchToggleLabel}>Simple search</Text>
               <Text style={styles.searchToggleHint}>
-                {simpleSearchEnabled ? 'Common foods (macros only)' : 'Full USDA database with micronutrients'}
+                {simpleSearchEnabled ? 'Common foods (faster results)' : 'Full USDA database with micronutrients'}
               </Text>
             </View>
             <Switch
@@ -1073,9 +1370,7 @@ export function CalorieScreen() {
                     }
               }
             >
-              <Text style={styles.modalClose}>
-                {savedMealEditMode === 'list' ? 'Cancel' : 'Back'}
-              </Text>
+              <Text style={styles.modalClose}>Back</Text>
             </Pressable>
           </View>
 
@@ -1159,13 +1454,22 @@ export function CalorieScreen() {
                 ) : (
                   savedMealFoods.map((food) => (
                     <View key={food.id} style={styles.savedMealFoodItem}>
-                      <View style={styles.savedMealFoodInfo}>
+                      <Pressable
+                        style={styles.savedMealFoodInfo}
+                        onPress={() => openSavedFoodEditor(food)}
+                      >
                         <Text style={styles.savedMealFoodName}>{food.name}</Text>
                         <Text style={styles.savedMealFoodMacros}>
-                          {food.calories} kcal | P: {food.protein}g | C: {food.carbs}g | F:{' '}
-                          {food.fat}g
+                          {Math.round(food.calories * food.servings)} kcal | P:{' '}
+                          {Math.round(food.protein * food.servings)}g | C:{' '}
+                          {Math.round(food.carbs * food.servings)}g | F:{' '}
+                          {Math.round(food.fat * food.servings)}g
                         </Text>
-                      </View>
+                        <Text style={styles.savedMealFoodQuantityHint}>
+                          Qty: {formatServingsLabel(food.servings)} serving
+                          {food.servings === 1 ? '' : 's'} (tap to edit)
+                        </Text>
+                      </Pressable>
                       <Pressable
                         onPress={() => handleRemoveFoodFromSavedMeal(food.id)}
                         hitSlop={8}
@@ -1236,6 +1540,26 @@ export function CalorieScreen() {
                     <Feather name="x" size={20} color={colors.muted} />
                   </Pressable>
                 )}
+              </View>
+
+              <View style={styles.searchToggleRow}>
+                <View style={styles.searchToggleInfo}>
+                  <Text style={styles.searchToggleLabel}>Simple search</Text>
+                  <Text style={styles.searchToggleHint}>
+                    {simpleSearchEnabled ? 'Common foods (faster results)' : 'Full USDA database with micronutrients'}
+                  </Text>
+                </View>
+                <Switch
+                  value={simpleSearchEnabled}
+                  onValueChange={(value) => {
+                    setSimpleSearchEnabled(value);
+                    if (searchQuery) {
+                      handleSearch(searchQuery);
+                    }
+                  }}
+                  trackColor={{ false: colors.border, true: colors.accentSoft }}
+                  thumbColor={simpleSearchEnabled ? colors.accent : colors.muted}
+                />
               </View>
 
               {isSearchingFoods ? (
@@ -1777,6 +2101,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.muted,
   },
+  foodQuantityHint: {
+    ...typography.body,
+    fontSize: 12,
+    color: colors.accent,
+  },
   addToMealButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1953,6 +2282,27 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     backgroundColor: '#fff',
+    ...typography.body,
+    color: colors.text,
+  },
+  readOnlyInput: {
+    backgroundColor: colors.accentSoft,
+    color: colors.muted,
+  },
+  editFoodPreview: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    gap: spacing.xs,
+  },
+  editFoodPreviewTitle: {
+    ...typography.label,
+    color: colors.muted,
+  },
+  editFoodPreviewText: {
     ...typography.body,
     color: colors.text,
   },
@@ -2312,6 +2662,11 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontSize: 12,
     color: colors.muted,
+  },
+  savedMealFoodQuantityHint: {
+    ...typography.body,
+    fontSize: 12,
+    color: colors.accent,
   },
   addFoodToSavedMealButton: {
     flexDirection: 'row',
