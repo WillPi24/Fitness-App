@@ -1,5 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Micronutrients,
+  createEmptyMicronutrients,
+  hasMicronutrients,
+  micronutrientsFromOpenFoodFacts,
+  normalizeMicronutrients,
+  scaleMicronutrients,
+} from '../nutrition/micronutrients';
 
 export type FoodItem = {
   id: string;
@@ -12,6 +20,8 @@ export type FoodItem = {
   fat: number;
   servingSize: number;
   servings: number;
+  micronutrients: Micronutrients;
+  hasMicronutrientData: boolean;
   timestamp: number;
 };
 
@@ -37,12 +47,15 @@ export type DraftFoodEntry = {
   fat: string;
   servingSize: string;
   servings: string;
+  micronutrients: Micronutrients;
+  hasMicronutrientData: boolean;
   targetMealId: string;
   // Base values per 100g for recalculation when serving size changes
   baseCalories?: number;
   baseProtein?: number;
   baseCarbs?: number;
   baseFat?: number;
+  baseMicronutrients?: Micronutrients;
 };
 
 export type SavedMealFood = {
@@ -55,6 +68,8 @@ export type SavedMealFood = {
   fat: number;
   servingSize: number;
   servings: number;
+  micronutrients: Micronutrients;
+  hasMicronutrientData: boolean;
 };
 
 export type SavedMeal = {
@@ -101,6 +116,21 @@ function generateId() {
   return `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 }
 
+const MICRONUTRIENT_KEYS = Object.keys(createEmptyMicronutrients()) as (keyof Micronutrients)[];
+
+function toFiniteNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return 0;
+}
+
 function createDraftEntry(targetMealId: string): DraftFoodEntry {
   return {
     id: generateId(),
@@ -113,11 +143,95 @@ function createDraftEntry(targetMealId: string): DraftFoodEntry {
     fat: '',
     servingSize: '100',
     servings: '1',
+    micronutrients: createEmptyMicronutrients(),
+    hasMicronutrientData: false,
     targetMealId,
     baseCalories: undefined,
     baseProtein: undefined,
     baseCarbs: undefined,
     baseFat: undefined,
+    baseMicronutrients: undefined,
+  };
+}
+
+function isMicronutrients(value: unknown): value is Micronutrients {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const micronutrients = value as Micronutrients;
+  return MICRONUTRIENT_KEYS.every((key) => typeof micronutrients[key] === 'number');
+}
+
+function normalizeFoodItem(food: FoodItem): FoodItem {
+  const raw = food as FoodItem & {
+    micronutrients?: Partial<Micronutrients>;
+    hasMicronutrientData?: boolean;
+  };
+  const micronutrients = normalizeMicronutrients(raw.micronutrients);
+  return {
+    ...food,
+    micronutrients,
+    hasMicronutrientData:
+      typeof raw.hasMicronutrientData === 'boolean'
+        ? raw.hasMicronutrientData
+        : hasMicronutrients(micronutrients),
+  };
+}
+
+function normalizeMeal(meal: Meal): Meal {
+  return {
+    ...meal,
+    foods: meal.foods.map(normalizeFoodItem),
+  };
+}
+
+function normalizeCalorieDay(day: CalorieDay): CalorieDay {
+  return {
+    ...day,
+    meals: day.meals.map(normalizeMeal),
+  };
+}
+
+function normalizeSavedMealFood(food: SavedMealFood): SavedMealFood {
+  const raw = food as SavedMealFood & {
+    micronutrients?: Partial<Micronutrients>;
+    hasMicronutrientData?: boolean;
+  };
+  const micronutrients = normalizeMicronutrients(raw.micronutrients);
+  return {
+    ...food,
+    micronutrients,
+    hasMicronutrientData:
+      typeof raw.hasMicronutrientData === 'boolean'
+        ? raw.hasMicronutrientData
+        : hasMicronutrients(micronutrients),
+  };
+}
+
+function normalizeSavedMeal(meal: SavedMeal): SavedMeal {
+  return {
+    ...meal,
+    foods: meal.foods.map(normalizeSavedMealFood),
+  };
+}
+
+function normalizeDraftEntry(entry: DraftFoodEntry): DraftFoodEntry {
+  const raw = entry as DraftFoodEntry & {
+    micronutrients?: Partial<Micronutrients>;
+    baseMicronutrients?: Partial<Micronutrients>;
+    hasMicronutrientData?: boolean;
+  };
+  const micronutrients = normalizeMicronutrients(raw.micronutrients);
+  return {
+    ...entry,
+    micronutrients,
+    hasMicronutrientData:
+      typeof raw.hasMicronutrientData === 'boolean'
+        ? raw.hasMicronutrientData
+        : hasMicronutrients(micronutrients),
+    baseMicronutrients: raw.baseMicronutrients
+      ? normalizeMicronutrients(raw.baseMicronutrients)
+      : undefined,
   };
 }
 
@@ -180,7 +294,10 @@ function isDraftFoodEntry(value: unknown): value is DraftFoodEntry {
     typeof entry.fat === 'string' &&
     typeof entry.servingSize === 'string' &&
     typeof entry.servings === 'string' &&
-    typeof entry.targetMealId === 'string'
+    typeof entry.targetMealId === 'string' &&
+    (entry.micronutrients === undefined || isMicronutrients(entry.micronutrients)) &&
+    (entry.baseMicronutrients === undefined || isMicronutrients(entry.baseMicronutrients)) &&
+    (entry.hasMicronutrientData === undefined || typeof entry.hasMicronutrientData === 'boolean')
   );
 }
 
@@ -238,7 +355,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
         if (daysRaw) {
           const parsed = JSON.parse(daysRaw);
           if (Array.isArray(parsed)) {
-            const safeDays = parsed.filter(isCalorieDay);
+            const safeDays = parsed.filter(isCalorieDay).map(normalizeCalorieDay);
             setCalorieDays(safeDays);
           }
         }
@@ -253,14 +370,14 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
         if (draftRaw) {
           const parsedDraft = JSON.parse(draftRaw);
           if (isDraftFoodEntry(parsedDraft)) {
-            setDraftEntry(parsedDraft);
+            setDraftEntry(normalizeDraftEntry(parsedDraft));
           }
         }
 
         if (savedMealsRaw) {
           const parsedMeals = JSON.parse(savedMealsRaw);
           if (Array.isArray(parsedMeals)) {
-            const safeMeals = parsedMeals.filter(isSavedMeal);
+            const safeMeals = parsedMeals.filter(isSavedMeal).map(normalizeSavedMeal);
             setSavedMeals(safeMeals);
           }
         }
@@ -444,6 +561,12 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
 
       const { product } = data;
       const nutriments = product.nutriments || {};
+      const caloriesPer100g = Math.round(toFiniteNumber(nutriments['energy-kcal_100g']));
+      const proteinPer100g = Math.round(toFiniteNumber(nutriments.proteins_100g));
+      const carbsPer100g = Math.round(toFiniteNumber(nutriments.carbohydrates_100g));
+      const fatPer100g = Math.round(toFiniteNumber(nutriments.fat_100g));
+      const micronutrients = micronutrientsFromOpenFoodFacts(nutriments as Record<string, unknown>);
+      const hasMicronutrientData = hasMicronutrients(micronutrients);
 
       setDraftEntry((prev) => {
         if (!prev) {
@@ -454,11 +577,18 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
           barcode,
           name: product.product_name || prev.name,
           brand: product.brands || '',
-          calories: String(Math.round(nutriments['energy-kcal_100g'] || 0)),
-          protein: String(Math.round(nutriments.proteins_100g || 0)),
-          carbs: String(Math.round(nutriments.carbohydrates_100g || 0)),
-          fat: String(Math.round(nutriments.fat_100g || 0)),
+          calories: String(caloriesPer100g),
+          protein: String(proteinPer100g),
+          carbs: String(carbsPer100g),
+          fat: String(fatPer100g),
           servingSize: '100',
+          micronutrients,
+          hasMicronutrientData,
+          baseCalories: caloriesPer100g,
+          baseProtein: proteinPer100g,
+          baseCarbs: carbsPer100g,
+          baseFat: fatPer100g,
+          baseMicronutrients: micronutrients,
         };
       });
 
@@ -495,6 +625,10 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
     const fat = Number(draftEntry.fat) || 0;
     const servingSize = Number(draftEntry.servingSize) || 100;
     const servings = Number(draftEntry.servings) || 1;
+    const scaledMicronutrients = scaleMicronutrients(
+      normalizeMicronutrients(draftEntry.micronutrients),
+      servings
+    );
 
     const foodItem: FoodItem = {
       id: draftEntry.id,
@@ -507,6 +641,8 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       fat: Math.round(fat * servings),
       servingSize,
       servings,
+      micronutrients: scaledMicronutrients,
+      hasMicronutrientData: draftEntry.hasMicronutrientData && hasMicronutrients(scaledMicronutrients),
       timestamp: Date.now(),
     };
 
@@ -637,6 +773,8 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       fat: food.fat,
       servingSize: food.servingSize,
       servings: food.servings,
+      micronutrients: normalizeMicronutrients(food.micronutrients),
+      hasMicronutrientData: food.hasMicronutrientData,
       timestamp: Date.now(),
     }));
 

@@ -19,7 +19,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../components/Card';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { FoodSearchResult, searchFoods, searchSimpleFoods } from '../services/foodSearch';
+import {
+  MICRONUTRIENT_CONFIG,
+  addMicronutrients,
+  createEmptyMicronutrients,
+  formatMicronutrientValue,
+  scaleMicronutrients,
+} from '../nutrition/micronutrients';
+import { FoodSearchResult, hydrateFoodMicronutrients, searchFoods, searchSimpleFoods } from '../services/foodSearch';
 import { CalorieDay, Meal, SavedMeal, SavedMealFood, useCalorieStore } from '../store/calorieStore';
 import { colors, spacing, typography } from '../theme';
 
@@ -114,13 +121,15 @@ export function CalorieScreen() {
   const [nameSuggestions, setNameSuggestions] = useState<FoodSearchResult[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [simpleSearchEnabled, setSimpleSearchEnabled] = useState(true);
+  const [simpleSearchEnabled, setSimpleSearchEnabled] = useState(false);
   const [savedMealsOpen, setSavedMealsOpen] = useState(false);
   const [savedMealEditMode, setSavedMealEditMode] = useState<'list' | 'create' | 'edit'>('list');
   const [editingSavedMeal, setEditingSavedMeal] = useState<SavedMeal | null>(null);
   const [savedMealName, setSavedMealName] = useState('');
   const [savedMealFoods, setSavedMealFoods] = useState<SavedMealFood[]>([]);
   const [addingFoodToSavedMeal, setAddingFoodToSavedMeal] = useState(false);
+  const [micronutrientsExpanded, setMicronutrientsExpanded] = useState(false);
+  const [isHydratingMicronutrients, setIsHydratingMicronutrients] = useState(false);
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const selectedDateObj = useMemo(() => parseISODate(selectedDate), [selectedDate]);
@@ -179,7 +188,15 @@ export function CalorieScreen() {
 
   const totals = useMemo(() => {
     if (!dayData) {
-      return { calories: 0, protein: 0, carbs: 0, fat: 0 };
+      return {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        foodCount: 0,
+        foodsWithMicronutrients: 0,
+        micronutrients: createEmptyMicronutrients(),
+      };
     }
     return dayData.meals.reduce(
       (acc, meal) => {
@@ -188,14 +205,60 @@ export function CalorieScreen() {
           acc.protein += food.protein;
           acc.carbs += food.carbs;
           acc.fat += food.fat;
+          acc.foodCount += 1;
+          if (food.hasMicronutrientData) {
+            acc.foodsWithMicronutrients += 1;
+          }
+          acc.micronutrients = addMicronutrients(acc.micronutrients, food.micronutrients);
         });
         return acc;
       },
-      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+      {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        foodCount: 0,
+        foodsWithMicronutrients: 0,
+        micronutrients: createEmptyMicronutrients(),
+      }
     );
   }, [dayData]);
 
   const calorieProgress = Math.min((totals.calories / dailyGoal) * 100, 100);
+
+  const micronutrientProgress = useMemo(() => {
+    return MICRONUTRIENT_CONFIG.map((config) => {
+      const consumed = totals.micronutrients[config.key];
+      const percentage = config.dailyTarget > 0 ? (consumed / config.dailyTarget) * 100 : 0;
+      const isOverLimit = config.targetType === 'maximum' && percentage > 100;
+      return {
+        key: config.key,
+        label: config.label,
+        consumed,
+        unit: config.unit,
+        dailyTarget: config.dailyTarget,
+        targetType: config.targetType,
+        percentage,
+        isOverLimit,
+      };
+    });
+  }, [totals]);
+
+  const resolveFoodMicronutrients = useCallback(async (food: FoodSearchResult): Promise<FoodSearchResult> => {
+    if (food.hasMicronutrientData) {
+      return food;
+    }
+    setIsHydratingMicronutrients(true);
+    try {
+      return await hydrateFoodMicronutrients(food);
+    } catch (err) {
+      console.error('Micronutrient hydration failed:', err);
+      return food;
+    } finally {
+      setIsHydratingMicronutrients(false);
+    }
+  }, []);
 
   const handleSearch = useCallback(async (query: string) => {
     setSearchQuery(query);
@@ -240,7 +303,7 @@ export function CalorieScreen() {
     setFoodPickerOpen(true);
   };
 
-  const handleSelectSearchResult = (food: FoodSearchResult) => {
+  const handleSelectSearchResult = async (food: FoodSearchResult) => {
     updateDraftEntry('name', food.name);
     updateDraftEntry('calories', String(food.calories));
     updateDraftEntry('protein', String(food.protein));
@@ -253,8 +316,20 @@ export function CalorieScreen() {
     updateDraftEntry('baseProtein', food.protein);
     updateDraftEntry('baseCarbs', food.carbs);
     updateDraftEntry('baseFat', food.fat);
+    updateDraftEntry('micronutrients', { ...food.micronutrients });
+    updateDraftEntry('baseMicronutrients', { ...food.micronutrients });
+    updateDraftEntry('hasMicronutrientData', food.hasMicronutrientData);
     setFoodPickerOpen(false);
     setEntryModalOpen(true);
+
+    if (!food.hasMicronutrientData) {
+      const hydrated = await resolveFoodMicronutrients(food);
+      if (hydrated.hasMicronutrientData) {
+        updateDraftEntry('micronutrients', { ...hydrated.micronutrients });
+        updateDraftEntry('baseMicronutrients', { ...hydrated.micronutrients });
+        updateDraftEntry('hasMicronutrientData', true);
+      }
+    }
   };
 
   const handleOpenScanner = () => {
@@ -311,7 +386,7 @@ export function CalorieScreen() {
     }, 300);
   }, [updateDraftEntry]);
 
-  const handleSelectSuggestion = (food: FoodSearchResult) => {
+  const handleSelectSuggestion = async (food: FoodSearchResult) => {
     updateDraftEntry('name', food.name);
     updateDraftEntry('calories', String(food.calories));
     updateDraftEntry('protein', String(food.protein));
@@ -323,11 +398,27 @@ export function CalorieScreen() {
     updateDraftEntry('baseProtein', food.protein);
     updateDraftEntry('baseCarbs', food.carbs);
     updateDraftEntry('baseFat', food.fat);
+    updateDraftEntry('micronutrients', { ...food.micronutrients });
+    updateDraftEntry('baseMicronutrients', { ...food.micronutrients });
+    updateDraftEntry('hasMicronutrientData', food.hasMicronutrientData);
+
+    if (!food.hasMicronutrientData) {
+      const hydrated = await resolveFoodMicronutrients(food);
+      if (hydrated.hasMicronutrientData) {
+        updateDraftEntry('micronutrients', { ...hydrated.micronutrients });
+        updateDraftEntry('baseMicronutrients', { ...hydrated.micronutrients });
+        updateDraftEntry('hasMicronutrientData', true);
+      }
+    }
+
     setNameSuggestions([]);
     setShowSuggestions(false);
   };
 
   const handleSaveEntry = () => {
+    if (isHydratingMicronutrients) {
+      return;
+    }
     saveFoodEntry(selectedDate);
     setEntryModalOpen(false);
     setScanned(false);
@@ -338,6 +429,7 @@ export function CalorieScreen() {
 
   const handleCancelEntry = () => {
     cancelDraftEntry();
+    setIsHydratingMicronutrients(false);
     setEntryModalOpen(false);
     setScannerOpen(false);
     setFoodPickerOpen(false);
@@ -361,6 +453,9 @@ export function CalorieScreen() {
       updateDraftEntry('protein', String(Math.round(draftEntry.baseProtein! * multiplier)));
       updateDraftEntry('carbs', String(Math.round(draftEntry.baseCarbs! * multiplier)));
       updateDraftEntry('fat', String(Math.round(draftEntry.baseFat! * multiplier)));
+      if (draftEntry.baseMicronutrients) {
+        updateDraftEntry('micronutrients', scaleMicronutrients(draftEntry.baseMicronutrients, multiplier));
+      }
     }
   };
 
@@ -455,16 +550,19 @@ export function CalorieScreen() {
     setSearchResults([]);
   };
 
-  const handleSelectFoodForSavedMeal = (food: FoodSearchResult) => {
+  const handleSelectFoodForSavedMeal = async (food: FoodSearchResult) => {
+    const resolvedFood = await resolveFoodMicronutrients(food);
     const newFood: SavedMealFood = {
       id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-      name: food.name,
-      calories: food.calories,
-      protein: food.protein,
-      carbs: food.carbs,
-      fat: food.fat,
-      servingSize: food.servingSize,
+      name: resolvedFood.name,
+      calories: resolvedFood.calories,
+      protein: resolvedFood.protein,
+      carbs: resolvedFood.carbs,
+      fat: resolvedFood.fat,
+      servingSize: resolvedFood.servingSize,
       servings: 1,
+      micronutrients: { ...resolvedFood.micronutrients },
+      hasMicronutrientData: resolvedFood.hasMicronutrientData,
     };
     setSavedMealFoods((prev) => [...prev, newFood]);
     setAddingFoodToSavedMeal(false);
@@ -669,7 +767,7 @@ export function CalorieScreen() {
             <View style={styles.searchToggleInfo}>
               <Text style={styles.searchToggleLabel}>Simple search</Text>
               <Text style={styles.searchToggleHint}>
-                {simpleSearchEnabled ? 'Common foods only' : 'Full USDA database'}
+                {simpleSearchEnabled ? 'Common foods (macros only)' : 'Full USDA database with micronutrients'}
               </Text>
             </View>
             <Switch
@@ -931,8 +1029,21 @@ export function CalorieScreen() {
                     </View>
                   </View>
 
-                  <Pressable style={styles.saveButton} onPress={handleSaveEntry}>
-                    <Text style={styles.saveButtonText}>Save Food</Text>
+                  {isHydratingMicronutrients ? (
+                    <View style={styles.micronutrientLoadingRow}>
+                      <ActivityIndicator color={colors.accent} size="small" />
+                      <Text style={styles.micronutrientLoadingText}>Loading micronutrients...</Text>
+                    </View>
+                  ) : null}
+
+                  <Pressable
+                    style={[styles.saveButton, isHydratingMicronutrients ? styles.saveButtonDisabled : null]}
+                    onPress={handleSaveEntry}
+                    disabled={isHydratingMicronutrients}
+                  >
+                    <Text style={styles.saveButtonText}>
+                      {isHydratingMicronutrients ? 'Preparing nutrition...' : 'Save Food'}
+                    </Text>
                   </Pressable>
                 </ScrollView>
               )}
@@ -1247,6 +1358,59 @@ export function CalorieScreen() {
               <Text style={styles.macroLabel}>Fat</Text>
             </View>
           </View>
+
+          <View style={styles.micronutrientSection}>
+            <Pressable
+              style={styles.micronutrientHeader}
+              onPress={() => setMicronutrientsExpanded((prev) => !prev)}
+            >
+              <View style={styles.micronutrientHeaderInfo}>
+                <Text style={styles.micronutrientTitle}>Micronutrients</Text>
+                <Text style={styles.micronutrientSubtext}>Tap to view vitamins and minerals</Text>
+              </View>
+              <Feather
+                name={micronutrientsExpanded ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={colors.muted}
+              />
+            </Pressable>
+
+            {micronutrientsExpanded ? (
+              <View style={styles.micronutrientBody}>
+                {micronutrientProgress.map((nutrient) => {
+                  const cappedPercent = Math.min(nutrient.percentage, 100);
+                  const targetLabel =
+                    nutrient.targetType === 'maximum'
+                      ? `${nutrient.dailyTarget} ${nutrient.unit} max`
+                      : `${nutrient.dailyTarget} ${nutrient.unit}`;
+                  return (
+                    <View key={nutrient.key} style={styles.micronutrientRow}>
+                      <View style={styles.micronutrientRowHeader}>
+                        <Text style={styles.micronutrientLabel}>{nutrient.label}</Text>
+                        <Text style={styles.micronutrientValue}>
+                          {formatMicronutrientValue(nutrient.consumed, nutrient.unit)} {nutrient.unit} / {targetLabel}
+                        </Text>
+                      </View>
+                      <View style={styles.micronutrientProgressTrack}>
+                        <View
+                          style={[
+                            styles.micronutrientProgressFill,
+                            {
+                              width: `${cappedPercent}%`,
+                              backgroundColor: nutrient.isOverLimit ? colors.danger : colors.accent,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  );
+                })}
+                <Text style={styles.micronutrientHint}>
+                  General adult DRI targets. Results depend on available food data.
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </Card>
 
         {/* Meals Section */}
@@ -1463,6 +1627,65 @@ const styles = StyleSheet.create({
   },
   macroLabel: {
     ...typography.label,
+    color: colors.muted,
+  },
+  micronutrientSection: {
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  micronutrientHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  micronutrientHeaderInfo: {
+    gap: 2,
+  },
+  micronutrientTitle: {
+    ...typography.label,
+    color: colors.text,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
+  },
+  micronutrientSubtext: {
+    ...typography.body,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  micronutrientBody: {
+    gap: spacing.sm,
+  },
+  micronutrientRow: {
+    gap: spacing.xs,
+  },
+  micronutrientRowHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  micronutrientLabel: {
+    ...typography.body,
+    color: colors.text,
+  },
+  micronutrientValue: {
+    ...typography.body,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  micronutrientProgressTrack: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: colors.border,
+    overflow: 'hidden',
+  },
+  micronutrientProgressFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  micronutrientHint: {
+    ...typography.body,
+    fontSize: 12,
     color: colors.muted,
   },
   mealsSection: {
@@ -1732,6 +1955,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     ...typography.body,
     color: colors.text,
+  },
+  micronutrientLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  micronutrientLoadingText: {
+    ...typography.body,
+    fontSize: 12,
+    color: colors.muted,
   },
   saveButton: {
     backgroundColor: colors.accent,
