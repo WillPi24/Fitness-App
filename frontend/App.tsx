@@ -61,8 +61,8 @@ export default function App() {
                           ? 'edit'
                           : route.name === 'Calories'
                           ? 'pie-chart'
-                          : route.name === 'Summary'
-                          ? 'calendar'
+                          : route.name === 'Info'
+                          ? 'shopping-bag'
                           : route.name === 'Cardio'
                           ? 'map'
                           : 'bar-chart-2';
@@ -73,8 +73,8 @@ export default function App() {
                   <Tab.Screen name="Calories" component={CalorieScreen} />
                   <Tab.Screen name="Log" component={LogScreen} />
                   <Tab.Screen name="Cardio" component={RunScreen} />
-                  <Tab.Screen name="Summary" component={SummaryScreen} />
                   <Tab.Screen name="Progress" component={ProgressScreen} />
+                  <Tab.Screen name="Info" component={SummaryScreen} />
                 </Tab.Navigator>
               </NavigationContainer>
             </CalorieProvider>
