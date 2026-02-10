@@ -17,6 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../components/Card';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { WeeklyMuscleMap } from '../components/WeeklyMuscleMap';
+import type { CanonicalBodyPart } from '../components/WeeklyMuscleMap';
 import { EXERCISE_OPTIONS } from '../data/exercises';
 import type { ExerciseOption } from '../data/exercises';
 import {
@@ -90,6 +92,64 @@ function monthsBetween(start: Date, end: Date) {
   return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
 }
 
+const bodyPartAliases: Record<string, CanonicalBodyPart> = {
+  chest: 'chest',
+  back: 'back',
+  shoulders: 'shoulders',
+  quads: 'quads',
+  'hams/glutes': 'hamsGlutes',
+  'hams / glutes': 'hamsGlutes',
+  'hamstrings / glutes': 'hamsGlutes',
+  hamstrings: 'hamsGlutes',
+  glutes: 'hamsGlutes',
+  calves: 'calves',
+  triceps: 'triceps',
+  biceps: 'biceps',
+  'abs/core': 'absCore',
+  'abs / core': 'absCore',
+  abs: 'absCore',
+  core: 'absCore',
+};
+
+function normalizeBodyPart(bodyPart: string): CanonicalBodyPart | null {
+  const normalized = bodyPart.trim().toLowerCase();
+  return bodyPartAliases[normalized] ?? null;
+}
+
+function inferBodyPartFromExerciseName(name: string): CanonicalBodyPart | null {
+  const normalized = name.trim().toLowerCase();
+  if (
+    /(tricep|skullcrusher|pushdown|kickback|close[-\s]?grip bench|overhead extension)/.test(normalized)
+  ) {
+    return 'triceps';
+  }
+  if (/(bench|chest|pec|fly|pullover)/.test(normalized)) {
+    return 'chest';
+  }
+  if (/(rdl|romanian|stiff[-\s]?leg|hip thrust|glute|leg curl|hamstring|ghr|pull[-\s]?through)/.test(normalized)) {
+    return 'hamsGlutes';
+  }
+  if (/(row|pull[-\s]?up|chin[-\s]?up|pulldown|lat|trap|deadlift)/.test(normalized)) {
+    return 'back';
+  }
+  if (/(overhead press|shoulder|lateral raise|front raise|rear delt|upright row|arnold press)/.test(normalized)) {
+    return 'shoulders';
+  }
+  if (/(squat|leg press|lunge|leg extension|split squat|quad)/.test(normalized)) {
+    return 'quads';
+  }
+  if (/(calf)/.test(normalized)) {
+    return 'calves';
+  }
+  if (/(bicep|curl|preacher|hammer)/.test(normalized)) {
+    return 'biceps';
+  }
+  if (/(ab\b|core|oblique|crunch|plank|rollout|woodchopper|leg raise)/.test(normalized)) {
+    return 'absCore';
+  }
+  return null;
+}
+
 export function LogScreen() {
   const {
     workouts,
@@ -123,6 +183,7 @@ export function LogScreen() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmMode, setConfirmMode] = useState<'complete' | 'discard' | null>(null);
   const [timerTick, setTimerTick] = useState(Date.now());
+  const [expandedWorkoutIds, setExpandedWorkoutIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!activeWorkout) {
@@ -178,11 +239,58 @@ export function LogScreen() {
     return Math.max(0, monthsBetween(selectedDateObj, todayDate));
   }, [selectedDateObj]);
 
-  const workoutsForSelected = useMemo(() => {
+  const weekDateIsoStrings = useMemo(
+    () => weekDates.map((date) => formatISODate(date)),
+    [weekDates],
+  );
+
+  const workoutsForSelectedWeek = useMemo(() => {
+    const weekDatesSet = new Set(weekDateIsoStrings);
     return workouts
-      .filter((workout) => workout.date === selectedDate)
+      .filter((workout) => weekDatesSet.has(workout.date))
       .sort((a, b) => b.startedAt - a.startedAt);
-  }, [workouts, selectedDate]);
+  }, [workouts, weekDateIsoStrings]);
+
+  const exerciseBodyPartLookup = useMemo(() => {
+    const lookup = new Map<string, CanonicalBodyPart>();
+    EXERCISE_OPTIONS.forEach((option) => {
+      const normalizedBodyPart = normalizeBodyPart(option.bodyPart);
+      if (!normalizedBodyPart) {
+        return;
+      }
+      lookup.set(option.name.trim().toLowerCase(), normalizedBodyPart);
+    });
+    return lookup;
+  }, []);
+
+  const weeklyBodyPartCounts = useMemo(() => {
+    const counts: Partial<Record<CanonicalBodyPart, number>> = {};
+    workoutsForSelectedWeek.forEach((workout) => {
+      workout.exercises.forEach((exercise) => {
+        const exerciseKey = exercise.name.trim().toLowerCase();
+        const bodyPart =
+          exerciseBodyPartLookup.get(exerciseKey) ?? inferBodyPartFromExerciseName(exercise.name);
+        if (!bodyPart) {
+          return;
+        }
+        counts[bodyPart] = (counts[bodyPart] ?? 0) + 1;
+      });
+    });
+    return counts;
+  }, [workoutsForSelectedWeek, exerciseBodyPartLookup]);
+
+  const weeklyPersonalBests = useMemo(() => {
+    return workoutsForSelectedWeek
+      .flatMap((workout) =>
+        workout.personalRecords.map((record) => ({
+          ...record,
+          workoutId: workout.id,
+          workoutDate: workout.date,
+          workoutStartedAt: workout.startedAt,
+        })),
+      )
+      .sort((a, b) => b.workoutStartedAt - a.workoutStartedAt);
+  }, [workoutsForSelectedWeek]);
 
   const activeWorkoutForSelected =
     activeWorkout && activeWorkout.date === selectedDate ? activeWorkout : null;
@@ -271,6 +379,13 @@ export function LogScreen() {
     }
     confirmWorkoutCompletion(completionPreview.workout);
     handleCloseConfirm();
+  };
+
+  const toggleWorkoutExpanded = (workoutId: string) => {
+    setExpandedWorkoutIds((current) => ({
+      ...current,
+      [workoutId]: !current[workoutId],
+    }));
   };
 
   const renderExerciseOption = (item: ExerciseOption) => (
@@ -557,46 +672,71 @@ export function LogScreen() {
         </Card>
 
         <View style={styles.historySection}>
-          <Text style={styles.sectionTitle}>History for {selectedDateLabel}</Text>
+          <Text style={styles.sectionTitle}>Workouts this week</Text>
           {isLoading ? (
             <Card>
               <ActivityIndicator color={colors.accent} />
             </Card>
-          ) : workoutsForSelected.length === 0 ? (
-            <Card>
-              <Text style={styles.emptyText}>No workouts logged for this day.</Text>
-            </Card>
           ) : (
-            workoutsForSelected.map((workout, index) => (
-              <Card key={workout.id} style={styles.historyCard}>
-                <View style={styles.historyHeader}>
-                  <Text style={styles.historyTitle}>Workout {index + 1}</Text>
-                  <Text style={styles.historyMeta}>
-                    {formatTime(workout.startedAt)} - {formatDuration(workout.endedAt - workout.startedAt)}
-                  </Text>
-                </View>
-                {workout.exercises.map((exercise) => (
-                  <View key={exercise.id} style={styles.historyExercise}>
-                    <Text style={styles.historyExerciseName}>{exercise.name}</Text>
-                    <Text style={styles.historyExerciseDetail}>
-                      {exercise.sets
-                        .map((set) => `${set.weight} kg x ${set.reps}`)
-                        .join(', ')}
-                    </Text>
-                  </View>
-                ))}
-                {workout.personalRecords.length > 0 ? (
-                  <View style={styles.historyPrBlock}>
-                    <Text style={styles.prTitle}>Personal bests</Text>
-                    {workout.personalRecords.map((record) => (
-                      <Text key={record.exercise} style={styles.historyPrItem}>
-                        {record.exercise}: {record.weight} kg x {record.reps} (1RM {record.estimated1RM} kg)
+            <>
+              <WeeklyMuscleMap bodyPartCounts={weeklyBodyPartCounts} />
+
+              <Card style={styles.weeklyPrCard}>
+                <Text style={styles.prTitle}>Personal bests this week</Text>
+                {weeklyPersonalBests.length === 0 ? (
+                  <Text style={styles.emptyText}>No personal bests this week yet.</Text>
+                ) : (
+                  weeklyPersonalBests.map((record, index) => (
+                    <View key={`${record.workoutId}-${record.exercise}-${index}`} style={styles.weeklyPrRow}>
+                      <Text style={styles.weeklyPrMeta}>
+                        {record.exercise}:{' '}
+                        <Text style={styles.weeklyPrValue}>
+                          {record.weight}kg x {record.reps}
+                        </Text>
                       </Text>
-                    ))}
-                  </View>
-                ) : null}
+                    </View>
+                  ))
+                )}
               </Card>
-            ))
+
+              {workoutsForSelectedWeek.length === 0 ? (
+                <Card>
+                  <Text style={styles.emptyText}>No workouts logged for this week.</Text>
+                </Card>
+              ) : (
+                workoutsForSelectedWeek.map((workout, index) => {
+                  const isExpanded = Boolean(expandedWorkoutIds[workout.id]);
+                  return (
+                    <Card key={workout.id} style={styles.historyCard}>
+                      <Pressable style={styles.historyHeader} onPress={() => toggleWorkoutExpanded(workout.id)}>
+                        <View style={styles.historyHeaderInfo}>
+                          <Text style={styles.historyTitle}>Workout {index + 1}</Text>
+                          <Text style={styles.historyMeta}>
+                            {formatShortDate(parseISODate(workout.date))} - {formatTime(workout.startedAt)} -{' '}
+                            {formatDuration(workout.endedAt - workout.startedAt)}
+                          </Text>
+                        </View>
+                        <Feather name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
+                      </Pressable>
+                      {isExpanded ? (
+                        <View style={styles.historyDetails}>
+                          {workout.exercises.map((exercise) => (
+                            <View key={exercise.id} style={styles.historyExercise}>
+                              <Text style={styles.historyExerciseName}>{exercise.name}</Text>
+                              <Text style={styles.historyExerciseDetail}>
+                                {exercise.sets
+                                  .map((set) => `${set.weight} kg x ${set.reps}`)
+                                  .join(', ')}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      ) : null}
+                    </Card>
+                  );
+                })
+              )}
+            </>
           )}
         </View>
       </ScrollView>
@@ -842,14 +982,38 @@ const styles = StyleSheet.create({
   historySection: {
     gap: spacing.md,
   },
+  weeklyPrCard: {
+    gap: spacing.sm,
+  },
+  weeklyPrRow: {
+    gap: spacing.xs,
+  },
+  weeklyPrMeta: {
+    ...typography.body,
+    color: colors.text,
+  },
+  weeklyPrValue: {
+    ...typography.body,
+    color: colors.muted,
+  },
   historyCard: {
     gap: spacing.sm,
   },
   historyHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.md,
+  },
+  historyHeaderInfo: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  historyDetails: {
+    gap: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
   },
   historyTitle: {
     ...typography.headline,
@@ -869,16 +1033,6 @@ const styles = StyleSheet.create({
   historyExerciseDetail: {
     ...typography.body,
     color: colors.muted,
-  },
-  historyPrBlock: {
-    backgroundColor: colors.accentSoft,
-    padding: spacing.sm,
-    borderRadius: 12,
-    gap: spacing.xs,
-  },
-  historyPrItem: {
-    ...typography.body,
-    color: colors.text,
   },
   modalBackdrop: {
     flex: 1,
