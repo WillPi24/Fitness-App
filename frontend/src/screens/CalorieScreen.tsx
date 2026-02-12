@@ -74,13 +74,16 @@ function monthsBetween(start: Date, end: Date) {
   return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
 }
 
+function createTemporaryMealId() {
+  return `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+}
+
 export function CalorieScreen() {
   const {
     calorieDays,
     draftEntry,
     dailyGoal,
     setDailyGoal,
-    addMeal,
     renameMeal,
     removeMeal,
     startNewEntry,
@@ -123,7 +126,7 @@ export function CalorieScreen() {
   const [nameSuggestions, setNameSuggestions] = useState<FoodSearchResult[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [simpleSearchEnabled, setSimpleSearchEnabled] = useState(false);
+  const [simpleSearchEnabled, setSimpleSearchEnabled] = useState(true);
   const [savedMealsOpen, setSavedMealsOpen] = useState(false);
   const [savedMealEditMode, setSavedMealEditMode] = useState<'list' | 'create' | 'edit'>('list');
   const [editingSavedMeal, setEditingSavedMeal] = useState<SavedMeal | null>(null);
@@ -166,7 +169,7 @@ export function CalorieScreen() {
   >(null);
   const [editServingSizeInput, setEditServingSizeInput] = useState('');
   const [editServingsInput, setEditServingsInput] = useState('');
-  const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedDateObj = useMemo(() => parseISODate(selectedDate), [selectedDate]);
   const monthLabel = useMemo(() => formatMonthYear(selectedDateObj), [selectedDateObj]);
@@ -323,7 +326,7 @@ export function CalorieScreen() {
   }, [simpleSearchEnabled]);
 
   const handleAddMeal = () => {
-    const mealId = addMeal(selectedDate);
+    const mealId = createTemporaryMealId();
     setCurrentMealId(mealId);
     startNewEntry(mealId);
     setSearchQuery('');
@@ -610,11 +613,6 @@ export function CalorieScreen() {
     setSavedMealFoods((prev) => prev.filter((f) => f.id !== foodId));
   };
 
-  const formatServingsLabel = (servings: number) => {
-    const rounded = Math.round(servings * 100) / 100;
-    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
-  };
-
   const openMealFoodEditor = (mealId: string, food: FoodItem) => {
     setEditingFoodTarget({
       source: 'meal',
@@ -836,14 +834,13 @@ export function CalorieScreen() {
                 <Text style={styles.foodMacros}>
                   {food.calories} kcal | P: {food.protein}g | C: {food.carbs}g | F: {food.fat}g
                 </Text>
-                <Text style={styles.foodQuantityHint}>
-                  Qty: {formatServingsLabel(food.servings)} serving
-                  {food.servings === 1 ? '' : 's'} (tap to edit)
-                </Text>
               </Pressable>
-              <Pressable onPress={() => handleDeleteFood(meal.id, food.id)} hitSlop={8}>
-                <Feather name="x" size={18} color={colors.danger} />
-              </Pressable>
+              <View style={styles.foodActions}>
+                <Text style={styles.foodEditHint}>(tap to edit)</Text>
+                <Pressable onPress={() => handleDeleteFood(meal.id, food.id)} hitSlop={8}>
+                  <Feather name="x" size={18} color={colors.danger} />
+                </Pressable>
+              </View>
             </View>
           ))
         )}
@@ -1465,17 +1462,16 @@ export function CalorieScreen() {
                           {Math.round(food.carbs * food.servings)}g | F:{' '}
                           {Math.round(food.fat * food.servings)}g
                         </Text>
-                        <Text style={styles.savedMealFoodQuantityHint}>
-                          Qty: {formatServingsLabel(food.servings)} serving
-                          {food.servings === 1 ? '' : 's'} (tap to edit)
-                        </Text>
                       </Pressable>
-                      <Pressable
-                        onPress={() => handleRemoveFoodFromSavedMeal(food.id)}
-                        hitSlop={8}
-                      >
-                        <Feather name="x" size={20} color={colors.danger} />
-                      </Pressable>
+                      <View style={styles.savedMealFoodActions}>
+                        <Text style={styles.savedMealFoodEditHint}>(tap to edit)</Text>
+                        <Pressable
+                          onPress={() => handleRemoveFoodFromSavedMeal(food.id)}
+                          hitSlop={8}
+                        >
+                          <Feather name="x" size={20} color={colors.danger} />
+                        </Pressable>
+                      </View>
                     </View>
                   ))
                 )}
@@ -1606,6 +1602,7 @@ export function CalorieScreen() {
         contentContainerStyle={[styles.content, { paddingTop: spacing.lg + insets.top }]}
         keyboardShouldPersistTaps="handled"
       >
+        <Text style={styles.pageTitle}>Calorie tracker</Text>
         {/* Week Selector */}
         <View style={styles.calendarCard}>
           <Pressable style={styles.monthButton} onPress={() => setCalendarOpen(true)}>
@@ -1838,6 +1835,10 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingBottom: spacing.xl,
     gap: spacing.lg,
+  },
+  pageTitle: {
+    ...typography.title,
+    color: colors.text,
   },
   calendarCard: {
     gap: spacing.sm,
@@ -2101,9 +2102,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.muted,
   },
-  foodQuantityHint: {
+  foodActions: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    minHeight: 38,
+  },
+  foodEditHint: {
     ...typography.body,
-    fontSize: 12,
+    fontSize: 11,
     color: colors.accent,
   },
   addToMealButton: {
@@ -2663,9 +2669,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.muted,
   },
-  savedMealFoodQuantityHint: {
+  savedMealFoodActions: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    minHeight: 40,
+  },
+  savedMealFoodEditHint: {
     ...typography.body,
-    fontSize: 12,
+    fontSize: 11,
     color: colors.accent,
   },
   addFoodToSavedMealButton: {

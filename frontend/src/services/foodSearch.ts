@@ -193,21 +193,55 @@ export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
       return [];
     }
 
-    const params = new URLSearchParams({
-      api_key: apiKey,
+    const requestBody = {
       query: query.trim(),
-      pageSize: '20',
-      dataType: 'Foundation,SR Legacy', // Prefer whole foods over branded
+      pageSize: 20,
+      dataType: ['Foundation', 'SR Legacy'], // Prefer whole foods over branded
+    };
+
+    const response = await fetch(`${USDA_API_URL}?api_key=${encodeURIComponent(apiKey)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
     });
 
-    const response = await fetch(`${USDA_API_URL}?${params}`);
-
+    let data: USDASearchResponse | null = null;
     if (!response.ok) {
-      console.error('USDA API error:', response.status);
-      return [];
+      const errorBody = await response.text();
+      console.error('USDA API error:', response.status, errorBody);
+
+      // Some USDA keys/tenants reject strict filters; retry unfiltered search.
+      if (response.status === 400) {
+        const retryResponse = await fetch(`${USDA_API_URL}?api_key=${encodeURIComponent(apiKey)}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: query.trim(),
+            pageSize: 20,
+          }),
+        });
+
+        if (!retryResponse.ok) {
+          const retryErrorBody = await retryResponse.text();
+          console.error('USDA API retry error:', retryResponse.status, retryErrorBody);
+          return [];
+        }
+
+        data = await retryResponse.json();
+      } else {
+        return [];
+      }
+    } else {
+      data = await response.json();
     }
 
-    const data: USDASearchResponse = await response.json();
+    if (!data?.foods || !Array.isArray(data.foods)) {
+      return [];
+    }
 
     return data.foods.slice(0, 15).map((food) => {
       const micronutrients = micronutrientsFromUSDA(food.foodNutrients || []);

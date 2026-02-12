@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { SpaceGrotesk_400Regular, SpaceGrotesk_500Medium, SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold, useFonts } from '@expo-google-fonts/space-grotesk';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
-import type { createMaterialTopTabNavigator as CreateMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
@@ -27,9 +27,6 @@ type RootTabParamList = {
   Info: undefined;
 };
 
-const { createMaterialTopTabNavigator } = require('@react-navigation/material-top-tabs/lib/module/index.js') as {
-  createMaterialTopTabNavigator: typeof CreateMaterialTopTabNavigator;
-};
 const Tab = createMaterialTopTabNavigator<RootTabParamList>();
 
 // Root app shell with font loading, providers, and navigation.
@@ -61,7 +58,7 @@ export default function App() {
                 <StatusBar style="dark" />
                 <Tab.Navigator
                   tabBarPosition="bottom"
-                  screenOptions={({ route }: { route: { name: keyof RootTabParamList } }) => ({
+                  screenOptions={({ route }) => ({
                     swipeEnabled: true,
                     animationEnabled: true,
                     lazy: false,

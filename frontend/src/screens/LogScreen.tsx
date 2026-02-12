@@ -586,6 +586,7 @@ export function LogScreen() {
         contentContainerStyle={[styles.content, { paddingTop: spacing.lg + insets.top }]}
         keyboardShouldPersistTaps="handled"
       >
+        <Text style={styles.pageTitle}>Workout logs</Text>
         <View style={styles.calendarCard}>
           <Pressable style={styles.monthButton} onPress={() => setCalendarOpen(true)}>
             <Text style={styles.monthLabel}>{monthLabel}</Text>
@@ -753,6 +754,10 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingBottom: spacing.xl,
     gap: spacing.lg,
+  },
+  pageTitle: {
+    ...typography.title,
+    color: colors.text,
   },
   calendarCard: {
     gap: spacing.sm,
