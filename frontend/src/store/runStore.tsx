@@ -187,14 +187,13 @@ function appendLocations(activeRun: ActiveRun, locations: Location.LocationObjec
 }
 
 if (!TaskManager.isTaskDefined(RUN_LOCATION_TASK)) {
-  TaskManager.defineTask(RUN_LOCATION_TASK, async ({ data, error }) => {
+  TaskManager.defineTask<{ locations?: Location.LocationObject[] }>(RUN_LOCATION_TASK, async ({ data, error }) => {
     if (error) {
       console.error('Run location task error', error);
       return;
     }
 
-    const payload = data as Location.LocationTaskData | undefined;
-    const locations = payload?.locations ?? [];
+    const locations = data?.locations ?? [];
     if (locations.length === 0) {
       return;
     }

@@ -1,10 +1,10 @@
 import { Feather } from '@expo/vector-icons';
 import { SpaceGrotesk_400Regular, SpaceGrotesk_500Medium, SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold, useFonts } from '@expo-google-fonts/space-grotesk';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import type { createMaterialTopTabNavigator as CreateMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from './src/components/ErrorBoundary';
@@ -19,7 +19,18 @@ import { WorkoutProvider } from './src/store/workoutStore';
 import { colors } from './src/theme';
 
 // Bottom tab navigation for the core flows.
-const Tab = createBottomTabNavigator();
+type RootTabParamList = {
+  Calories: undefined;
+  Log: undefined;
+  Cardio: undefined;
+  Progress: undefined;
+  Info: undefined;
+};
+
+const { createMaterialTopTabNavigator } = require('@react-navigation/material-top-tabs/lib/module/index.js') as {
+  createMaterialTopTabNavigator: typeof CreateMaterialTopTabNavigator;
+};
+const Tab = createMaterialTopTabNavigator<RootTabParamList>();
 
 // Root app shell with font loading, providers, and navigation.
 export default function App() {
@@ -49,13 +60,22 @@ export default function App() {
               <NavigationContainer theme={navTheme}>
                 <StatusBar style="dark" />
                 <Tab.Navigator
-                  screenOptions={({ route }) => ({
-                    headerShown: false,
+                  tabBarPosition="bottom"
+                  screenOptions={({ route }: { route: { name: keyof RootTabParamList } }) => ({
+                    swipeEnabled: true,
+                    animationEnabled: true,
+                    lazy: false,
+                    tabBarShowIcon: true,
+                    tabBarAllowFontScaling: false,
+                    sceneStyle: styles.scene,
                     tabBarStyle: styles.tabBar,
+                    tabBarIndicatorStyle: styles.tabIndicator,
+                    tabBarItemStyle: styles.tabItem,
+                    tabBarIconStyle: styles.tabIcon,
                     tabBarActiveTintColor: colors.accent,
                     tabBarInactiveTintColor: colors.muted,
                     tabBarLabelStyle: styles.tabLabel,
-                    tabBarIcon: ({ color, size }) => {
+                    tabBarIcon: ({ color }) => {
                       const iconName =
                         route.name === 'Log'
                           ? 'edit'
@@ -66,7 +86,7 @@ export default function App() {
                           : route.name === 'Cardio'
                           ? 'map'
                           : 'bar-chart-2';
-                      return <Feather name={iconName} size={size} color={color} />;
+                      return <Feather name={iconName} size={24} color={color} />;
                     },
                   })}
                 >
@@ -109,13 +129,31 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopColor: colors.border,
     borderTopWidth: 1,
-    paddingTop: 6,
-    paddingBottom: 10,
-    height: 66,
+    elevation: 0,
+    shadowOpacity: 0,
+    paddingTop: 5,
+    paddingBottom: Platform.OS === 'ios' ? 14 : 9,
+    height: Platform.OS === 'ios' ? 72 : 65,
+  },
+  tabIndicator: {
+    backgroundColor: colors.accent,
+    height: 2,
   },
   tabLabel: {
     fontFamily: 'SpaceGrotesk_500Medium',
-    fontSize: 12,
-    marginBottom: 4,
+    fontSize: 13,
+    lineHeight: 15,
+    marginBottom: 0,
+  },
+  tabItem: {
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    minWidth: 0,
+  },
+  tabIcon: {
+    marginBottom: 1,
+  },
+  scene: {
+    backgroundColor: colors.background,
   },
 });

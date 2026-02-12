@@ -219,13 +219,13 @@ function buildPersonalRecords(
     let bestSet: WorkoutSet | null = null;
     let bestEstimate = 0;
 
-    exercise.sets.forEach((set) => {
+    for (const set of exercise.sets) {
       const estimate = estimateOneRepMax(set.weight, set.reps);
       if (!bestSet || estimate > bestEstimate) {
         bestSet = set;
         bestEstimate = estimate;
       }
-    });
+    }
 
     const previousBest = previousBestMap[normalizeExercise(exercise.name)] ?? 0;
     if (bestSet && bestEstimate > previousBest) {

@@ -19,7 +19,6 @@ export type FoodSearchResult = {
   hasMicronutrientData: boolean;
 };
 
-const USDA_API_KEY = 'kXRlJsj1eKpL6e5h1vimM2X6sJnV5ZJT4OXH6jDX';
 const USDA_API_URL = 'https://api.nal.usda.gov/fdc/v1/foods/search';
 const USDA_FOOD_DETAILS_URL = 'https://api.nal.usda.gov/fdc/v1/food';
 
@@ -145,9 +144,23 @@ function buildFallbackQueries(name: string): string[] {
   return Array.from(new Set([base, noParens, firstSegment, noSlashes].filter((query) => query.length >= 2)));
 }
 
+function getUsdaApiKey(): string | null {
+  const apiKey = process.env.EXPO_PUBLIC_USDA_API_KEY?.trim();
+  if (!apiKey) {
+    console.error('Missing USDA API key. Set EXPO_PUBLIC_USDA_API_KEY in frontend/.env');
+    return null;
+  }
+  return apiKey;
+}
+
 async function fetchUsdaMicronutrientsByFdcId(fdcId: number): Promise<Micronutrients | null> {
   try {
-    const response = await fetch(`${USDA_FOOD_DETAILS_URL}/${fdcId}?api_key=${USDA_API_KEY}`);
+    const apiKey = getUsdaApiKey();
+    if (!apiKey) {
+      return null;
+    }
+
+    const response = await fetch(`${USDA_FOOD_DETAILS_URL}/${fdcId}?api_key=${apiKey}`);
     if (!response.ok) {
       return null;
     }
@@ -175,8 +188,13 @@ export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
   }
 
   try {
+    const apiKey = getUsdaApiKey();
+    if (!apiKey) {
+      return [];
+    }
+
     const params = new URLSearchParams({
-      api_key: USDA_API_KEY,
+      api_key: apiKey,
       query: query.trim(),
       pageSize: '20',
       dataType: 'Foundation,SR Legacy', // Prefer whole foods over branded
