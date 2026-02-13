@@ -105,6 +105,8 @@ const bodyPartAliases: Record<string, CanonicalBodyPart> = {
   calves: 'calves',
   triceps: 'triceps',
   biceps: 'biceps',
+  forearms: 'forearms',
+  forearm: 'forearms',
   'abs/core': 'absCore',
   'abs / core': 'absCore',
   abs: 'absCore',
@@ -140,6 +142,9 @@ function inferBodyPartFromExerciseName(name: string): CanonicalBodyPart | null {
   }
   if (/(calf)/.test(normalized)) {
     return 'calves';
+  }
+  if (/(forearm|wrist\s*curl|reverse\s*curl|wrist\s*roller|grip|farmer'?s\s*carry)/.test(normalized)) {
+    return 'forearms';
   }
   if (/(bicep|curl|preacher|hammer)/.test(normalized)) {
     return 'biceps';

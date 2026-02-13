@@ -13,6 +13,7 @@ export type CanonicalBodyPart =
   | 'calves'
   | 'triceps'
   | 'biceps'
+  | 'forearms'
   | 'absCore';
 
 type WeeklyMuscleMapProps = {
@@ -28,6 +29,7 @@ const BODY_PART_LABELS: Record<CanonicalBodyPart, string> = {
   calves: 'Calves',
   triceps: 'Triceps',
   biceps: 'Biceps',
+  forearms: 'Forearms',
   absCore: 'Abs/Core',
 };
 
@@ -42,6 +44,7 @@ const MASK_IMAGE_BY_PART: Record<CanonicalBodyPart, number> = {
   calves: require('../../assets/muscle-masks/calves.png'),
   triceps: require('../../assets/muscle-masks/triceps.png'),
   biceps: require('../../assets/muscle-masks/biceps.png'),
+  forearms: require('../../assets/muscle-masks/forearms.png'),
   absCore: require('../../assets/muscle-masks/absCore.png'),
 };
 
