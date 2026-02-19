@@ -36,16 +36,16 @@ const BODY_PART_LABELS: Record<CanonicalBodyPart, string> = {
 const MUSCLE_IMAGE = require('../../assets/Male_Transparent.png');
 
 const MASK_IMAGE_BY_PART: Record<CanonicalBodyPart, number> = {
-  chest: require('../../assets/muscle-masks/chest.png'),
-  back: require('../../assets/muscle-masks/back.png'),
-  shoulders: require('../../assets/muscle-masks/shoulders.png'),
-  quads: require('../../assets/muscle-masks/quads.png'),
-  hamsGlutes: require('../../assets/muscle-masks/hamsGlutes.png'),
-  calves: require('../../assets/muscle-masks/calves.png'),
-  triceps: require('../../assets/muscle-masks/triceps.png'),
-  biceps: require('../../assets/muscle-masks/biceps.png'),
-  forearms: require('../../assets/muscle-masks/forearms.png'),
-  absCore: require('../../assets/muscle-masks/absCore.png'),
+  chest: require('../../assets/muscle-masks/male/chest.png'),
+  back: require('../../assets/muscle-masks/male/back.png'),
+  shoulders: require('../../assets/muscle-masks/male/shoulders.png'),
+  quads: require('../../assets/muscle-masks/male/quads.png'),
+  hamsGlutes: require('../../assets/muscle-masks/male/hamsGlutes.png'),
+  calves: require('../../assets/muscle-masks/male/calves.png'),
+  triceps: require('../../assets/muscle-masks/male/triceps.png'),
+  biceps: require('../../assets/muscle-masks/male/biceps.png'),
+  forearms: require('../../assets/muscle-masks/male/forearms.png'),
+  absCore: require('../../assets/muscle-masks/male/absCore.png'),
 };
 
 export function WeeklyMuscleMap({ bodyPartCounts }: WeeklyMuscleMapProps) {

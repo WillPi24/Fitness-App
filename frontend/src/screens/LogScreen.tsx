@@ -301,6 +301,7 @@ export function LogScreen() {
     activeWorkout && activeWorkout.date === selectedDate ? activeWorkout : null;
   const activeWorkoutForOtherDay =
     activeWorkout && activeWorkout.date !== selectedDate ? activeWorkout : null;
+  const isSelectedDateToday = selectedDate === todayIso;
 
   const elapsedMs = activeWorkout ? timerTick - activeWorkout.startedAt : 0;
 
@@ -347,6 +348,9 @@ export function LogScreen() {
   };
 
   const handleStartWorkout = () => {
+    if (!isSelectedDateToday) {
+      return;
+    }
     clearError();
     startWorkout(selectedDate);
   };
@@ -652,14 +656,16 @@ export function LogScreen() {
           ) : null}
 
           {!activeWorkoutForSelected && !activeWorkoutForOtherDay ? (
-            <View style={styles.emptyWorkout}>
-              <Text style={styles.emptyText}>No workout in progress.</Text>
-              <View style={styles.actionRow}>
-                <Pressable style={styles.primaryButton} onPress={handleStartWorkout}>
-                  <Text style={styles.primaryButtonText}>Start workout</Text>
-                </Pressable>
+            isSelectedDateToday ? (
+              <View style={styles.emptyWorkout}>
+                <Text style={styles.emptyText}>No workout in progress.</Text>
+                <View style={styles.actionRow}>
+                  <Pressable style={styles.primaryButton} onPress={handleStartWorkout}>
+                    <Text style={styles.primaryButtonText}>Start workout</Text>
+                  </Pressable>
+                </View>
               </View>
-            </View>
+            ) : null
           ) : activeWorkoutForSelected ? (
             <View style={styles.activeWorkout}>
               {activeWorkoutForSelected.exercises.length === 0 ? (

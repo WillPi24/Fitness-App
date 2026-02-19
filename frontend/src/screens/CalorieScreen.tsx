@@ -174,6 +174,7 @@ export function CalorieScreen() {
   const selectedDateObj = useMemo(() => parseISODate(selectedDate), [selectedDate]);
   const monthLabel = useMemo(() => formatMonthYear(selectedDateObj), [selectedDateObj]);
   const selectedDateLabel = useMemo(() => formatShortDate(selectedDateObj), [selectedDateObj]);
+  const isSelectedDateToday = selectedDate === todayIso;
 
   const weekDates = useMemo(() => {
     const start = startOfWeek(selectedDateObj);
@@ -326,6 +327,9 @@ export function CalorieScreen() {
   }, [simpleSearchEnabled]);
 
   const handleAddMeal = () => {
+    if (!isSelectedDateToday) {
+      return;
+    }
     const mealId = createTemporaryMealId();
     setCurrentMealId(mealId);
     startNewEntry(mealId);
@@ -335,6 +339,9 @@ export function CalorieScreen() {
   };
 
   const handleAddFoodToMeal = (mealId: string) => {
+    if (!isSelectedDateToday) {
+      return;
+    }
     setCurrentMealId(mealId);
     startNewEntry(mealId);
     setSearchQuery('');
@@ -455,7 +462,7 @@ export function CalorieScreen() {
   };
 
   const handleSaveEntry = () => {
-    if (isHydratingMicronutrients) {
+    if (isHydratingMicronutrients || !isSelectedDateToday) {
       return;
     }
     saveFoodEntry(selectedDate);
@@ -577,6 +584,9 @@ export function CalorieScreen() {
   };
 
   const handleUseSavedMeal = (meal: SavedMeal) => {
+    if (!isSelectedDateToday) {
+      return;
+    }
     if (currentMealId) {
       addSavedMealToDay(meal.id, selectedDate, currentMealId);
       handleCloseSavedMeals();
@@ -845,10 +855,12 @@ export function CalorieScreen() {
           ))
         )}
 
-        <Pressable style={styles.addToMealButton} onPress={() => handleAddFoodToMeal(meal.id)}>
-          <Feather name="plus" size={16} color={colors.accent} />
-          <Text style={styles.addToMealText}>Add food</Text>
-        </Pressable>
+        {isSelectedDateToday ? (
+          <Pressable style={styles.addToMealButton} onPress={() => handleAddFoodToMeal(meal.id)}>
+            <Feather name="plus" size={16} color={colors.accent} />
+            <Text style={styles.addToMealText}>Add food</Text>
+          </Pressable>
+        ) : null}
       </Card>
     );
   };
@@ -1738,10 +1750,12 @@ export function CalorieScreen() {
         <View style={styles.mealsSection}>
           <View style={styles.mealsSectionHeader}>
             <Text style={styles.sectionTitle}>Meals</Text>
-            <Pressable style={styles.addMealButton} onPress={handleAddMeal}>
-              <Feather name="plus" size={18} color="#fff" />
-              <Text style={styles.addMealButtonText}>Add Meal</Text>
-            </Pressable>
+            {isSelectedDateToday ? (
+              <Pressable style={styles.addMealButton} onPress={handleAddMeal}>
+                <Feather name="plus" size={18} color="#fff" />
+                <Text style={styles.addMealButtonText}>Add Meal</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           {isLoading ? (
@@ -1750,7 +1764,11 @@ export function CalorieScreen() {
             </Card>
           ) : !dayData || dayData.meals.length === 0 ? (
             <Card>
-              <Text style={styles.emptyText}>No meals logged yet. Tap "Add Meal" to get started.</Text>
+              <Text style={styles.emptyText}>
+                {isSelectedDateToday
+                  ? 'No meals logged yet. Tap "Add Meal" to get started.'
+                  : 'No meals logged for this day.'}
+              </Text>
             </Card>
           ) : (
             dayData.meals.map(renderMealCard)

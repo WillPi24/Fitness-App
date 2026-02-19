@@ -4,10 +4,12 @@
 Usage:
   cd frontend
   python scripts/mask_editor.py
+  python scripts/mask_editor.py --variant female
 """
 
 from __future__ import annotations
 
+import argparse
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,7 +34,7 @@ class MaskDocument:
 
 
 class MaskEditorApp:
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(self, root: tk.Tk, variant: str = "male", base_image_name: str | None = None) -> None:
         self.root = root
         self.root.title("Muscle Mask Editor")
         self.root.geometry("1400x900")
@@ -40,8 +42,10 @@ class MaskEditorApp:
 
         self.project_dir = Path(__file__).resolve().parents[1]
         self.assets_dir = self.project_dir / "assets"
-        self.masks_dir = self.assets_dir / "muscle-masks"
-        self.base_image_path = self.assets_dir / "Male_Transparent.png"
+        self.mask_variant = variant
+        self.masks_dir = self.assets_dir / "muscle-masks" / self.mask_variant
+        default_base_name = "Male_Transparent.png" if self.mask_variant == "male" else "Female_Transparent.png"
+        self.base_image_path = self.assets_dir / (base_image_name or default_base_name)
 
         if not self.base_image_path.exists():
             raise FileNotFoundError(f"Missing base image: {self.base_image_path}")
@@ -582,8 +586,22 @@ class MaskEditorApp:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Edit muscle mask alpha channels.")
+    parser.add_argument(
+        "--variant",
+        choices=("male", "female"),
+        default="male",
+        help="Mask set variant to edit.",
+    )
+    parser.add_argument(
+        "--base-image",
+        default=None,
+        help="Optional base image filename under frontend/assets (e.g. Female_Transparent.png).",
+    )
+    args = parser.parse_args()
+
     root = tk.Tk()
-    app = MaskEditorApp(root)
+    app = MaskEditorApp(root, variant=args.variant, base_image_name=args.base_image)
     try:
         root.mainloop()
     finally:
