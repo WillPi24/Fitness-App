@@ -225,7 +225,8 @@ function CollapsibleSection({
 }
 
 export function ProgressScreen() {
-  const { workouts, isLoading, error, clearError } = useWorkoutStore();
+  const { workouts, isLoading, error, clearError, seedDemoWorkouts, clearDemoWorkouts } =
+    useWorkoutStore();
   const insets = useSafeAreaInsets();
 
   const [expandedSections, setExpandedSections] = useState<Record<SectionKey, boolean>>({
@@ -477,6 +478,19 @@ export function ProgressScreen() {
         <Text style={styles.subtitle}>Lifetime trends for strength, volume, and training balance.</Text>
 
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+        {!isLoading && __DEV__ ? (
+          <Card>
+            <Pressable style={styles.devSeedButton} onPress={seedDemoWorkouts}>
+              <Text style={styles.devSeedButtonText}>Load Sample Progress Data</Text>
+            </Pressable>
+            <Pressable style={styles.devClearButton} onPress={clearDemoWorkouts}>
+              <Text style={styles.devClearButtonText}>Clear Sample Data</Text>
+            </Pressable>
+            <Text style={styles.devSeedHint}>
+              Dev-only tools. Sample entries can be added and removed without deleting your own logs.
+            </Text>
+          </Card>
+        ) : null}
 
         {isLoading ? (
           <Card>
@@ -735,5 +749,39 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.body,
     color: colors.muted,
+  },
+  devSeedButton: {
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+    borderRadius: 12,
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  devSeedButtonText: {
+    ...typography.label,
+    color: colors.accent,
+  },
+  devSeedHint: {
+    ...typography.body,
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: spacing.xs,
+  },
+  devClearButton: {
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    borderRadius: 12,
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  devClearButtonText: {
+    ...typography.label,
+    color: colors.danger,
   },
 });

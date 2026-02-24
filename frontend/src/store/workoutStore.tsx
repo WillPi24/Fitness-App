@@ -57,6 +57,8 @@ export type WorkoutCompletionPreview = {
 type WorkoutContextValue = {
   workouts: WorkoutSession[];
   activeWorkout: DraftWorkout | null;
+  seedDemoWorkouts: () => void;
+  clearDemoWorkouts: () => void;
   startWorkout: (date: string) => void;
   discardActiveWorkout: () => void;
   addExercise: (date: string, name: string) => void;
@@ -74,6 +76,7 @@ type WorkoutContextValue = {
 
 const WORKOUTS_KEY = 'fitnessapp.workouts.v2';
 const ACTIVE_WORKOUT_KEY = 'fitnessapp.activeWorkout.v1';
+const DEMO_WORKOUT_ID_PREFIX = 'demo-workout-';
 
 const WorkoutContext = createContext<WorkoutContextValue | undefined>(undefined);
 
@@ -112,6 +115,91 @@ function createDraftWorkout(date: string): DraftWorkout {
     startedAt: Date.now(),
     exercises: [],
   };
+}
+
+function formatISODate(date: Date) {
+  return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(
+    2,
+    '0',
+  )}`;
+}
+
+function createDemoExercise(
+  workoutIndex: number,
+  exerciseIndex: number,
+  name: string,
+  sets: Array<{ weight: number; reps: number }>,
+): WorkoutExercise {
+  return {
+    id: `${DEMO_WORKOUT_ID_PREFIX}${workoutIndex}-exercise-${exerciseIndex}`,
+    name,
+    sets: sets.map((set, setIndex) => ({
+      id: `${DEMO_WORKOUT_ID_PREFIX}${workoutIndex}-exercise-${exerciseIndex}-set-${setIndex}`,
+      weight: set.weight,
+      reps: set.reps,
+    })),
+  };
+}
+
+function isDemoWorkout(workout: WorkoutSession) {
+  return workout.id.startsWith(DEMO_WORKOUT_ID_PREFIX);
+}
+
+function createDemoWorkouts(): WorkoutSession[] {
+  const now = new Date();
+  now.setHours(12, 0, 0, 0);
+
+  const daysAgoOffsets = [170, 157, 144, 131, 118, 105, 92, 79, 66, 53, 40, 27, 20, 13, 6];
+
+  const workouts = daysAgoOffsets.map((daysAgo, index) => {
+    const workoutDate = new Date(now);
+    workoutDate.setDate(workoutDate.getDate() - daysAgo);
+
+    const bench = 55 + index * 2;
+    const row = 60 + index * 2;
+    const squat = 85 + index * 3;
+    const rdl = 90 + index * 3;
+    const overheadPress = 35 + index;
+
+    const startedAt = workoutDate.getTime();
+
+    return {
+      id: `${DEMO_WORKOUT_ID_PREFIX}${index}`,
+      date: formatISODate(workoutDate),
+      startedAt,
+      endedAt: startedAt + 62 * 60 * 1000,
+      exercises: [
+        createDemoExercise(index, 0, 'Bench Press', [
+          { weight: bench, reps: 8 },
+          { weight: bench, reps: 8 },
+          { weight: bench - 2, reps: 10 },
+        ]),
+        createDemoExercise(index, 1, 'Barbell Row', [
+          { weight: row, reps: 10 },
+          { weight: row, reps: 8 },
+          { weight: row - 2, reps: 10 },
+        ]),
+        createDemoExercise(index, 2, 'Back Squat', [
+          { weight: squat, reps: 6 },
+          { weight: squat, reps: 6 },
+          { weight: squat - 5, reps: 8 },
+        ]),
+        createDemoExercise(index, 3, 'Romanian Deadlift', [
+          { weight: rdl, reps: 8 },
+          { weight: rdl, reps: 8 },
+          { weight: rdl - 5, reps: 10 },
+        ]),
+        createDemoExercise(index, 4, 'Overhead Press', [
+          { weight: overheadPress, reps: 8 },
+          { weight: overheadPress, reps: 8 },
+          { weight: overheadPress - 2, reps: 10 },
+        ]),
+      ],
+      personalRecords: [],
+    } satisfies WorkoutSession;
+  });
+
+  return workouts.sort((a, b) => b.endedAt - a.endedAt);
 }
 
 function isWorkoutSet(value: unknown): value is WorkoutSet {
@@ -520,10 +608,32 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     setError(null);
   };
 
+  const seedDemoWorkouts = () => {
+    if (!__DEV__) {
+      return;
+    }
+    setWorkouts((prev) => {
+      const userWorkouts = prev.filter((workout) => !isDemoWorkout(workout));
+      return [...createDemoWorkouts(), ...userWorkouts].sort((a, b) => b.endedAt - a.endedAt);
+    });
+    setActiveWorkout(null);
+    setError(null);
+  };
+
+  const clearDemoWorkouts = () => {
+    if (!__DEV__) {
+      return;
+    }
+    setWorkouts((prev) => prev.filter((workout) => !isDemoWorkout(workout)));
+    setError(null);
+  };
+
   const value = useMemo(
     () => ({
       workouts,
       activeWorkout,
+      seedDemoWorkouts,
+      clearDemoWorkouts,
       startWorkout,
       discardActiveWorkout,
       addExercise,
@@ -543,6 +653,8 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
       activeWorkout,
       isLoading,
       error,
+      seedDemoWorkouts,
+      clearDemoWorkouts,
     ]
   );
 
