@@ -83,11 +83,28 @@ export function RunScreen() {
   const [timerTick, setTimerTick] = useState(Date.now());
   const [indoorDistance, setIndoorDistance] = useState('');
   const [confirmAction, setConfirmAction] = useState<'finish' | 'discard' | null>(null);
+  const [showIndoorPicker, setShowIndoorPicker] = useState(false);
+  const [indoorActivity, setIndoorActivity] = useState('Treadmill');
+  const [isEditingIndoorDistance, setIsEditingIndoorDistance] = useState(false);
+
+  const indoorOptions = useMemo(
+    () => [
+      'Treadmill',
+      'Elliptical',
+      'Indoor Bike',
+      'Rowing Machine',
+      'Stair Master',
+      'Indoor Track',
+      'Other',
+    ],
+    []
+  );
 
   useEffect(() => {
     if (!activeRun || activeRun.isPaused) {
       return;
     }
+    setTimerTick(Date.now());
     const interval = setInterval(() => {
       setTimerTick(Date.now());
     }, 1000);
@@ -95,11 +112,12 @@ export function RunScreen() {
   }, [activeRun?.id, activeRun?.isPaused]);
 
   useEffect(() => {
-    if (activeRun?.type === 'indoor') {
-      const meters = activeRun.manualDistanceMeters ?? 0;
-      setIndoorDistance(meters > 0 ? (meters / 1000).toFixed(2) : '');
+    if (!activeRun || activeRun.type !== 'indoor' || isEditingIndoorDistance) {
+      return;
     }
-  }, [activeRun?.id, activeRun?.manualDistanceMeters, activeRun?.type]);
+    const meters = activeRun.manualDistanceMeters ?? 0;
+    setIndoorDistance(meters > 0 ? (meters / 1000).toFixed(2) : '');
+  }, [activeRun?.id, activeRun?.manualDistanceMeters, activeRun?.type, isEditingIndoorDistance]);
 
   const elapsedMs = useMemo(() => getElapsedMs(activeRun, timerTick), [activeRun, timerTick]);
   const distanceMeters = useMemo(() => {
@@ -161,7 +179,7 @@ export function RunScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.title}>Cardio tracker</Text>
-        <Text style={styles.subtitle}>Track outdoor runs with GPS or log indoor distance.</Text>
+        <Text style={styles.subtitle}>Track outdoor runs with GPS or indoor cardio by logging distance.</Text>
 
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
@@ -171,141 +189,192 @@ export function RunScreen() {
           </Card>
         ) : (
           <>
-            <Card style={styles.mapCard}>
-              {activeRun?.type === 'outdoor' && routeCoords.length > 0 && lastPoint ? (
-                <MapView
-                  style={styles.map}
-                  showsUserLocation
-                  followsUserLocation
-                  initialRegion={{
-                    latitude: lastPoint.latitude,
-                    longitude: lastPoint.longitude,
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
-                  }}
-                >
-                  <Polyline coordinates={routeCoords} strokeColor={colors.accent} strokeWidth={4} />
-                </MapView>
-              ) : (
-                <View style={styles.mapPlaceholder}>
-                  <Text style={styles.mapPlaceholderTitle}>
-                    {activeRun?.type === 'indoor' ? 'Indoor run' : 'No GPS path yet'}
-                  </Text>
-                  <Text style={styles.mapPlaceholderText}>
-                    {activeRun
-                      ? 'Move outside with GPS enabled to see your route.'
-                      : 'Start an outdoor run to display your route.'}
-                  </Text>
-                </View>
-              )}
-            </Card>
-
-            <Card style={styles.statsCard}>
-              <View style={styles.statRow}>
-                <View>
-                  <Text style={styles.statLabel}>Duration</Text>
-                  <Text style={styles.statValue}>{formatDuration(elapsedMs)}</Text>
-                </View>
-                <View>
-                  <Text style={styles.statLabel}>Distance</Text>
-                  <Text style={styles.statValue}>{formatDistanceKm(distanceMeters)}</Text>
-                </View>
-                <View>
-                  <Text style={styles.statLabel}>Pace</Text>
-                  <Text style={styles.statValue}>{pace}</Text>
-                </View>
-              </View>
-              <Text style={styles.statHint}>
-                {activeRun
-                  ? activeRun.type === 'outdoor'
-                    ? 'GPS updates continue in the background.'
-                    : 'Enter your treadmill distance below.'
-                  : 'Choose an outdoor or indoor run to begin.'}
-              </Text>
-            </Card>
-
             {!activeRun ? (
-              <Card>
-                <Text style={styles.sectionTitle}>Start a run</Text>
-                <View style={styles.segmented}>
-                  <Pressable
-                    style={[
-                      styles.segment,
-                      runType === 'outdoor' && styles.segmentActive,
-                    ]}
-                    onPress={() => setRunType('outdoor')}
-                  >
-                    <Text
+              <>
+                <Card>
+                  <Text style={styles.sectionTitle}>Start a run</Text>
+                  <View style={styles.segmented}>
+                    <Pressable
                       style={[
-                        styles.segmentText,
-                        runType === 'outdoor' && styles.segmentTextActive,
+                        styles.segment,
+                        runType === 'outdoor' && styles.segmentActive,
                       ]}
+                      onPress={() => setRunType('outdoor')}
                     >
-                      Outdoor (GPS)
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[
-                      styles.segment,
-                      runType === 'indoor' && styles.segmentActive,
-                    ]}
-                    onPress={() => setRunType('indoor')}
-                  >
-                    <Text
+                      <Text
+                        style={[
+                          styles.segmentText,
+                          runType === 'outdoor' && styles.segmentTextActive,
+                        ]}
+                      >
+                        Outdoor
+                      </Text>
+                    </Pressable>
+                    <Pressable
                       style={[
-                        styles.segmentText,
-                        runType === 'indoor' && styles.segmentTextActive,
+                        styles.segment,
+                        runType === 'indoor' && styles.segmentActive,
                       ]}
+                      onPress={() => setRunType('indoor')}
                     >
-                      Indoor (Treadmill)
-                    </Text>
-                  </Pressable>
-                </View>
-                <Pressable style={styles.primaryButton} onPress={handleStart}>
-                  <Text style={styles.primaryButtonText}>Start run</Text>
-                </Pressable>
-              </Card>
-            ) : (
-              <Card>
-                <Text style={styles.sectionTitle}>
-                  {activeRun.type === 'outdoor' ? 'Outdoor run' : 'Indoor run'}
-                </Text>
-                {activeRun.type === 'indoor' ? (
-                  <View>
-                    <Text style={styles.inputLabel}>Distance (km)</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={indoorDistance}
-                      onChangeText={handleIndoorDistanceChange}
-                      placeholder="0.00"
-                      keyboardType="decimal-pad"
-                      placeholderTextColor={colors.muted}
-                    />
+                      <Text
+                        style={[
+                          styles.segmentText,
+                          runType === 'indoor' && styles.segmentTextActive,
+                        ]}
+                      >
+                        Indoor
+                      </Text>
+                    </Pressable>
                   </View>
-                ) : null}
-                <View
-                  style={[
-                    styles.controlRow,
-                    activeRun.type === 'indoor' && styles.controlRowSpaced,
-                  ]}
-                >
-                  {activeRun.isPaused ? (
-                    <Pressable style={styles.controlButton} onPress={resumeRun}>
-                      <Text style={styles.controlButtonText}>Resume</Text>
-                    </Pressable>
-                  ) : (
-                    <Pressable style={styles.controlButton} onPress={pauseRun}>
-                      <Text style={styles.controlButtonText}>Pause</Text>
-                    </Pressable>
-                  )}
-                  <Pressable style={styles.controlButton} onPress={() => setConfirmAction('finish')}>
-                    <Text style={styles.controlButtonText}>Finish</Text>
+                  {runType === 'indoor' ? (
+                    <View style={styles.indoorRow}>
+                      <Text style={styles.indoorLabel}>Indoor activity</Text>
+                      <Pressable
+                        style={styles.indoorValueButton}
+                        onPress={() => setShowIndoorPicker(true)}
+                      >
+                        <Text style={styles.indoorValueText}>{indoorActivity}</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                  <Pressable style={styles.primaryButton} onPress={handleStart}>
+                    <Text style={styles.primaryButtonText}>Start run</Text>
                   </Pressable>
-                </View>
-                <Pressable style={styles.tertiaryButton} onPress={() => setConfirmAction('discard')}>
-                  <Text style={styles.tertiaryButtonText}>Discard run</Text>
-                </Pressable>
-              </Card>
+                </Card>
+
+                <Card style={styles.statsCard}>
+                  <View style={styles.statRow}>
+                    <View>
+                      <Text style={styles.statLabel}>Duration</Text>
+                      <Text style={styles.statValue}>{formatDuration(elapsedMs)}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.statLabel}>Distance</Text>
+                      <Text style={styles.statValue}>{formatDistanceKm(distanceMeters)}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.statLabel}>Pace</Text>
+                      <Text style={styles.statValue}>{pace}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.statHint}>Choose an outdoor or indoor exercise to begin.</Text>
+                </Card>
+
+                <Card style={styles.mapCard}>
+                  <View style={styles.mapPlaceholder}>
+                    <Text style={styles.mapPlaceholderTitle}>No GPS path yet</Text>
+                    <Text style={styles.mapPlaceholderText}>
+                      Start an outdoor run to display your route.
+                    </Text>
+                  </View>
+                </Card>
+              </>
+            ) : (
+              <>
+                <Card style={styles.statsCard}>
+                  <View style={styles.statRow}>
+                    <View>
+                      <Text style={styles.statLabel}>Duration</Text>
+                      <Text style={styles.statValue}>{formatDuration(elapsedMs)}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.statLabel}>Distance</Text>
+                      <Text style={styles.statValue}>{formatDistanceKm(distanceMeters)}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.statLabel}>Pace</Text>
+                      <Text style={styles.statValue}>{pace}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.statHint}>
+                    {activeRun.type === 'outdoor'
+                      ? 'GPS updates continue in the background.'
+                      : 'Enter your distance below.'}
+                  </Text>
+                </Card>
+
+                {activeRun.type !== 'indoor' ? (
+                  <Card style={styles.mapCard}>
+                    {activeRun?.type === 'outdoor' && routeCoords.length > 0 && lastPoint ? (
+                      <MapView
+                        style={styles.map}
+                        showsUserLocation
+                        followsUserLocation
+                        initialRegion={{
+                          latitude: lastPoint.latitude,
+                          longitude: lastPoint.longitude,
+                          latitudeDelta: 0.01,
+                          longitudeDelta: 0.01,
+                        }}
+                      >
+                        <Polyline coordinates={routeCoords} strokeColor={colors.accent} strokeWidth={4} />
+                      </MapView>
+                    ) : (
+                      <View style={styles.mapPlaceholder}>
+                        <Text style={styles.mapPlaceholderTitle}>No GPS path yet</Text>
+                        <Text style={styles.mapPlaceholderText}>
+                          {activeRun
+                            ? 'Move outside with GPS enabled to see your route.'
+                            : 'Start an outdoor run to display your route.'}
+                        </Text>
+                      </View>
+                    )}
+                  </Card>
+                ) : null}
+
+                <Card>
+                  <Text style={styles.sectionTitle}>
+                    {activeRun.type === 'outdoor'
+                      ? 'Outdoor run'
+                      : `Indoor run · ${indoorActivity}`}
+                  </Text>
+                  {activeRun.type === 'indoor' ? (
+                    <View>
+                      <Text style={styles.inputLabel}>Distance (km)</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={indoorDistance}
+                        onChangeText={handleIndoorDistanceChange}
+                        onFocus={() => setIsEditingIndoorDistance(true)}
+                        onBlur={() => {
+                          setIsEditingIndoorDistance(false);
+                          const numeric = Number(indoorDistance);
+                          if (Number.isFinite(numeric) && numeric >= 0) {
+                            setIndoorDistance(numeric > 0 ? numeric.toFixed(2) : '');
+                            updateIndoorDistance(numeric * 1000);
+                          }
+                        }}
+                        placeholder="0.00"
+                        keyboardType="decimal-pad"
+                        placeholderTextColor={colors.muted}
+                      />
+                    </View>
+                  ) : null}
+                  <View
+                    style={[
+                      styles.controlRow,
+                      activeRun.type === 'indoor' && styles.controlRowSpaced,
+                    ]}
+                  >
+                    {activeRun.isPaused ? (
+                      <Pressable style={styles.controlButton} onPress={resumeRun}>
+                        <Text style={styles.controlButtonText}>Resume</Text>
+                      </Pressable>
+                    ) : (
+                      <Pressable style={styles.controlButton} onPress={pauseRun}>
+                        <Text style={styles.controlButtonText}>Pause</Text>
+                      </Pressable>
+                    )}
+                    <Pressable style={styles.controlButton} onPress={() => setConfirmAction('finish')}>
+                      <Text style={styles.controlButtonText}>Finish</Text>
+                    </Pressable>
+                  </View>
+                  <Pressable style={styles.tertiaryButton} onPress={() => setConfirmAction('discard')}>
+                    <Text style={styles.tertiaryButtonText}>Discard run</Text>
+                  </Pressable>
+                </Card>
+              </>
             )}
 
             <Card>
@@ -331,6 +400,42 @@ export function RunScreen() {
           </>
         )}
       </ScrollView>
+
+      <Modal
+        visible={showIndoorPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowIndoorPicker(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Card style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Choose indoor activity</Text>
+            <View style={styles.modalList}>
+              {indoorOptions.map((option) => {
+                const isSelected = option === indoorActivity;
+                return (
+                  <Pressable
+                    key={option}
+                    style={[styles.modalOption, isSelected && styles.modalOptionActive]}
+                    onPress={() => {
+                      setIndoorActivity(option);
+                      setShowIndoorPicker(false);
+                    }}
+                  >
+                    <Text style={styles.modalOptionText}>{option}</Text>
+                    {isSelected ? <Text style={styles.modalOptionBadge}>Selected</Text> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalGhostButton} onPress={() => setShowIndoorPicker(false)}>
+                <Text style={styles.modalGhostText}>Close</Text>
+              </Pressable>
+            </View>
+          </Card>
+        </View>
+      </Modal>
 
       <Modal visible={confirmAction !== null} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
@@ -419,6 +524,36 @@ const styles = StyleSheet.create({
   statHint: {
     ...typography.body,
     color: colors.muted,
+  },
+  indoorRow: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+  },
+  indoorLabel: {
+    ...typography.label,
+    color: colors.muted,
+  },
+  indoorValue: {
+    marginTop: spacing.xs,
+  },
+  indoorValueButton: {
+    marginTop: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.accentSoft,
+  },
+  indoorValueText: {
+    ...typography.body,
+    color: colors.text,
   },
   sectionTitle: {
     ...typography.headline,
@@ -561,6 +696,31 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: spacing.sm,
     marginTop: spacing.sm,
+  },
+  modalList: {
+    gap: spacing.sm,
+  },
+  modalOption: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalOptionActive: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  modalOptionText: {
+    ...typography.body,
+    color: colors.text,
+  },
+  modalOptionBadge: {
+    ...typography.label,
+    color: colors.accent,
   },
   modalGhostButton: {
     borderWidth: 1,
