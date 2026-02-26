@@ -856,21 +856,27 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
     }
     const savedMealName = savedMeal.name.trim();
 
-    const foodItems: FoodItem[] = savedMeal.foods.map((food) => ({
-      id: generateId(),
-      name: food.name,
-      brand: food.brand,
-      calories: food.calories,
-      protein: food.protein,
-      carbs: food.carbs,
-      fat: food.fat,
-      servingSize: food.servingSize,
-      servingUnit: food.servingUnit || 'g',
-      servings: food.servings,
-      micronutrients: normalizeMicronutrients(food.micronutrients),
-      hasMicronutrientData: food.hasMicronutrientData,
-      timestamp: Date.now(),
-    }));
+    const foodItems: FoodItem[] = savedMeal.foods.map((food) => {
+      const totalMicronutrients = scaleMicronutrients(
+        normalizeMicronutrients(food.micronutrients),
+        food.servings
+      );
+      return {
+        id: generateId(),
+        name: food.name,
+        brand: food.brand,
+        calories: Math.round(food.calories * food.servings),
+        protein: Math.round(food.protein * food.servings),
+        carbs: Math.round(food.carbs * food.servings),
+        fat: Math.round(food.fat * food.servings),
+        servingSize: food.servingSize,
+        servingUnit: food.servingUnit || 'g',
+        servings: food.servings,
+        micronutrients: totalMicronutrients,
+        hasMicronutrientData: food.hasMicronutrientData && hasMicronutrients(totalMicronutrients),
+        timestamp: Date.now(),
+      };
+    });
 
     setCalorieDays((prev) => {
       const existingDay = prev.find((day) => day.date === date);

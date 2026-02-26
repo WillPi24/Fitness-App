@@ -1,8 +1,9 @@
 import { Feather } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -128,6 +129,7 @@ export function CalorieScreen() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [simpleSearchEnabled, setSimpleSearchEnabled] = useState(true);
   const [savedMealsOpen, setSavedMealsOpen] = useState(false);
+  const [pendingSavedMealDelete, setPendingSavedMealDelete] = useState<{ id: string; name: string } | null>(null);
   const [savedMealEditMode, setSavedMealEditMode] = useState<'list' | 'create' | 'edit'>('list');
   const [editingSavedMeal, setEditingSavedMeal] = useState<SavedMeal | null>(null);
   const [savedMealName, setSavedMealName] = useState('');
@@ -171,6 +173,17 @@ export function CalorieScreen() {
   >(null);
   const [editServingSizeInput, setEditServingSizeInput] = useState('');
   const [editServingsInput, setEditServingsInput] = useState('');
+  const [editNameInput, setEditNameInput] = useState('');
+  const [editBrandInput, setEditBrandInput] = useState('');
+  const [editCaloriesInput, setEditCaloriesInput] = useState('');
+  const [editProteinInput, setEditProteinInput] = useState('');
+  const [editCarbsInput, setEditCarbsInput] = useState('');
+  const [editFatInput, setEditFatInput] = useState('');
+  const [editBaseCalories, setEditBaseCalories] = useState<number | null>(null);
+  const [editBaseProtein, setEditBaseProtein] = useState<number | null>(null);
+  const [editBaseCarbs, setEditBaseCarbs] = useState<number | null>(null);
+  const [editBaseFat, setEditBaseFat] = useState<number | null>(null);
+  const confirmFadeAnim = useRef(new Animated.Value(0)).current;
   const searchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedDateObj = useMemo(() => parseISODate(selectedDate), [selectedDate]);
@@ -354,6 +367,7 @@ export function CalorieScreen() {
   const handleSelectSearchResult = async (food: FoodSearchResult) => {
     const servingSize = food.servingSize > 0 ? food.servingSize : 100;
     const servingScale = servingSize / 100;
+    const scaledMicronutrients = scaleMicronutrients(normalizeMicronutrients(food.micronutrients), servingScale);
     updateDraftEntry('name', food.name);
     updateDraftEntry('calories', String(Math.round(food.calories * servingScale)));
     updateDraftEntry('protein', String(Math.round(food.protein * servingScale)));
@@ -367,7 +381,7 @@ export function CalorieScreen() {
     updateDraftEntry('baseProtein', food.protein);
     updateDraftEntry('baseCarbs', food.carbs);
     updateDraftEntry('baseFat', food.fat);
-    updateDraftEntry('micronutrients', { ...food.micronutrients });
+    updateDraftEntry('micronutrients', { ...scaledMicronutrients });
     updateDraftEntry('baseMicronutrients', { ...food.micronutrients });
     updateDraftEntry('hasMicronutrientData', food.hasMicronutrientData);
     setFoodPickerOpen(false);
@@ -376,7 +390,11 @@ export function CalorieScreen() {
     if (!food.hasMicronutrientData) {
       const hydrated = await resolveFoodMicronutrients(food);
       if (hydrated.hasMicronutrientData) {
-        updateDraftEntry('micronutrients', { ...hydrated.micronutrients });
+        const scaledHydratedMicronutrients = scaleMicronutrients(
+          normalizeMicronutrients(hydrated.micronutrients),
+          servingScale
+        );
+        updateDraftEntry('micronutrients', { ...scaledHydratedMicronutrients });
         updateDraftEntry('baseMicronutrients', { ...hydrated.micronutrients });
         updateDraftEntry('hasMicronutrientData', true);
       }
@@ -440,6 +458,7 @@ export function CalorieScreen() {
   const handleSelectSuggestion = async (food: FoodSearchResult) => {
     const servingSize = food.servingSize > 0 ? food.servingSize : 100;
     const servingScale = servingSize / 100;
+    const scaledMicronutrients = scaleMicronutrients(normalizeMicronutrients(food.micronutrients), servingScale);
     updateDraftEntry('name', food.name);
     updateDraftEntry('calories', String(Math.round(food.calories * servingScale)));
     updateDraftEntry('protein', String(Math.round(food.protein * servingScale)));
@@ -452,14 +471,18 @@ export function CalorieScreen() {
     updateDraftEntry('baseProtein', food.protein);
     updateDraftEntry('baseCarbs', food.carbs);
     updateDraftEntry('baseFat', food.fat);
-    updateDraftEntry('micronutrients', { ...food.micronutrients });
+    updateDraftEntry('micronutrients', { ...scaledMicronutrients });
     updateDraftEntry('baseMicronutrients', { ...food.micronutrients });
     updateDraftEntry('hasMicronutrientData', food.hasMicronutrientData);
 
     if (!food.hasMicronutrientData) {
       const hydrated = await resolveFoodMicronutrients(food);
       if (hydrated.hasMicronutrientData) {
-        updateDraftEntry('micronutrients', { ...hydrated.micronutrients });
+        const scaledHydratedMicronutrients = scaleMicronutrients(
+          normalizeMicronutrients(hydrated.micronutrients),
+          servingScale
+        );
+        updateDraftEntry('micronutrients', { ...scaledHydratedMicronutrients });
         updateDraftEntry('baseMicronutrients', { ...hydrated.micronutrients });
         updateDraftEntry('hasMicronutrientData', true);
       }
@@ -555,6 +578,7 @@ export function CalorieScreen() {
 
   const handleCloseSavedMeals = () => {
     setSavedMealsOpen(false);
+    setPendingSavedMealDelete(null);
     setSavedMealEditMode('list');
     setEditingSavedMeal(null);
     setSavedMealName('');
@@ -575,20 +599,87 @@ export function CalorieScreen() {
     setSavedMealEditMode('edit');
   };
 
-  const handleSaveSavedMeal = () => {
+  const hydrateSavedMealFoods = useCallback(
+    async (foods: SavedMealFood[]): Promise<SavedMealFood[]> => {
+      const hydratedFoods = await Promise.all(
+        foods.map(async (food) => {
+          if (food.hasMicronutrientData) {
+            return food;
+          }
+
+          const per100Scale = food.servingSize > 0 ? 100 / food.servingSize : 1;
+          const hydrationSeed: FoodSearchResult = {
+            id: `saved-${food.id}`,
+            name: food.name,
+            calories: Math.round(food.calories * per100Scale),
+            protein: Math.round(food.protein * per100Scale),
+            carbs: Math.round(food.carbs * per100Scale),
+            fat: Math.round(food.fat * per100Scale),
+            servingSize: food.servingSize,
+            servingUnit: food.servingUnit,
+            micronutrients: normalizeMicronutrients(food.micronutrients),
+            hasMicronutrientData: false,
+          };
+
+          try {
+            const hydrated = await resolveFoodMicronutrients(hydrationSeed);
+            if (!hydrated.hasMicronutrientData) {
+              return food;
+            }
+            const servingScale = food.servingSize > 0 ? food.servingSize / 100 : 1;
+            const scaledMicronutrients = scaleMicronutrients(
+              normalizeMicronutrients(hydrated.micronutrients),
+              servingScale
+            );
+            return {
+              ...food,
+              micronutrients: scaledMicronutrients,
+              hasMicronutrientData: true,
+            };
+          } catch (err) {
+            console.error('Saved meal hydration failed:', err);
+            return food;
+          }
+        })
+      );
+
+      return hydratedFoods;
+    },
+    [resolveFoodMicronutrients]
+  );
+
+  const handleSaveSavedMeal = useCallback(async () => {
+    const foodsForSave = await hydrateSavedMealFoods(savedMealFoods);
+
     if (savedMealEditMode === 'create') {
-      createSavedMeal(savedMealName, savedMealFoods);
+      createSavedMeal(savedMealName, foodsForSave);
     } else if (savedMealEditMode === 'edit' && editingSavedMeal) {
-      updateSavedMeal(editingSavedMeal.id, savedMealName, savedMealFoods);
+      updateSavedMeal(editingSavedMeal.id, savedMealName, foodsForSave);
     }
     setSavedMealEditMode('list');
     setEditingSavedMeal(null);
     setSavedMealName('');
     setSavedMealFoods([]);
+  }, [
+    createSavedMeal,
+    editingSavedMeal,
+    hydrateSavedMealFoods,
+    savedMealEditMode,
+    savedMealFoods,
+    savedMealName,
+    updateSavedMeal,
+  ]);
+
+  const handleDeleteSavedMeal = (id: string, name: string) => {
+    setPendingSavedMealDelete({ id, name });
   };
 
-  const handleDeleteSavedMeal = (id: string) => {
-    deleteSavedMeal(id);
+  const handleConfirmDeleteSavedMeal = () => {
+    if (!pendingSavedMealDelete) {
+      return;
+    }
+    deleteSavedMeal(pendingSavedMealDelete.id);
+    setPendingSavedMealDelete(null);
   };
 
   const handleUseSavedMeal = (meal: SavedMeal) => {
@@ -607,27 +698,92 @@ export function CalorieScreen() {
     setSearchResults([]);
   };
 
-  const handleSelectFoodForSavedMeal = async (food: FoodSearchResult) => {
-    const resolvedFood = await resolveFoodMicronutrients(food);
-    const servingSize = resolvedFood.servingSize > 0 ? resolvedFood.servingSize : 100;
+  const handleSelectFoodForSavedMeal = (food: FoodSearchResult) => {
+    const servingSize = food.servingSize > 0 ? food.servingSize : 100;
     const servingScale = servingSize / 100;
+    const scaledMicronutrients = scaleMicronutrients(normalizeMicronutrients(food.micronutrients), servingScale);
     const newFood: SavedMealFood = {
       id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-      name: resolvedFood.name,
-      calories: Math.round(resolvedFood.calories * servingScale),
-      protein: Math.round(resolvedFood.protein * servingScale),
-      carbs: Math.round(resolvedFood.carbs * servingScale),
-      fat: Math.round(resolvedFood.fat * servingScale),
+      name: food.name,
+      calories: Math.round(food.calories * servingScale),
+      protein: Math.round(food.protein * servingScale),
+      carbs: Math.round(food.carbs * servingScale),
+      fat: Math.round(food.fat * servingScale),
       servingSize,
-      servingUnit: resolvedFood.servingUnit,
+      servingUnit: food.servingUnit,
       servings: 1,
-      micronutrients: { ...resolvedFood.micronutrients },
-      hasMicronutrientData: resolvedFood.hasMicronutrientData,
+      micronutrients: { ...scaledMicronutrients },
+      hasMicronutrientData: food.hasMicronutrientData,
     };
     setSavedMealFoods((prev) => [...prev, newFood]);
+    setEditingFoodTarget({
+      source: 'saved',
+      foodId: newFood.id,
+      name: newFood.name,
+      brand: newFood.brand,
+      servingSize: newFood.servingSize,
+      servingUnit: newFood.servingUnit,
+      servings: newFood.servings,
+      calories: newFood.calories,
+      protein: newFood.protein,
+      carbs: newFood.carbs,
+      fat: newFood.fat,
+      micronutrients: { ...scaledMicronutrients },
+      hasMicronutrientData: newFood.hasMicronutrientData,
+    });
+    setEditNameInput(newFood.name);
+    setEditBrandInput(newFood.brand || '');
+    setEditCaloriesInput(String(newFood.calories));
+    setEditProteinInput(String(newFood.protein));
+    setEditCarbsInput(String(newFood.carbs));
+    setEditFatInput(String(newFood.fat));
+    const per100Scale = newFood.servingSize > 0 ? newFood.servingSize / 100 : 1;
+    setEditBaseCalories(per100Scale > 0 ? newFood.calories / per100Scale : null);
+    setEditBaseProtein(per100Scale > 0 ? newFood.protein / per100Scale : null);
+    setEditBaseCarbs(per100Scale > 0 ? newFood.carbs / per100Scale : null);
+    setEditBaseFat(per100Scale > 0 ? newFood.fat / per100Scale : null);
+    setEditServingSizeInput(String(newFood.servingSize));
+    setEditServingsInput(String(newFood.servings));
     setAddingFoodToSavedMeal(false);
     setSearchQuery('');
     setSearchResults([]);
+
+    // Do not block opening the editor on network hydration.
+    if (!food.hasMicronutrientData) {
+      resolveFoodMicronutrients(food)
+        .then((hydrated) => {
+          if (!hydrated.hasMicronutrientData) {
+            return;
+          }
+          const scaledHydratedMicronutrients = scaleMicronutrients(
+            normalizeMicronutrients(hydrated.micronutrients),
+            servingScale
+          );
+          setSavedMealFoods((prev) =>
+            prev.map((savedFood) =>
+              savedFood.id === newFood.id
+                ? {
+                    ...savedFood,
+                    micronutrients: { ...scaledHydratedMicronutrients },
+                    hasMicronutrientData: true,
+                  }
+                : savedFood
+            )
+          );
+          setEditingFoodTarget((prev) =>
+            prev && prev.source === 'saved' && prev.foodId === newFood.id
+              ? {
+                  ...prev,
+                  micronutrients: { ...scaledHydratedMicronutrients },
+                  hasMicronutrientData: true,
+                }
+              : prev
+          );
+        })
+        .catch((err) => {
+          console.error('Saved meal micronutrient hydration failed:', err);
+        });
+    }
   };
 
   const handleRemoveFoodFromSavedMeal = (foodId: string) => {
@@ -651,6 +807,16 @@ export function CalorieScreen() {
       micronutrients: { ...food.micronutrients },
       hasMicronutrientData: food.hasMicronutrientData,
     });
+    setEditNameInput(food.name);
+    setEditBrandInput(food.brand || '');
+    setEditCaloriesInput(String(food.calories));
+    setEditProteinInput(String(food.protein));
+    setEditCarbsInput(String(food.carbs));
+    setEditFatInput(String(food.fat));
+    setEditBaseCalories(null);
+    setEditBaseProtein(null);
+    setEditBaseCarbs(null);
+    setEditBaseFat(null);
     setEditServingSizeInput(String(food.servingSize));
     setEditServingsInput(String(food.servings));
   };
@@ -671,25 +837,100 @@ export function CalorieScreen() {
       micronutrients: { ...food.micronutrients },
       hasMicronutrientData: food.hasMicronutrientData,
     });
+    setEditNameInput(food.name);
+    setEditBrandInput(food.brand || '');
+    setEditCaloriesInput(String(food.calories));
+    setEditProteinInput(String(food.protein));
+    setEditCarbsInput(String(food.carbs));
+    setEditFatInput(String(food.fat));
+    const per100Scale = food.servingSize > 0 ? food.servingSize / 100 : 1;
+    setEditBaseCalories(per100Scale > 0 ? food.calories / per100Scale : null);
+    setEditBaseProtein(per100Scale > 0 ? food.protein / per100Scale : null);
+    setEditBaseCarbs(per100Scale > 0 ? food.carbs / per100Scale : null);
+    setEditBaseFat(per100Scale > 0 ? food.fat / per100Scale : null);
     setEditServingSizeInput(String(food.servingSize));
     setEditServingsInput(String(food.servings));
   };
 
   const closeFoodEditor = () => {
     setEditingFoodTarget(null);
+    setEditNameInput('');
+    setEditBrandInput('');
+    setEditCaloriesInput('');
+    setEditProteinInput('');
+    setEditCarbsInput('');
+    setEditFatInput('');
+    setEditBaseCalories(null);
+    setEditBaseProtein(null);
+    setEditBaseCarbs(null);
+    setEditBaseFat(null);
     setEditServingSizeInput('');
     setEditServingsInput('');
   };
 
+  const handleEditServingSizeChange = (value: string) => {
+    setEditServingSizeInput(value);
+
+    // Mirror one-off meal behavior: serving-size changes recalculate nutrition from a fixed base.
+    if (editingFoodTarget?.source !== 'saved') {
+      return;
+    }
+
+    const newSize = Number(value) || 0;
+    const multiplier = newSize / 100;
+
+    if (editBaseCalories !== null) {
+      setEditCaloriesInput(String(Math.round(editBaseCalories * multiplier)));
+    }
+    if (editBaseProtein !== null) {
+      setEditProteinInput(String(Math.round(editBaseProtein * multiplier)));
+    }
+    if (editBaseCarbs !== null) {
+      setEditCarbsInput(String(Math.round(editBaseCarbs * multiplier)));
+    }
+    if (editBaseFat !== null) {
+      setEditFatInput(String(Math.round(editBaseFat * multiplier)));
+    }
+  };
+
+  useEffect(() => {
+    if (!pendingSavedMealDelete) {
+      return;
+    }
+    confirmFadeAnim.setValue(0);
+    Animated.timing(confirmFadeAnim, {
+      toValue: 1,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [pendingSavedMealDelete, confirmFadeAnim]);
+
   const parsedEditServingSize = Number(editServingSizeInput);
   const parsedEditServings = Number(editServingsInput);
+  const parsedEditCalories = Number(editCaloriesInput);
+  const parsedEditProtein = Number(editProteinInput);
+  const parsedEditCarbs = Number(editCarbsInput);
+  const parsedEditFat = Number(editFatInput);
   const draftServingUnit = draftEntry?.servingUnit || 'g';
   const editingServingUnit = editingFoodTarget?.servingUnit || 'g';
-  const isEditFoodInputValid =
+  const hasValidEditQuantity =
     Number.isFinite(parsedEditServingSize) &&
     parsedEditServingSize > 0 &&
     Number.isFinite(parsedEditServings) &&
     parsedEditServings > 0;
+  const hasValidSavedMealNutrition =
+    Number.isFinite(parsedEditCalories) &&
+    parsedEditCalories >= 0 &&
+    Number.isFinite(parsedEditProtein) &&
+    parsedEditProtein >= 0 &&
+    Number.isFinite(parsedEditCarbs) &&
+    parsedEditCarbs >= 0 &&
+    Number.isFinite(parsedEditFat) &&
+    parsedEditFat >= 0;
+  const isEditFoodInputValid =
+    editingFoodTarget?.source === 'saved'
+      ? hasValidEditQuantity && hasValidSavedMealNutrition && editNameInput.trim().length > 0
+      : hasValidEditQuantity;
 
   const editedFoodPreview = useMemo(() => {
     if (!editingFoodTarget || !isEditFoodInputValid) {
@@ -734,10 +975,10 @@ export function CalorieScreen() {
     const currentServingSize = Math.max(editingFoodTarget.servingSize, 1);
     const perServingScale = parsedEditServingSize / currentServingSize;
 
-    const calories = Math.round(editingFoodTarget.calories * perServingScale);
-    const protein = Math.round(editingFoodTarget.protein * perServingScale);
-    const carbs = Math.round(editingFoodTarget.carbs * perServingScale);
-    const fat = Math.round(editingFoodTarget.fat * perServingScale);
+    const calories = Math.round(parsedEditCalories);
+    const protein = Math.round(parsedEditProtein);
+    const carbs = Math.round(parsedEditCarbs);
+    const fat = Math.round(parsedEditFat);
     const micronutrients = scaleMicronutrients(
       normalizeMicronutrients(editingFoodTarget.micronutrients),
       perServingScale
@@ -759,7 +1000,16 @@ export function CalorieScreen() {
       previewCarbs: Math.round(carbs * parsedEditServings),
       previewFat: Math.round(fat * parsedEditServings),
     };
-  }, [editingFoodTarget, isEditFoodInputValid, parsedEditServingSize, parsedEditServings]);
+  }, [
+    editingFoodTarget,
+    isEditFoodInputValid,
+    parsedEditServingSize,
+    parsedEditServings,
+    parsedEditCalories,
+    parsedEditProtein,
+    parsedEditCarbs,
+    parsedEditFat,
+  ]);
 
   const handleSaveEditedFood = () => {
     if (!editingFoodTarget || !editedFoodPreview) {
@@ -778,11 +1028,15 @@ export function CalorieScreen() {
         hasMicronutrientData: editedFoodPreview.hasMicronutrientData,
       });
     } else {
+      const trimmedName = editNameInput.trim();
+      const trimmedBrand = editBrandInput.trim();
       setSavedMealFoods((prev) =>
         prev.map((food) =>
           food.id === editingFoodTarget.foodId
             ? {
                 ...food,
+                name: trimmedName,
+                brand: trimmedBrand || undefined,
                 servingSize: editedFoodPreview.servingSize,
                 servings: editedFoodPreview.servings,
                 calories: editedFoodPreview.calories,
@@ -938,25 +1192,104 @@ export function CalorieScreen() {
 
               {editingFoodTarget ? (
                 <ScrollView keyboardShouldPersistTaps="handled">
-                  <View style={styles.formGroup}>
-                    <Text style={styles.formLabel}>Food Name</Text>
-                    <TextInput
-                      style={[styles.formInput, styles.readOnlyInput]}
-                      value={editingFoodTarget.name}
-                      editable={false}
-                    />
-                  </View>
+                  {editingFoodTarget.source === 'saved' ? (
+                    <>
+                      <View style={styles.formGroup}>
+                        <Text style={styles.formLabel}>Food Name *</Text>
+                        <TextInput
+                          style={styles.formInput}
+                          value={editNameInput}
+                          onChangeText={setEditNameInput}
+                          placeholder="e.g., Chicken breast"
+                          placeholderTextColor={colors.muted}
+                        />
+                      </View>
 
-                  <View style={styles.formGroup}>
-                    <Text style={styles.formLabel}>Brand</Text>
-                    <TextInput
-                      style={[styles.formInput, styles.readOnlyInput]}
-                      value={editingFoodTarget.brand || ''}
-                      editable={false}
-                      placeholder="No brand"
-                      placeholderTextColor={colors.muted}
-                    />
-                  </View>
+                      <View style={styles.formGroup}>
+                        <Text style={styles.formLabel}>Brand (optional)</Text>
+                        <TextInput
+                          style={styles.formInput}
+                          value={editBrandInput}
+                          onChangeText={setEditBrandInput}
+                          placeholder="e.g., Sainsbury's"
+                          placeholderTextColor={colors.muted}
+                        />
+                      </View>
+
+                      <Text style={styles.formSectionTitle}>Nutrition per serving</Text>
+                      <View style={styles.formRow}>
+                        <View style={styles.formGroupHalf}>
+                          <Text style={styles.formLabel}>Calories *</Text>
+                          <TextInput
+                            style={styles.formInput}
+                            value={editCaloriesInput}
+                            onChangeText={setEditCaloriesInput}
+                            placeholder="kcal"
+                            placeholderTextColor={colors.muted}
+                            keyboardType="decimal-pad"
+                          />
+                        </View>
+                        <View style={styles.formGroupHalf}>
+                          <Text style={styles.formLabel}>Protein (g)</Text>
+                          <TextInput
+                            style={styles.formInput}
+                            value={editProteinInput}
+                            onChangeText={setEditProteinInput}
+                            placeholder="0"
+                            placeholderTextColor={colors.muted}
+                            keyboardType="decimal-pad"
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.formRow}>
+                        <View style={styles.formGroupHalf}>
+                          <Text style={styles.formLabel}>Carbs (g)</Text>
+                          <TextInput
+                            style={styles.formInput}
+                            value={editCarbsInput}
+                            onChangeText={setEditCarbsInput}
+                            placeholder="0"
+                            placeholderTextColor={colors.muted}
+                            keyboardType="decimal-pad"
+                          />
+                        </View>
+                        <View style={styles.formGroupHalf}>
+                          <Text style={styles.formLabel}>Fat (g)</Text>
+                          <TextInput
+                            style={styles.formInput}
+                            value={editFatInput}
+                            onChangeText={setEditFatInput}
+                            placeholder="0"
+                            placeholderTextColor={colors.muted}
+                            keyboardType="decimal-pad"
+                          />
+                        </View>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.formGroup}>
+                        <Text style={styles.formLabel}>Food Name</Text>
+                        <TextInput
+                          style={[styles.formInput, styles.readOnlyInput]}
+                          value={editingFoodTarget.name}
+                          editable={false}
+                        />
+                      </View>
+
+                      <View style={styles.formGroup}>
+                        <Text style={styles.formLabel}>Brand</Text>
+                        <TextInput
+                          style={[styles.formInput, styles.readOnlyInput]}
+                          value={editingFoodTarget.brand || ''}
+                          editable={false}
+                          placeholder="No brand"
+                          placeholderTextColor={colors.muted}
+                        />
+                      </View>
+                    </>
+                  )}
 
                   <Text style={styles.formSectionTitle}>Adjust quantity</Text>
                   <View style={styles.formRow}>
@@ -965,7 +1298,7 @@ export function CalorieScreen() {
                       <TextInput
                         style={styles.formInput}
                         value={editServingSizeInput}
-                        onChangeText={setEditServingSizeInput}
+                        onChangeText={handleEditServingSizeChange}
                         placeholder="100"
                         placeholderTextColor={colors.muted}
                         keyboardType="decimal-pad"
@@ -983,16 +1316,6 @@ export function CalorieScreen() {
                       />
                     </View>
                   </View>
-
-                  {editedFoodPreview ? (
-                    <View style={styles.editFoodPreview}>
-                      <Text style={styles.editFoodPreviewTitle}>Updated totals</Text>
-                      <Text style={styles.editFoodPreviewText}>
-                        {editedFoodPreview.previewCalories} kcal | P: {editedFoodPreview.previewProtein}g | C:{' '}
-                        {editedFoodPreview.previewCarbs}g | F: {editedFoodPreview.previewFat}g
-                      </Text>
-                    </View>
-                  ) : null}
 
                   <Pressable
                     style={[styles.saveButton, !isEditFoodInputValid ? styles.saveButtonDisabled : null]}
@@ -1377,7 +1700,11 @@ export function CalorieScreen() {
       </Modal>
 
       {/* Saved Meals Modal */}
-      <Modal visible={savedMealsOpen} animationType="slide" onRequestClose={handleCloseSavedMeals}>
+      <Modal
+        visible={savedMealsOpen && editingFoodTarget === null}
+        animationType="slide"
+        onRequestClose={handleCloseSavedMeals}
+      >
         <View style={[styles.foodPickerContainer, { paddingTop: insets.top }]}>
           <View style={styles.foodPickerHeader}>
             <Text style={styles.modalTitle}>
@@ -1443,7 +1770,7 @@ export function CalorieScreen() {
                         <Pressable
                           onPress={(e) => {
                             e.stopPropagation();
-                            handleDeleteSavedMeal(meal.id);
+                            handleDeleteSavedMeal(meal.id, meal.name);
                           }}
                           hitSlop={8}
                         >
@@ -1626,6 +1953,45 @@ export function CalorieScreen() {
               </View>
             </View>
           )}
+
+          {pendingSavedMealDelete ? (
+            <Animated.View
+              style={[
+                styles.confirmOverlay,
+                { opacity: confirmFadeAnim },
+              ]}
+            >
+              <Pressable style={styles.confirmDismiss} onPress={() => setPendingSavedMealDelete(null)} />
+              <Animated.View
+                style={[
+                  styles.confirmModal,
+                  {
+                    transform: [
+                      {
+                        scale: confirmFadeAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.96, 1],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                <Text style={styles.modalTitle}>Delete saved meal?</Text>
+                <Text style={styles.settingsLabel}>
+                  {`This will permanently remove "${pendingSavedMealDelete.name}".`}
+                </Text>
+                <View style={styles.confirmActions}>
+                  <Pressable style={styles.confirmKeepButton} onPress={() => setPendingSavedMealDelete(null)}>
+                    <Text style={styles.secondaryButtonText}>Keep</Text>
+                  </Pressable>
+                  <Pressable style={styles.confirmDeleteButton} onPress={handleConfirmDeleteSavedMeal}>
+                    <Text style={styles.saveButtonText}>Delete</Text>
+                  </Pressable>
+                </View>
+              </Animated.View>
+            </Animated.View>
+          ) : null}
         </View>
       </Modal>
 
@@ -2183,6 +2549,47 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: spacing.lg,
     gap: spacing.md,
+  },
+  confirmModal: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: spacing.lg,
+    gap: spacing.md,
+    width: '100%',
+    maxWidth: 480,
+  },
+  confirmOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(27, 31, 36, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  confirmDismiss: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  confirmKeepButton: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  confirmDeleteButton: {
+    flex: 1,
+    backgroundColor: colors.danger,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalHeader: {
     flexDirection: 'row',
