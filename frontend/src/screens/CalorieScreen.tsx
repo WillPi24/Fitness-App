@@ -352,12 +352,14 @@ export function CalorieScreen() {
   };
 
   const handleSelectSearchResult = async (food: FoodSearchResult) => {
+    const servingSize = food.servingSize > 0 ? food.servingSize : 100;
+    const servingScale = servingSize / 100;
     updateDraftEntry('name', food.name);
-    updateDraftEntry('calories', String(food.calories));
-    updateDraftEntry('protein', String(food.protein));
-    updateDraftEntry('carbs', String(food.carbs));
-    updateDraftEntry('fat', String(food.fat));
-    updateDraftEntry('servingSize', String(food.servingSize));
+    updateDraftEntry('calories', String(Math.round(food.calories * servingScale)));
+    updateDraftEntry('protein', String(Math.round(food.protein * servingScale)));
+    updateDraftEntry('carbs', String(Math.round(food.carbs * servingScale)));
+    updateDraftEntry('fat', String(Math.round(food.fat * servingScale)));
+    updateDraftEntry('servingSize', String(servingSize));
     updateDraftEntry('servingUnit', food.servingUnit);
     updateDraftEntry('servings', '1');
     // Store base values per 100 units for recalculation.
@@ -436,12 +438,14 @@ export function CalorieScreen() {
   }, [updateDraftEntry]);
 
   const handleSelectSuggestion = async (food: FoodSearchResult) => {
+    const servingSize = food.servingSize > 0 ? food.servingSize : 100;
+    const servingScale = servingSize / 100;
     updateDraftEntry('name', food.name);
-    updateDraftEntry('calories', String(food.calories));
-    updateDraftEntry('protein', String(food.protein));
-    updateDraftEntry('carbs', String(food.carbs));
-    updateDraftEntry('fat', String(food.fat));
-    updateDraftEntry('servingSize', String(food.servingSize));
+    updateDraftEntry('calories', String(Math.round(food.calories * servingScale)));
+    updateDraftEntry('protein', String(Math.round(food.protein * servingScale)));
+    updateDraftEntry('carbs', String(Math.round(food.carbs * servingScale)));
+    updateDraftEntry('fat', String(Math.round(food.fat * servingScale)));
+    updateDraftEntry('servingSize', String(servingSize));
     updateDraftEntry('servingUnit', food.servingUnit);
     // Store base values per 100 units for recalculation.
     updateDraftEntry('baseCalories', food.calories);
@@ -605,14 +609,16 @@ export function CalorieScreen() {
 
   const handleSelectFoodForSavedMeal = async (food: FoodSearchResult) => {
     const resolvedFood = await resolveFoodMicronutrients(food);
+    const servingSize = resolvedFood.servingSize > 0 ? resolvedFood.servingSize : 100;
+    const servingScale = servingSize / 100;
     const newFood: SavedMealFood = {
       id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
       name: resolvedFood.name,
-      calories: resolvedFood.calories,
-      protein: resolvedFood.protein,
-      carbs: resolvedFood.carbs,
-      fat: resolvedFood.fat,
-      servingSize: resolvedFood.servingSize,
+      calories: Math.round(resolvedFood.calories * servingScale),
+      protein: Math.round(resolvedFood.protein * servingScale),
+      carbs: Math.round(resolvedFood.carbs * servingScale),
+      fat: Math.round(resolvedFood.fat * servingScale),
+      servingSize,
       servingUnit: resolvedFood.servingUnit,
       servings: 1,
       micronutrients: { ...resolvedFood.micronutrients },

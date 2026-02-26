@@ -22,6 +22,42 @@ export type FoodSearchResult = {
 const USDA_API_URL = 'https://api.nal.usda.gov/fdc/v1/foods/search';
 const USDA_FOOD_DETAILS_URL = 'https://api.nal.usda.gov/fdc/v1/food';
 
+const COUNT_BASED_SERVING_PRESETS: Array<{ pattern: RegExp; grams: number }> = [
+  { pattern: /\bapple\b/, grams: 182 },
+  { pattern: /\bbanana\b/, grams: 118 },
+  { pattern: /\borange\b/, grams: 131 },
+  { pattern: /\bpear\b/, grams: 178 },
+  { pattern: /\bkiwi\b/, grams: 75 },
+  { pattern: /\bpeach\b/, grams: 150 },
+  { pattern: /\bplum\b/, grams: 66 },
+  { pattern: /\bapricot\b/, grams: 35 },
+  { pattern: /\bgrapefruit\b/, grams: 246 },
+  { pattern: /\blemon\b/, grams: 84 },
+  { pattern: /\blime\b/, grams: 67 },
+  { pattern: /\bavocado\b/, grams: 150 },
+  { pattern: /\begg\b/, grams: 50 },
+  { pattern: /\bbagel\b/, grams: 95 },
+  { pattern: /\bcroissant\b/, grams: 57 },
+  { pattern: /\bmuffin\b/, grams: 113 },
+  { pattern: /\bdoughnut\b/, grams: 75 },
+  { pattern: /\bscone\b/, grams: 61 },
+  { pattern: /\bpotato\b/, grams: 173 },
+  { pattern: /\bsweet potato\b/, grams: 130 },
+  { pattern: /\btomato\b/, grams: 123 },
+  { pattern: /\bonion\b/, grams: 110 },
+  { pattern: /\bcucumber\b/, grams: 301 },
+  { pattern: /\bpepper\b/, grams: 119 },
+  { pattern: /\bcarrot\b/, grams: 61 },
+  { pattern: /\bchicken breast\b/, grams: 174 },
+  { pattern: /\bchicken thigh\b/, grams: 109 },
+  { pattern: /\bdrumstick\b/, grams: 71 },
+  { pattern: /\bchicken wing\b/, grams: 85 },
+  { pattern: /\bsteak\b/, grams: 227 },
+  { pattern: /\bfillet\b/, grams: 154 },
+  { pattern: /\bwrap\/tortilla\b/, grams: 62 },
+  { pattern: /\bpitta bread\b/, grams: 60 },
+];
+
 function normalizeServingUnit(unit?: string): string | null {
   const normalizedUnit = (unit || '').trim().toLowerCase();
   if (!normalizedUnit) {
@@ -58,6 +94,24 @@ function resolveUSDAServingUnit(food: USDAFood): 'ml' | 'g' {
   return inferServingUnitFromUSDACategory(food);
 }
 
+function inferDefaultServingSize(name: string, servingUnit: 'g' | 'ml', apiServingSize?: number): number {
+  if (Number.isFinite(apiServingSize) && (apiServingSize as number) > 0 && (apiServingSize as number) !== 100) {
+    return Math.round(apiServingSize as number);
+  }
+
+  if (servingUnit === 'ml') {
+    return 100;
+  }
+
+  const nameLower = name.toLowerCase();
+  const match = COUNT_BASED_SERVING_PRESETS.find((preset) => preset.pattern.test(nameLower));
+  if (match) {
+    return match.grams;
+  }
+
+  return 100;
+}
+
 // Simple search - curated list of common foods
 export function searchSimpleFoods(query: string): FoodSearchResult[] {
   if (!query.trim()) {
@@ -89,18 +143,21 @@ export function searchSimpleFoods(query: string): FoodSearchResult[] {
 
   scored.sort((a, b) => b.score - a.score);
 
-  return scored.slice(0, 15).map(({ food }, index) => ({
-    id: `simple-${index}-${food.name.replace(/\s+/g, '-').toLowerCase()}`,
-    name: food.name,
-    calories: food.calories,
-    protein: food.protein,
-    carbs: food.carbs,
-    fat: food.fat,
-    servingSize: 100,
-    servingUnit: food.servingUnit ?? 'g',
-    micronutrients: createEmptyMicronutrients(),
-    hasMicronutrientData: false,
-  }));
+  return scored.slice(0, 15).map(({ food }, index) => {
+    const servingUnit = food.servingUnit ?? 'g';
+    return {
+      id: `simple-${index}-${food.name.replace(/\s+/g, '-').toLowerCase()}`,
+      name: food.name,
+      calories: food.calories,
+      protein: food.protein,
+      carbs: food.carbs,
+      fat: food.fat,
+      servingSize: inferDefaultServingSize(food.name, servingUnit),
+      servingUnit,
+      micronutrients: createEmptyMicronutrients(),
+      hasMicronutrientData: false,
+    };
+  });
 }
 
 type USDANutrient = {
@@ -283,6 +340,7 @@ export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
 
     return data.foods.slice(0, 15).map((food) => {
       const micronutrients = micronutrientsFromUSDA(food.foodNutrients || []);
+      const servingUnit = resolveUSDAServingUnit(food);
       return {
         id: `usda-${food.fdcId}`,
         name: food.brandName ? `${food.description} (${food.brandName})` : food.description,
@@ -290,8 +348,8 @@ export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
         protein: getNutrientValue(food.foodNutrients, NUTRIENT_IDS.PROTEIN),
         carbs: getNutrientValue(food.foodNutrients, NUTRIENT_IDS.CARBS),
         fat: getNutrientValue(food.foodNutrients, NUTRIENT_IDS.FAT),
-        servingSize: food.servingSize || 100,
-        servingUnit: resolveUSDAServingUnit(food),
+        servingSize: inferDefaultServingSize(food.description, servingUnit, food.servingSize),
+        servingUnit,
         micronutrients,
         hasMicronutrientData: hasMicronutrients(micronutrients),
       };
