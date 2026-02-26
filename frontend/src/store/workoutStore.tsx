@@ -49,6 +49,24 @@ export type DraftWorkout = {
   exercises: DraftWorkoutExercise[];
 };
 
+export type WorkoutTemplateExercise = {
+  id: string;
+  name: string;
+  setCount: number;
+};
+
+export type WorkoutTemplateExerciseInput = {
+  name: string;
+  setCount: number;
+};
+
+export type WorkoutTemplate = {
+  id: string;
+  name: string;
+  exercises: WorkoutTemplateExercise[];
+  createdAt: number;
+};
+
 export type WorkoutCompletionPreview = {
   workout: WorkoutSession;
   personalRecords: WorkoutPersonalRecord[];
@@ -57,9 +75,14 @@ export type WorkoutCompletionPreview = {
 type WorkoutContextValue = {
   workouts: WorkoutSession[];
   activeWorkout: DraftWorkout | null;
+  workoutTemplates: WorkoutTemplate[];
   seedDemoWorkouts: () => void;
   clearDemoWorkouts: () => void;
   startWorkout: (date: string) => void;
+  startWorkoutFromTemplate: (date: string, templateId: string) => void;
+  createWorkoutTemplate: (name: string, exercises: WorkoutTemplateExerciseInput[]) => void;
+  updateWorkoutTemplate: (id: string, name: string, exercises: WorkoutTemplateExerciseInput[]) => void;
+  deleteWorkoutTemplate: (id: string) => void;
   discardActiveWorkout: () => void;
   addExercise: (date: string, name: string) => void;
   updateExerciseName: (exerciseId: string, name: string) => void;
@@ -76,6 +99,7 @@ type WorkoutContextValue = {
 
 const WORKOUTS_KEY = 'fitnessapp.workouts.v2';
 const ACTIVE_WORKOUT_KEY = 'fitnessapp.activeWorkout.v1';
+const WORKOUT_TEMPLATES_KEY = 'fitnessapp.workoutTemplates.v1';
 const DEMO_WORKOUT_ID_PREFIX = 'demo-workout-';
 
 const WorkoutContext = createContext<WorkoutContextValue | undefined>(undefined);
@@ -104,6 +128,14 @@ function createDraftExercise(name: string): DraftWorkoutExercise {
   return {
     id: generateId(),
     name,
+    sets: [createDraftSet()],
+  };
+}
+
+function createDraftExerciseFromTemplate(exercise: WorkoutTemplateExercise): DraftWorkoutExercise {
+  return {
+    id: generateId(),
+    name: exercise.name,
     sets: [createDraftSet()],
   };
 }
@@ -281,6 +313,59 @@ function isDraftWorkout(value: unknown): value is DraftWorkout {
   );
 }
 
+function isWorkoutTemplateExercise(value: unknown): value is WorkoutTemplateExercise {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const exercise = value as WorkoutTemplateExercise;
+  return (
+    typeof exercise.id === 'string' &&
+    typeof exercise.name === 'string' &&
+    typeof exercise.setCount === 'number' &&
+    Number.isFinite(exercise.setCount) &&
+    exercise.setCount >= 1
+  );
+}
+
+function isWorkoutTemplate(value: unknown): value is WorkoutTemplate {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const template = value as WorkoutTemplate;
+  return (
+    typeof template.id === 'string' &&
+    typeof template.name === 'string' &&
+    typeof template.createdAt === 'number' &&
+    Array.isArray(template.exercises) &&
+    template.exercises.every(isWorkoutTemplateExercise)
+  );
+}
+
+function normalizeWorkoutTemplateExercises(
+  exercises: WorkoutTemplateExerciseInput[]
+): WorkoutTemplateExercise[] | null {
+  if (exercises.length === 0) {
+    return null;
+  }
+
+  const normalized: WorkoutTemplateExercise[] = [];
+  for (const exercise of exercises) {
+    const trimmedName = exercise.name.trim();
+    if (!trimmedName) {
+      return null;
+    }
+
+    const setCount = Math.max(1, Math.round(exercise.setCount));
+    normalized.push({
+      id: generateId(),
+      name: trimmedName,
+      setCount,
+    });
+  }
+
+  return normalized.length > 0 ? normalized : null;
+}
+
 function getBestEstimatesByExercise(workouts: WorkoutSession[]) {
   const map: Record<string, number> = {};
   workouts.forEach((workout) => {
@@ -333,6 +418,7 @@ function buildPersonalRecords(
 export function WorkoutProvider({ children }: { children: React.ReactNode }) {
   const [workouts, setWorkouts] = useState<WorkoutSession[]>([]);
   const [activeWorkout, setActiveWorkout] = useState<DraftWorkout | null>(null);
+  const [workoutTemplates, setWorkoutTemplates] = useState<WorkoutTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasLoadedRef = useRef(false);
@@ -340,9 +426,10 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const loadWorkouts = async () => {
       try {
-        const [workoutRaw, activeRaw] = await Promise.all([
+        const [workoutRaw, activeRaw, templateRaw] = await Promise.all([
           AsyncStorage.getItem(WORKOUTS_KEY),
           AsyncStorage.getItem(ACTIVE_WORKOUT_KEY),
+          AsyncStorage.getItem(WORKOUT_TEMPLATES_KEY),
         ]);
 
         if (workoutRaw) {
@@ -357,6 +444,16 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
           const parsedActive = JSON.parse(activeRaw);
           if (isDraftWorkout(parsedActive)) {
             setActiveWorkout(parsedActive);
+          }
+        }
+
+        if (templateRaw) {
+          const parsedTemplates = JSON.parse(templateRaw);
+          if (Array.isArray(parsedTemplates)) {
+            const safeTemplates = parsedTemplates
+              .filter(isWorkoutTemplate)
+              .sort((a, b) => b.createdAt - a.createdAt);
+            setWorkoutTemplates(safeTemplates);
           }
         }
       } catch (loadError) {
@@ -407,6 +504,22 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     saveActiveWorkout();
   }, [activeWorkout]);
 
+  useEffect(() => {
+    const saveWorkoutTemplates = async () => {
+      if (!hasLoadedRef.current) {
+        return;
+      }
+      try {
+        await AsyncStorage.setItem(WORKOUT_TEMPLATES_KEY, JSON.stringify(workoutTemplates));
+      } catch (saveError) {
+        console.error('Failed to save workout templates', saveError);
+        setError('Unable to save workout templates.');
+      }
+    };
+
+    saveWorkoutTemplates();
+  }, [workoutTemplates]);
+
   const startWorkout = (date: string) => {
     if (activeWorkout && activeWorkout.date !== date) {
       setError('Finish your active workout before starting another day.');
@@ -416,6 +529,96 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     if (!activeWorkout) {
       setActiveWorkout(createDraftWorkout(date));
     }
+  };
+
+  const startWorkoutFromTemplate = (date: string, templateId: string) => {
+    if (activeWorkout && activeWorkout.date !== date) {
+      setError('Finish your active workout before starting another day.');
+      return;
+    }
+
+    const template = workoutTemplates.find((item) => item.id === templateId);
+    if (!template) {
+      setError('Workout template not found.');
+      return;
+    }
+
+    const templateExercises = template.exercises.map(createDraftExerciseFromTemplate);
+
+    if (activeWorkout && activeWorkout.date === date) {
+      if (activeWorkout.exercises.length > 0) {
+        setError('Current workout already has exercises. Start fresh to use a template.');
+        return;
+      }
+      setActiveWorkout({
+        ...activeWorkout,
+        exercises: templateExercises,
+      });
+    } else {
+      const draft = createDraftWorkout(date);
+      setActiveWorkout({
+        ...draft,
+        exercises: templateExercises,
+      });
+    }
+
+    setError(null);
+  };
+
+  const createWorkoutTemplate = (name: string, exercises: WorkoutTemplateExerciseInput[]) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError('Template name cannot be empty.');
+      return;
+    }
+
+    const normalizedExercises = normalizeWorkoutTemplateExercises(exercises);
+    if (!normalizedExercises) {
+      setError('Add at least one named exercise with one or more sets.');
+      return;
+    }
+
+    const template: WorkoutTemplate = {
+      id: generateId(),
+      name: trimmedName,
+      exercises: normalizedExercises,
+      createdAt: Date.now(),
+    };
+
+    setWorkoutTemplates((prev) => [template, ...prev].sort((a, b) => b.createdAt - a.createdAt));
+    setError(null);
+  };
+
+  const updateWorkoutTemplate = (id: string, name: string, exercises: WorkoutTemplateExerciseInput[]) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError('Template name cannot be empty.');
+      return;
+    }
+
+    const normalizedExercises = normalizeWorkoutTemplateExercises(exercises);
+    if (!normalizedExercises) {
+      setError('Add at least one named exercise with one or more sets.');
+      return;
+    }
+
+    setWorkoutTemplates((prev) =>
+      prev.map((template) =>
+        template.id === id
+          ? {
+              ...template,
+              name: trimmedName,
+              exercises: normalizedExercises,
+            }
+          : template
+      )
+    );
+    setError(null);
+  };
+
+  const deleteWorkoutTemplate = (id: string) => {
+    setWorkoutTemplates((prev) => prev.filter((template) => template.id !== id));
+    setError(null);
   };
 
   const discardActiveWorkout = () => {
@@ -632,9 +835,14 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     () => ({
       workouts,
       activeWorkout,
+      workoutTemplates,
       seedDemoWorkouts,
       clearDemoWorkouts,
       startWorkout,
+      startWorkoutFromTemplate,
+      createWorkoutTemplate,
+      updateWorkoutTemplate,
+      deleteWorkoutTemplate,
       discardActiveWorkout,
       addExercise,
       updateExerciseName,
@@ -651,6 +859,7 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     [
       workouts,
       activeWorkout,
+      workoutTemplates,
       isLoading,
       error,
       seedDemoWorkouts,

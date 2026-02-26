@@ -155,18 +155,62 @@ function inferBodyPartFromExerciseName(name: string): CanonicalBodyPart | null {
   return null;
 }
 
+type TemplateExerciseDraft = {
+  id: string;
+  name: string;
+};
+
+type ExerciseHistoryEntry = {
+  workoutId: string;
+  date: string;
+  startedAt: number;
+  topWeight: number;
+  topReps: number;
+  sets: Array<{ weight: number; reps: number }>;
+};
+
+function createTemplateExerciseDraft(name = ''): TemplateExerciseDraft {
+  return {
+    id: `template-exercise-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    name,
+  };
+}
+
+function normalizeExerciseName(name: string) {
+  return name.trim().toLowerCase();
+}
+
+function getTopSet(sets: Array<{ weight: number; reps: number }>) {
+  if (sets.length === 0) {
+    return null;
+  }
+  return sets.reduce((best, current) => {
+    if (current.weight > best.weight) {
+      return current;
+    }
+    if (current.weight === best.weight && current.reps > best.reps) {
+      return current;
+    }
+    return best;
+  });
+}
+
 export function LogScreen() {
   const {
     workouts,
     activeWorkout,
+    workoutTemplates,
     startWorkout,
+    startWorkoutFromTemplate,
+    createWorkoutTemplate,
+    updateWorkoutTemplate,
+    deleteWorkoutTemplate,
     discardActiveWorkout,
     addExercise,
     updateExerciseName,
     removeExercise,
     addSet,
     updateSet,
-    removeSet,
     previewWorkoutCompletion,
     confirmWorkoutCompletion,
     isLoading,
@@ -182,13 +226,24 @@ export function LogScreen() {
   const [exercisePickerOpen, setExercisePickerOpen] = useState(false);
   const [exerciseSearch, setExerciseSearch] = useState('');
   const [exercisePickerTarget, setExercisePickerTarget] = useState<
-    { type: 'new' } | { type: 'edit'; exerciseId: string } | null
+    { type: 'new' } | { type: 'edit'; exerciseId: string } | { type: 'template'; templateExerciseId: string } | null
   >(null);
+  const [startWorkoutChoiceOpen, setStartWorkoutChoiceOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [templateEditorId, setTemplateEditorId] = useState<string | null>(null);
+  const [templateEditorName, setTemplateEditorName] = useState('');
+  const [templateEditorExercises, setTemplateEditorExercises] = useState<TemplateExerciseDraft[]>([
+    createTemplateExerciseDraft(),
+  ]);
   const [completionPreview, setCompletionPreview] = useState<WorkoutCompletionPreview | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmMode, setConfirmMode] = useState<'complete' | 'discard' | null>(null);
   const [timerTick, setTimerTick] = useState(Date.now());
   const [expandedWorkoutIds, setExpandedWorkoutIds] = useState<Record<string, boolean>>({});
+  const [exerciseHistoryOpen, setExerciseHistoryOpen] = useState(false);
+  const [exerciseHistoryExerciseName, setExerciseHistoryExerciseName] = useState('');
+  const [expandedExerciseHistoryIds, setExpandedExerciseHistoryIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!activeWorkout) {
@@ -317,10 +372,59 @@ export function LogScreen() {
     });
   }, [exerciseSearch]);
 
-  const openExercisePicker = (target: { type: 'new' } | { type: 'edit'; exerciseId: string }) => {
+  const exerciseHistoryEntries = useMemo<ExerciseHistoryEntry[]>(() => {
+    const targetExercise = normalizeExerciseName(exerciseHistoryExerciseName);
+    if (!targetExercise) {
+      return [];
+    }
+
+    const entries = workouts.reduce<ExerciseHistoryEntry[]>((acc, workout) => {
+      const matchingSets: Array<{ weight: number; reps: number }> = [];
+
+      workout.exercises.forEach((exercise) => {
+        if (normalizeExerciseName(exercise.name) !== targetExercise) {
+          return;
+        }
+        exercise.sets.forEach((set) => {
+          matchingSets.push({ weight: set.weight, reps: set.reps });
+        });
+      });
+
+      const topSet = getTopSet(matchingSets);
+      if (!topSet) {
+        return acc;
+      }
+
+      acc.push({
+        workoutId: workout.id,
+        date: workout.date,
+        startedAt: workout.startedAt,
+        topWeight: topSet.weight,
+        topReps: topSet.reps,
+        sets: matchingSets,
+      });
+      return acc;
+    }, []);
+
+    return entries.sort((a, b) => b.startedAt - a.startedAt);
+  }, [workouts, exerciseHistoryExerciseName]);
+
+  const openExercisePicker = (
+    target: { type: 'new' } | { type: 'edit'; exerciseId: string } | { type: 'template'; templateExerciseId: string }
+  ) => {
     setExercisePickerTarget(target);
     setExerciseSearch('');
     setExercisePickerOpen(true);
+  };
+
+  const closeExercisePicker = () => {
+    const wasTemplatePicker = exercisePickerTarget?.type === 'template';
+    setExercisePickerOpen(false);
+    setExercisePickerTarget(null);
+    setExerciseSearch('');
+    if (wasTemplatePicker) {
+      setSettingsOpen(true);
+    }
   };
 
   const handleSelectExercise = (name: string) => {
@@ -330,13 +434,13 @@ export function LogScreen() {
 
     if (exercisePickerTarget.type === 'new') {
       addExercise(selectedDate, name);
-    } else {
+    } else if (exercisePickerTarget.type === 'edit') {
       updateExerciseName(exercisePickerTarget.exerciseId, name);
+    } else {
+      handleUpdateTemplateExercise(exercisePickerTarget.templateExerciseId, name);
     }
 
-    setExercisePickerOpen(false);
-    setExercisePickerTarget(null);
-    setExerciseSearch('');
+    closeExercisePicker();
   };
 
   const handleUseCustomExercise = () => {
@@ -352,7 +456,144 @@ export function LogScreen() {
       return;
     }
     clearError();
+    setStartWorkoutChoiceOpen(true);
+  };
+
+  const handleCloseStartWorkoutChoice = () => {
+    setStartWorkoutChoiceOpen(false);
+  };
+
+  const handleStartWithoutTemplate = () => {
+    setStartWorkoutChoiceOpen(false);
     startWorkout(selectedDate);
+  };
+
+  const handleStartWithTemplate = () => {
+    setStartWorkoutChoiceOpen(false);
+    setTemplatePickerOpen(true);
+  };
+
+  const handleCloseTemplatePicker = () => {
+    setTemplatePickerOpen(false);
+  };
+
+  const resetTemplateEditor = () => {
+    setTemplateEditorId(null);
+    setTemplateEditorName('');
+    setTemplateEditorExercises([createTemplateExerciseDraft()]);
+  };
+
+  const handleOpenSettings = () => {
+    clearError();
+    resetTemplateEditor();
+    setSettingsOpen(true);
+  };
+
+  const handleCloseSettings = () => {
+    setSettingsOpen(false);
+    resetTemplateEditor();
+  };
+
+  const handleAddTemplateExerciseRow = () => {
+    setTemplateEditorExercises((prev) => [...prev, createTemplateExerciseDraft()]);
+  };
+
+  const handleUpdateTemplateExercise = (exerciseId: string, value: string) => {
+    setTemplateEditorExercises((prev) =>
+      prev.map((exercise) => {
+        if (exercise.id !== exerciseId) {
+          return exercise;
+        }
+        return {
+          ...exercise,
+          name: value,
+        };
+      })
+    );
+  };
+
+  const handleRemoveTemplateExerciseRow = (exerciseId: string) => {
+    setTemplateEditorExercises((prev) => {
+      if (prev.length <= 1) {
+        return prev;
+      }
+      return prev.filter((exercise) => exercise.id !== exerciseId);
+    });
+  };
+
+  const handlePickTemplateExercise = (exerciseId: string) => {
+    setSettingsOpen(false);
+    openExercisePicker({ type: 'template', templateExerciseId: exerciseId });
+  };
+
+  const handleSaveTemplate = () => {
+    const normalizedExercises = templateEditorExercises.map((exercise) => ({
+      name: exercise.name,
+      setCount: 1,
+    }));
+    const hasInvalidInput =
+      !templateEditorName.trim() ||
+      normalizedExercises.length === 0 ||
+      normalizedExercises.some((exercise) => !exercise.name.trim());
+
+    clearError();
+    if (templateEditorId) {
+      updateWorkoutTemplate(templateEditorId, templateEditorName, normalizedExercises);
+    } else {
+      createWorkoutTemplate(templateEditorName, normalizedExercises);
+    }
+
+    if (!hasInvalidInput) {
+      resetTemplateEditor();
+    }
+  };
+
+  const handleEditWorkoutTemplate = (templateId: string) => {
+    const template = workoutTemplates.find((item) => item.id === templateId);
+    if (!template) {
+      return;
+    }
+
+    setTemplateEditorId(template.id);
+    setTemplateEditorName(template.name);
+    setTemplateEditorExercises(
+      template.exercises.map((exercise) => createTemplateExerciseDraft(exercise.name))
+    );
+  };
+
+  const handleUseWorkoutTemplate = (templateId: string) => {
+    clearError();
+    startWorkoutFromTemplate(selectedDate, templateId);
+    setTemplatePickerOpen(false);
+  };
+
+  const handleOpenExerciseHistory = (exerciseName: string) => {
+    const trimmed = exerciseName.trim();
+    if (!trimmed) {
+      return;
+    }
+    setExerciseHistoryExerciseName(trimmed);
+    setExpandedExerciseHistoryIds({});
+    setExerciseHistoryOpen(true);
+  };
+
+  const handleCloseExerciseHistory = () => {
+    setExerciseHistoryOpen(false);
+    setExpandedExerciseHistoryIds({});
+  };
+
+  const toggleExerciseHistoryEntry = (workoutId: string) => {
+    setExpandedExerciseHistoryIds((current) => ({
+      ...current,
+      [workoutId]: !current[workoutId],
+    }));
+  };
+
+  const handleDeleteWorkoutTemplate = (templateId: string) => {
+    deleteWorkoutTemplate(templateId);
+    if (templateEditorId === templateId) {
+      resetTemplateEditor();
+    }
   };
 
   const handleCloseConfirm = () => {
@@ -413,10 +654,13 @@ export function LogScreen() {
       <View style={styles.exerciseHeader}>
         <Text style={styles.exerciseName}>{exercise.name || `Exercise ${index + 1}`}</Text>
         <View style={styles.exerciseActions}>
-          <Pressable onPress={() => openExercisePicker({ type: 'edit', exerciseId: exercise.id })}>
+          <Pressable
+            style={styles.exerciseActionButton}
+            onPress={() => openExercisePicker({ type: 'edit', exerciseId: exercise.id })}
+          >
             <Text style={styles.exerciseAction}>Change</Text>
           </Pressable>
-          <Pressable onPress={() => removeExercise(exercise.id)}>
+          <Pressable style={styles.exerciseActionButton} onPress={() => removeExercise(exercise.id)}>
             <Text style={styles.exerciseRemove}>Remove</Text>
           </Pressable>
         </View>
@@ -448,14 +692,16 @@ export function LogScreen() {
               <Text style={styles.setInputSuffix}>reps</Text>
             </View>
           </View>
-          <Pressable onPress={() => removeSet(exercise.id, set.id)}>
-            <Text style={styles.setRemove}>Delete</Text>
-          </Pressable>
         </View>
       ))}
-      <Pressable style={styles.addSetButton} onPress={() => addSet(exercise.id)}>
-        <Text style={styles.addSetText}>Add set</Text>
-      </Pressable>
+      <View style={styles.exerciseFooterActions}>
+        <Pressable style={styles.addSetButton} onPress={() => addSet(exercise.id)}>
+          <Text style={styles.addSetText}>Add set</Text>
+        </Pressable>
+        <Pressable style={styles.addSetButton} onPress={() => handleOpenExerciseHistory(exercise.name)}>
+          <Text style={styles.addSetText}>History</Text>
+        </Pressable>
+      </View>
     </View>
   );
 
@@ -512,7 +758,12 @@ export function LogScreen() {
         </View>
       </Modal>
 
-      <Modal visible={exercisePickerOpen} transparent animationType="slide" onRequestClose={() => setExercisePickerOpen(false)}>
+      <Modal
+        visible={exercisePickerOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={closeExercisePicker}
+      >
         <View style={styles.modalBackdrop}>
           <KeyboardAvoidingView
             behavior={Platform.select({ ios: 'padding', android: undefined })}
@@ -521,7 +772,7 @@ export function LogScreen() {
             <View style={styles.pickerModal}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Pick an exercise</Text>
-                <Pressable onPress={() => setExercisePickerOpen(false)}>
+                <Pressable onPress={closeExercisePicker}>
                   <Text style={styles.modalClose}>Close</Text>
                 </Pressable>
               </View>
@@ -550,6 +801,230 @@ export function LogScreen() {
               </ScrollView>
             </View>
           </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      <Modal visible={settingsOpen} transparent animationType="slide" onRequestClose={handleCloseSettings}>
+        <View style={styles.modalBackdrop}>
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: 'padding', android: undefined })}
+            style={styles.pickerModalWrapper}
+          >
+            <View style={styles.pickerModal}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Workout settings</Text>
+                <Pressable onPress={handleCloseSettings}>
+                  <Text style={styles.modalClose}>Close</Text>
+                </Pressable>
+              </View>
+              <ScrollView contentContainerStyle={styles.settingsContent} keyboardShouldPersistTaps="handled">
+                <Card style={styles.settingsSection}>
+                  <Text style={styles.sectionTitle}>
+                    {templateEditorId ? 'Edit workout template' : 'Build workout template'}
+                  </Text>
+                  <Text style={styles.sectionSubtitle}>
+                    Build workouts here, then start a session from a preset template.
+                  </Text>
+                  <TextInput
+                    style={styles.searchInput}
+                    value={templateEditorName}
+                    onChangeText={setTemplateEditorName}
+                    placeholder="Template name (e.g., Push Day A)"
+                    placeholderTextColor={colors.muted}
+                  />
+                  <View style={styles.templateBuilderList}>
+                    {templateEditorExercises.map((exercise, index) => (
+                      <View key={exercise.id} style={styles.templateBuilderRow}>
+                        <View style={styles.templateBuilderInputs}>
+                          <Pressable
+                            style={styles.templateExerciseButton}
+                            onPress={() => handlePickTemplateExercise(exercise.id)}
+                          >
+                            <Text
+                              style={[
+                                styles.templateExerciseButtonText,
+                                !exercise.name.trim() ? styles.modalClose : null,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {exercise.name.trim() || `Select exercise ${index + 1}`}
+                            </Text>
+                          </Pressable>
+                        </View>
+                        <Pressable
+                          onPress={() => handleRemoveTemplateExerciseRow(exercise.id)}
+                          disabled={templateEditorExercises.length <= 1}
+                        >
+                          <Text
+                            style={[
+                              styles.exerciseRemove,
+                              templateEditorExercises.length <= 1 ? styles.disabledText : null,
+                            ]}
+                          >
+                            Remove
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                  <Pressable style={styles.secondaryButton} onPress={handleAddTemplateExerciseRow}>
+                    <Text style={styles.secondaryButtonText}>Add exercise row</Text>
+                  </Pressable>
+                  <Pressable style={styles.confirmButton} onPress={handleSaveTemplate}>
+                    <Text style={styles.confirmButtonText}>
+                      {templateEditorId ? 'Update template' : 'Save template'}
+                    </Text>
+                  </Pressable>
+                  {templateEditorId ? (
+                    <Pressable style={styles.cancelButton} onPress={resetTemplateEditor}>
+                      <Text style={styles.cancelButtonText}>Create another template</Text>
+                    </Pressable>
+                  ) : null}
+                </Card>
+
+                <Card style={styles.settingsSection}>
+                  <Text style={styles.sectionTitle}>Saved templates</Text>
+                  {workoutTemplates.length === 0 ? (
+                    <Text style={styles.emptyText}>No templates yet.</Text>
+                  ) : (
+                    <View style={styles.templateList}>
+                      {workoutTemplates.map((template) => (
+                        <View key={template.id} style={styles.templateRow}>
+                          <View style={styles.templateInfo}>
+                            <Text style={styles.templateName}>{template.name}</Text>
+                            <Text style={styles.templateMeta}>{template.exercises.length} exercises</Text>
+                            <Text style={styles.templateDetail} numberOfLines={2}>
+                              {template.exercises.map((exercise) => exercise.name).join(', ')}
+                            </Text>
+                          </View>
+                          <View style={styles.templateActions}>
+                            <Pressable onPress={() => handleEditWorkoutTemplate(template.id)}>
+                              <Text style={styles.exerciseAction}>Edit</Text>
+                            </Pressable>
+                            <Pressable onPress={() => handleDeleteWorkoutTemplate(template.id)}>
+                              <Text style={styles.exerciseRemove}>Delete</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </Card>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      <Modal visible={templatePickerOpen} transparent animationType="slide" onRequestClose={handleCloseTemplatePicker}>
+        <View style={styles.modalBackdrop}>
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: 'padding', android: undefined })}
+            style={styles.pickerModalWrapper}
+          >
+            <View style={styles.pickerModal}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Use workout template</Text>
+                <Pressable onPress={handleCloseTemplatePicker}>
+                  <Text style={styles.modalClose}>Close</Text>
+                </Pressable>
+              </View>
+              {workoutTemplates.length === 0 ? (
+                <Text style={styles.emptyText}>No templates yet. Create one in Workout settings.</Text>
+              ) : (
+                <ScrollView contentContainerStyle={styles.templateList}>
+                  {workoutTemplates.map((template) => (
+                    <Pressable
+                      key={template.id}
+                      style={styles.templateRow}
+                      onPress={() => handleUseWorkoutTemplate(template.id)}
+                    >
+                      <Text style={styles.templateName}>{template.name}</Text>
+                      <Text style={styles.templateMeta}>{template.exercises.length} exercises</Text>
+                      <Text style={styles.templateDetail} numberOfLines={2}>
+                        {template.exercises.map((exercise) => exercise.name).join(', ')}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      <Modal visible={exerciseHistoryOpen} transparent animationType="slide" onRequestClose={handleCloseExerciseHistory}>
+        <View style={styles.confirmBackdrop}>
+          <View style={styles.exerciseHistoryModal}>
+            <View style={styles.exerciseHistoryModalHeader}>
+              <Text style={[styles.modalTitle, styles.exerciseHistoryModalTitle]}>
+                {exerciseHistoryExerciseName || 'Exercise'} history
+              </Text>
+              <Pressable style={styles.exerciseHistoryCloseButton} onPress={handleCloseExerciseHistory}>
+                <Text style={styles.modalClose}>Close</Text>
+              </Pressable>
+            </View>
+            {exerciseHistoryEntries.length === 0 ? (
+              <Text style={styles.emptyOptions}>No history logged for this exercise yet.</Text>
+            ) : (
+              <ScrollView contentContainerStyle={styles.exerciseHistoryList}>
+                {exerciseHistoryEntries.map((entry) => (
+                  <View key={`${entry.workoutId}-${entry.startedAt}`} style={styles.exerciseHistoryRow}>
+                    <Pressable
+                      style={styles.exerciseHistoryHeader}
+                      onPress={() => toggleExerciseHistoryEntry(entry.workoutId)}
+                    >
+                      <View style={styles.exerciseHistoryMeta}>
+                        <Text style={styles.exerciseHistoryDate}>{formatShortDate(parseISODate(entry.date))}</Text>
+                        <Text style={styles.exerciseHistoryTopSet}>
+                          Top set: {entry.topWeight} kg x {entry.topReps}
+                        </Text>
+                      </View>
+                      <Feather
+                        name={expandedExerciseHistoryIds[entry.workoutId] ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color={colors.muted}
+                      />
+                    </Pressable>
+                    {expandedExerciseHistoryIds[entry.workoutId] ? (
+                      <View style={styles.exerciseHistorySets}>
+                        {entry.sets.map((set, index) => (
+                          <Text key={`${entry.workoutId}-set-${index}`} style={styles.exerciseHistorySetRow}>
+                            Set {index + 1}: {set.weight} kg x {set.reps}
+                          </Text>
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={startWorkoutChoiceOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseStartWorkoutChoice}
+      >
+        <View style={styles.confirmBackdrop}>
+          <View style={styles.confirmModal}>
+            <Text style={styles.modalTitle}>Start workout</Text>
+            <Text style={styles.sectionSubtitle}>
+              Start from a saved template, or begin with an empty workout.
+            </Text>
+            <Pressable style={styles.confirmButton} onPress={handleStartWithTemplate}>
+              <Text style={styles.confirmButtonText}>Use template</Text>
+            </Pressable>
+            <Pressable style={styles.secondaryButton} onPress={handleStartWithoutTemplate}>
+              <Text style={styles.secondaryButtonText}>Start Without</Text>
+            </Pressable>
+            <Pressable style={styles.cancelButton} onPress={handleCloseStartWorkoutChoice}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </Pressable>
+          </View>
         </View>
       </Modal>
 
@@ -632,16 +1107,25 @@ export function LogScreen() {
 
         <Card style={styles.workoutCard}>
           <View style={styles.workoutHeader}>
-            <View>
+            <View style={styles.workoutHeaderCopy}>
               <Text style={styles.sectionTitle}>Workout for {selectedDateLabel}</Text>
               <Text style={styles.sectionSubtitle}>Track sets, reps, and load.</Text>
             </View>
-            {activeWorkout ? (
-              <View style={styles.timerBlock}>
-                <Text style={styles.timerLabel}>Timer</Text>
-                <Text style={styles.timerValue}>{formatDuration(elapsedMs)}</Text>
-              </View>
-            ) : null}
+            <View style={styles.workoutHeaderActions}>
+              <Pressable
+                style={styles.settingsButton}
+                onPress={handleOpenSettings}
+                accessibilityLabel="Workout settings"
+              >
+                <Feather name="settings" size={20} color={colors.muted} />
+              </Pressable>
+              {activeWorkout ? (
+                <View style={styles.timerBlock}>
+                  <Text style={styles.timerLabel}>Timer</Text>
+                  <Text style={styles.timerValue}>{formatDuration(elapsedMs)}</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
 
           {activeWorkoutForOtherDay ? (
@@ -668,11 +1152,9 @@ export function LogScreen() {
             ) : null
           ) : activeWorkoutForSelected ? (
             <View style={styles.activeWorkout}>
-              {activeWorkoutForSelected.exercises.length === 0 ? (
-                <Text style={styles.emptyText}>Add your first exercise to get started.</Text>
-              ) : (
-                activeWorkoutForSelected.exercises.map(renderWorkoutExercise)
-              )}
+              {activeWorkoutForSelected.exercises.length > 0
+                ? activeWorkoutForSelected.exercises.map(renderWorkoutExercise)
+                : null}
               <Pressable style={styles.secondaryButton} onPress={() => openExercisePicker({ type: 'new' })}>
                 <Text style={styles.secondaryButtonText}>Add exercise</Text>
               </Pressable>
@@ -826,6 +1308,89 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.md,
   },
+  workoutHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: spacing.xs,
+  },
+  workoutHeaderActions: {
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+    flexShrink: 1,
+    maxWidth: '46%',
+  },
+  settingsButton: {
+    padding: spacing.xs,
+  },
+  settingsContent: {
+    gap: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  settingsSection: {
+    gap: spacing.sm,
+  },
+  templateBuilderList: {
+    gap: spacing.sm,
+  },
+  templateBuilderRow: {
+    gap: spacing.xs,
+  },
+  templateBuilderInputs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  templateExerciseButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+  },
+  templateExerciseButtonText: {
+    ...typography.body,
+    color: colors.text,
+  },
+  disabledText: {
+    opacity: 0.45,
+  },
+  templateList: {
+    gap: spacing.sm,
+  },
+  templateRow: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  templateInfo: {
+    gap: spacing.xs,
+  },
+  templateName: {
+    ...typography.body,
+    color: colors.text,
+  },
+  templateMeta: {
+    ...typography.label,
+    color: colors.muted,
+  },
+  templateDetail: {
+    ...typography.body,
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  templateActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
   sectionTitle: {
     ...typography.headline,
     color: colors.text,
@@ -838,6 +1403,7 @@ const styles = StyleSheet.create({
   timerBlock: {
     alignItems: 'flex-end',
     gap: spacing.xs,
+    maxWidth: '100%',
   },
   timerLabel: {
     ...typography.label,
@@ -896,10 +1462,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     borderRadius: 999,
+    alignItems: 'center',
   },
   secondaryButtonText: {
     ...typography.label,
     color: colors.accent,
+    textAlign: 'center',
   },
   activeWorkout: {
     gap: spacing.md,
@@ -926,6 +1494,14 @@ const styles = StyleSheet.create({
   exerciseActions: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  exerciseActionButton: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.surface,
   },
   exerciseAction: {
     ...typography.label,
@@ -968,21 +1544,65 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginLeft: spacing.xs,
   },
-  setRemove: {
-    ...typography.label,
-    color: colors.danger,
-    alignSelf: 'flex-start',
-  },
   addSetButton: {
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     borderRadius: 999,
     backgroundColor: colors.surface,
   },
   addSetText: {
     ...typography.label,
     color: colors.accent,
+  },
+  exerciseFooterActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  exerciseHistoryList: {
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  exerciseHistoryRow: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: spacing.sm,
+    gap: spacing.xs,
+  },
+  exerciseHistoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  exerciseHistoryMeta: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  exerciseHistoryDate: {
+    ...typography.label,
+    color: colors.muted,
+  },
+  exerciseHistoryTopSet: {
+    ...typography.body,
+    color: colors.text,
+  },
+  exerciseHistorySets: {
+    marginTop: spacing.xs,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.xs,
+  },
+  exerciseHistorySetRow: {
+    ...typography.body,
+    color: colors.muted,
   },
   endButton: {
     marginTop: spacing.sm,
@@ -1084,6 +1704,28 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: spacing.lg,
     gap: spacing.md,
+  },
+  exerciseHistoryModal: {
+    backgroundColor: colors.surface,
+    margin: spacing.lg,
+    borderRadius: 20,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    maxHeight: '80%',
+  },
+  exerciseHistoryModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  exerciseHistoryModalTitle: {
+    flex: 1,
+    minWidth: 0,
+  },
+  exerciseHistoryCloseButton: {
+    flexShrink: 0,
+    paddingTop: 2,
   },
   modalHeader: {
     flexDirection: 'row',
