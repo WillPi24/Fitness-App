@@ -7,6 +7,7 @@ export type SimpleFood = {
   protein: number;
   carbs: number;
   fat: number;
+  servingUnit?: 'g' | 'ml';
 };
 
 export const SIMPLE_FOODS: SimpleFood[] = [
@@ -67,9 +68,9 @@ export const SIMPLE_FOODS: SimpleFood[] = [
   { name: 'Omelette (plain)', calories: 154, protein: 11, carbs: 1, fat: 12 },
 
   // Dairy
-  { name: 'Milk (whole)', calories: 63, protein: 3, carbs: 5, fat: 4 },
-  { name: 'Milk (semi-skimmed)', calories: 47, protein: 3, carbs: 5, fat: 2 },
-  { name: 'Milk (skimmed)', calories: 35, protein: 4, carbs: 5, fat: 0 },
+  { name: 'Milk (whole)', calories: 63, protein: 3, carbs: 5, fat: 4, servingUnit: 'ml' },
+  { name: 'Milk (semi-skimmed)', calories: 47, protein: 3, carbs: 5, fat: 2, servingUnit: 'ml' },
+  { name: 'Milk (skimmed)', calories: 35, protein: 4, carbs: 5, fat: 0, servingUnit: 'ml' },
   { name: 'Greek yogurt (full fat)', calories: 97, protein: 9, carbs: 4, fat: 5 },
   { name: 'Greek yogurt (0% fat)', calories: 57, protein: 10, carbs: 4, fat: 0 },
   { name: 'Natural yogurt', calories: 79, protein: 5, carbs: 8, fat: 3 },
@@ -191,20 +192,21 @@ export const SIMPLE_FOODS: SimpleFood[] = [
   { name: 'Milk chocolate', calories: 535, protein: 8, carbs: 56, fat: 30 },
 
   // Oils & Dressings
-  { name: 'Olive oil', calories: 884, protein: 0, carbs: 0, fat: 100 },
-  { name: 'Coconut oil', calories: 862, protein: 0, carbs: 0, fat: 100 },
-  { name: 'Vegetable oil', calories: 884, protein: 0, carbs: 0, fat: 100 },
+  { name: 'Extra virgin olive oil', calories: 884, protein: 0, carbs: 0, fat: 100, servingUnit: 'ml' },
+  { name: 'Olive oil', calories: 884, protein: 0, carbs: 0, fat: 100, servingUnit: 'ml' },
+  { name: 'Coconut oil', calories: 862, protein: 0, carbs: 0, fat: 100, servingUnit: 'ml' },
+  { name: 'Vegetable oil', calories: 884, protein: 0, carbs: 0, fat: 100, servingUnit: 'ml' },
 
   // Drinks
-  { name: 'Orange juice', calories: 45, protein: 1, carbs: 10, fat: 0 },
-  { name: 'Apple juice', calories: 46, protein: 0, carbs: 11, fat: 0 },
-  { name: 'Protein shake (whey)', calories: 120, protein: 24, carbs: 3, fat: 2 },
-  { name: 'Smoothie (fruit)', calories: 57, protein: 1, carbs: 13, fat: 0 },
-  { name: 'Oat milk', calories: 43, protein: 1, carbs: 7, fat: 1 },
-  { name: 'Almond milk', calories: 15, protein: 1, carbs: 0, fat: 1 },
-  { name: 'Soy milk', calories: 33, protein: 3, carbs: 1, fat: 2 },
-  { name: 'Coconut milk (carton)', calories: 20, protein: 0, carbs: 1, fat: 2 },
-  { name: 'Hot chocolate', calories: 77, protein: 3, carbs: 11, fat: 3 },
+  { name: 'Orange juice', calories: 45, protein: 1, carbs: 10, fat: 0, servingUnit: 'ml' },
+  { name: 'Apple juice', calories: 46, protein: 0, carbs: 11, fat: 0, servingUnit: 'ml' },
+  { name: 'Protein shake (whey)', calories: 120, protein: 24, carbs: 3, fat: 2, servingUnit: 'ml' },
+  { name: 'Smoothie (fruit)', calories: 57, protein: 1, carbs: 13, fat: 0, servingUnit: 'ml' },
+  { name: 'Oat milk', calories: 43, protein: 1, carbs: 7, fat: 1, servingUnit: 'ml' },
+  { name: 'Almond milk', calories: 15, protein: 1, carbs: 0, fat: 1, servingUnit: 'ml' },
+  { name: 'Soy milk', calories: 33, protein: 3, carbs: 1, fat: 2, servingUnit: 'ml' },
+  { name: 'Coconut milk (carton)', calories: 20, protein: 0, carbs: 1, fat: 2, servingUnit: 'ml' },
+  { name: 'Hot chocolate', calories: 77, protein: 3, carbs: 11, fat: 3, servingUnit: 'ml' },
 
   // Sweeteners & Spreads
   { name: 'Honey', calories: 304, protein: 0, carbs: 82, fat: 0 },
@@ -307,9 +309,9 @@ export const SIMPLE_FOODS: SimpleFood[] = [
   { name: 'Sushi (california roll)', calories: 140, protein: 6, carbs: 20, fat: 4 },
   { name: 'Spring roll', calories: 154, protein: 5, carbs: 19, fat: 6 },
   { name: 'Falafel', calories: 333, protein: 13, carbs: 32, fat: 18 },
-  { name: 'Soup (tomato)', calories: 30, protein: 1, carbs: 5, fat: 1 },
-  { name: 'Soup (chicken)', calories: 36, protein: 3, carbs: 4, fat: 1 },
-  { name: 'Soup (vegetable)', calories: 25, protein: 1, carbs: 4, fat: 1 },
+  { name: 'Soup (tomato)', calories: 30, protein: 1, carbs: 5, fat: 1, servingUnit: 'ml' },
+  { name: 'Soup (chicken)', calories: 36, protein: 3, carbs: 4, fat: 1, servingUnit: 'ml' },
+  { name: 'Soup (vegetable)', calories: 25, protein: 1, carbs: 4, fat: 1, servingUnit: 'ml' },
 
   // Flour & Baking
   { name: 'Flour (plain)', calories: 364, protein: 10, carbs: 76, fat: 1 },

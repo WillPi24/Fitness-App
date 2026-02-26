@@ -19,6 +19,7 @@ export type FoodItem = {
   carbs: number;
   fat: number;
   servingSize: number;
+  servingUnit: string;
   servings: number;
   micronutrients: Micronutrients;
   hasMicronutrientData: boolean;
@@ -46,11 +47,12 @@ export type DraftFoodEntry = {
   carbs: string;
   fat: string;
   servingSize: string;
+  servingUnit: string;
   servings: string;
   micronutrients: Micronutrients;
   hasMicronutrientData: boolean;
   targetMealId: string;
-  // Base values per 100g for recalculation when serving size changes
+  // Base values per 100 units for recalculation when serving size changes
   baseCalories?: number;
   baseProtein?: number;
   baseCarbs?: number;
@@ -67,6 +69,7 @@ export type SavedMealFood = {
   carbs: number;
   fat: number;
   servingSize: number;
+  servingUnit: string;
   servings: number;
   micronutrients: Micronutrients;
   hasMicronutrientData: boolean;
@@ -158,6 +161,7 @@ function createDraftEntry(targetMealId: string): DraftFoodEntry {
     carbs: '',
     fat: '',
     servingSize: '100',
+    servingUnit: 'g',
     servings: '1',
     micronutrients: createEmptyMicronutrients(),
     hasMicronutrientData: false,
@@ -182,10 +186,13 @@ function normalizeFoodItem(food: FoodItem): FoodItem {
   const raw = food as FoodItem & {
     micronutrients?: Partial<Micronutrients>;
     hasMicronutrientData?: boolean;
+    servingUnit?: unknown;
   };
   const micronutrients = normalizeMicronutrients(raw.micronutrients);
   return {
     ...food,
+    servingUnit:
+      typeof raw.servingUnit === 'string' && raw.servingUnit.trim().length > 0 ? raw.servingUnit : 'g',
     micronutrients,
     hasMicronutrientData:
       typeof raw.hasMicronutrientData === 'boolean'
@@ -212,10 +219,13 @@ function normalizeSavedMealFood(food: SavedMealFood): SavedMealFood {
   const raw = food as SavedMealFood & {
     micronutrients?: Partial<Micronutrients>;
     hasMicronutrientData?: boolean;
+    servingUnit?: unknown;
   };
   const micronutrients = normalizeMicronutrients(raw.micronutrients);
   return {
     ...food,
+    servingUnit:
+      typeof raw.servingUnit === 'string' && raw.servingUnit.trim().length > 0 ? raw.servingUnit : 'g',
     micronutrients,
     hasMicronutrientData:
       typeof raw.hasMicronutrientData === 'boolean'
@@ -236,10 +246,13 @@ function normalizeDraftEntry(entry: DraftFoodEntry): DraftFoodEntry {
     micronutrients?: Partial<Micronutrients>;
     baseMicronutrients?: Partial<Micronutrients>;
     hasMicronutrientData?: boolean;
+    servingUnit?: unknown;
   };
   const micronutrients = normalizeMicronutrients(raw.micronutrients);
   return {
     ...entry,
+    servingUnit:
+      typeof raw.servingUnit === 'string' && raw.servingUnit.trim().length > 0 ? raw.servingUnit : 'g',
     micronutrients,
     hasMicronutrientData:
       typeof raw.hasMicronutrientData === 'boolean'
@@ -255,7 +268,7 @@ function isFoodItem(value: unknown): value is FoodItem {
   if (!value || typeof value !== 'object') {
     return false;
   }
-  const item = value as FoodItem;
+  const item = value as FoodItem & { servingUnit?: unknown };
   return (
     typeof item.id === 'string' &&
     typeof item.name === 'string' &&
@@ -264,6 +277,7 @@ function isFoodItem(value: unknown): value is FoodItem {
     typeof item.carbs === 'number' &&
     typeof item.fat === 'number' &&
     typeof item.servingSize === 'number' &&
+    (item.servingUnit === undefined || typeof item.servingUnit === 'string') &&
     typeof item.servings === 'number' &&
     typeof item.timestamp === 'number'
   );
@@ -298,7 +312,7 @@ function isDraftFoodEntry(value: unknown): value is DraftFoodEntry {
   if (!value || typeof value !== 'object') {
     return false;
   }
-  const entry = value as DraftFoodEntry;
+  const entry = value as DraftFoodEntry & { servingUnit?: unknown };
   return (
     typeof entry.id === 'string' &&
     typeof entry.name === 'string' &&
@@ -309,6 +323,7 @@ function isDraftFoodEntry(value: unknown): value is DraftFoodEntry {
     typeof entry.carbs === 'string' &&
     typeof entry.fat === 'string' &&
     typeof entry.servingSize === 'string' &&
+    (entry.servingUnit === undefined || typeof entry.servingUnit === 'string') &&
     typeof entry.servings === 'string' &&
     typeof entry.targetMealId === 'string' &&
     (entry.micronutrients === undefined || isMicronutrients(entry.micronutrients)) &&
@@ -321,7 +336,7 @@ function isSavedMealFood(value: unknown): value is SavedMealFood {
   if (!value || typeof value !== 'object') {
     return false;
   }
-  const food = value as SavedMealFood;
+  const food = value as SavedMealFood & { servingUnit?: unknown };
   return (
     typeof food.id === 'string' &&
     typeof food.name === 'string' &&
@@ -330,6 +345,7 @@ function isSavedMealFood(value: unknown): value is SavedMealFood {
     typeof food.carbs === 'number' &&
     typeof food.fat === 'number' &&
     typeof food.servingSize === 'number' &&
+    (food.servingUnit === undefined || typeof food.servingUnit === 'string') &&
     typeof food.servings === 'number'
   );
 }
@@ -598,6 +614,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
           carbs: String(carbsPer100g),
           fat: String(fatPer100g),
           servingSize: '100',
+          servingUnit: 'g',
           micronutrients,
           hasMicronutrientData,
           baseCalories: caloriesPer100g,
@@ -656,6 +673,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       carbs: Math.round(carbs * servings),
       fat: Math.round(fat * servings),
       servingSize,
+      servingUnit: draftEntry.servingUnit || 'g',
       servings,
       micronutrients: scaledMicronutrients,
       hasMicronutrientData: draftEntry.hasMicronutrientData && hasMicronutrients(scaledMicronutrients),
@@ -847,6 +865,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       carbs: food.carbs,
       fat: food.fat,
       servingSize: food.servingSize,
+      servingUnit: food.servingUnit || 'g',
       servings: food.servings,
       micronutrients: normalizeMicronutrients(food.micronutrients),
       hasMicronutrientData: food.hasMicronutrientData,

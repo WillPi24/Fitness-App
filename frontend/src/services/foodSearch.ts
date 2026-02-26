@@ -22,6 +22,42 @@ export type FoodSearchResult = {
 const USDA_API_URL = 'https://api.nal.usda.gov/fdc/v1/foods/search';
 const USDA_FOOD_DETAILS_URL = 'https://api.nal.usda.gov/fdc/v1/food';
 
+function normalizeServingUnit(unit?: string): string | null {
+  const normalizedUnit = (unit || '').trim().toLowerCase();
+  if (!normalizedUnit) {
+    return null;
+  }
+
+  if (['ml', 'milliliter', 'milliliters', 'millilitre', 'millilitres'].includes(normalizedUnit)) {
+    return 'ml';
+  }
+  if (['g', 'gram', 'grams'].includes(normalizedUnit)) {
+    return 'g';
+  }
+  return null;
+}
+
+function inferServingUnitFromUSDACategory(food: USDAFood): 'ml' | 'g' {
+  const combinedCategory = `${food.foodCategory ?? ''} ${food.brandedFoodCategory ?? ''}`.toLowerCase();
+  if (
+    combinedCategory.includes('beverage') ||
+    combinedCategory.includes('drink') ||
+    combinedCategory.includes('soup') ||
+    combinedCategory.includes('fats and oils')
+  ) {
+    return 'ml';
+  }
+  return 'g';
+}
+
+function resolveUSDAServingUnit(food: USDAFood): 'ml' | 'g' {
+  const normalized = normalizeServingUnit(food.servingSizeUnit);
+  if (normalized === 'ml' || normalized === 'g') {
+    return normalized;
+  }
+  return inferServingUnitFromUSDACategory(food);
+}
+
 // Simple search - curated list of common foods
 export function searchSimpleFoods(query: string): FoodSearchResult[] {
   if (!query.trim()) {
@@ -61,7 +97,7 @@ export function searchSimpleFoods(query: string): FoodSearchResult[] {
     carbs: food.carbs,
     fat: food.fat,
     servingSize: 100,
-    servingUnit: 'g',
+    servingUnit: food.servingUnit ?? 'g',
     micronutrients: createEmptyMicronutrients(),
     hasMicronutrientData: false,
   }));
@@ -78,6 +114,8 @@ type USDAFood = {
   fdcId: number;
   description: string;
   brandName?: string;
+  foodCategory?: string;
+  brandedFoodCategory?: string;
   foodNutrients: USDANutrient[];
   servingSize?: number;
   servingSizeUnit?: string;
@@ -253,7 +291,7 @@ export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
         carbs: getNutrientValue(food.foodNutrients, NUTRIENT_IDS.CARBS),
         fat: getNutrientValue(food.foodNutrients, NUTRIENT_IDS.FAT),
         servingSize: food.servingSize || 100,
-        servingUnit: food.servingSizeUnit || 'g',
+        servingUnit: resolveUSDAServingUnit(food),
         micronutrients,
         hasMicronutrientData: hasMicronutrients(micronutrients),
       };

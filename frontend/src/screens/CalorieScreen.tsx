@@ -143,6 +143,7 @@ export function CalorieScreen() {
         name: string;
         brand?: string;
         servingSize: number;
+        servingUnit: string;
         servings: number;
         calories: number;
         protein: number;
@@ -157,6 +158,7 @@ export function CalorieScreen() {
         name: string;
         brand?: string;
         servingSize: number;
+        servingUnit: string;
         servings: number;
         calories: number;
         protein: number;
@@ -356,8 +358,9 @@ export function CalorieScreen() {
     updateDraftEntry('carbs', String(food.carbs));
     updateDraftEntry('fat', String(food.fat));
     updateDraftEntry('servingSize', String(food.servingSize));
+    updateDraftEntry('servingUnit', food.servingUnit);
     updateDraftEntry('servings', '1');
-    // Store base values per 100g for recalculation
+    // Store base values per 100 units for recalculation.
     updateDraftEntry('baseCalories', food.calories);
     updateDraftEntry('baseProtein', food.protein);
     updateDraftEntry('baseCarbs', food.carbs);
@@ -439,7 +442,8 @@ export function CalorieScreen() {
     updateDraftEntry('carbs', String(food.carbs));
     updateDraftEntry('fat', String(food.fat));
     updateDraftEntry('servingSize', String(food.servingSize));
-    // Store base values per 100g for recalculation
+    updateDraftEntry('servingUnit', food.servingUnit);
+    // Store base values per 100 units for recalculation.
     updateDraftEntry('baseCalories', food.calories);
     updateDraftEntry('baseProtein', food.protein);
     updateDraftEntry('baseCarbs', food.carbs);
@@ -609,6 +613,7 @@ export function CalorieScreen() {
       carbs: resolvedFood.carbs,
       fat: resolvedFood.fat,
       servingSize: resolvedFood.servingSize,
+      servingUnit: resolvedFood.servingUnit,
       servings: 1,
       micronutrients: { ...resolvedFood.micronutrients },
       hasMicronutrientData: resolvedFood.hasMicronutrientData,
@@ -631,6 +636,7 @@ export function CalorieScreen() {
       name: food.name,
       brand: food.brand,
       servingSize: food.servingSize,
+      servingUnit: food.servingUnit,
       servings: food.servings,
       calories: food.calories,
       protein: food.protein,
@@ -650,6 +656,7 @@ export function CalorieScreen() {
       name: food.name,
       brand: food.brand,
       servingSize: food.servingSize,
+      servingUnit: food.servingUnit,
       servings: food.servings,
       calories: food.calories,
       protein: food.protein,
@@ -670,6 +677,8 @@ export function CalorieScreen() {
 
   const parsedEditServingSize = Number(editServingSizeInput);
   const parsedEditServings = Number(editServingsInput);
+  const draftServingUnit = draftEntry?.servingUnit || 'g';
+  const editingServingUnit = editingFoodTarget?.servingUnit || 'g';
   const isEditFoodInputValid =
     Number.isFinite(parsedEditServingSize) &&
     parsedEditServingSize > 0 &&
@@ -946,7 +955,7 @@ export function CalorieScreen() {
                   <Text style={styles.formSectionTitle}>Adjust quantity</Text>
                   <View style={styles.formRow}>
                     <View style={styles.formGroupHalf}>
-                      <Text style={styles.formLabel}>Serving Size (g)</Text>
+                      <Text style={styles.formLabel}>{`Serving Size (${editingServingUnit})`}</Text>
                       <TextInput
                         style={styles.formInput}
                         value={editServingSizeInput}
@@ -1123,7 +1132,9 @@ export function CalorieScreen() {
                       {food.name}
                     </Text>
                     <Text style={styles.searchResultMacros}>
-                      {food.calories} kcal | P: {food.protein}g | C: {food.carbs}g | F: {food.fat}g
+                      {food.calories} kcal | P: {food.protein}g | C: {food.carbs}g | F: {food.fat}g |{' '}
+                      {food.servingSize}
+                      {food.servingUnit}
                     </Text>
                   </View>
                 </Pressable>
@@ -1235,7 +1246,8 @@ export function CalorieScreen() {
                                   {food.name}
                                 </Text>
                                 <Text style={styles.suggestionMacros}>
-                                  {food.calories} kcal | P: {food.protein}g
+                                  {food.calories} kcal | P: {food.protein}g | {food.servingSize}
+                                  {food.servingUnit}
                                 </Text>
                               </View>
                             </Pressable>
@@ -1312,7 +1324,7 @@ export function CalorieScreen() {
 
                   <View style={styles.formRow}>
                     <View style={styles.formGroupHalf}>
-                      <Text style={styles.formLabel}>Serving Size (g)</Text>
+                      <Text style={styles.formLabel}>{`Serving Size (${draftServingUnit})`}</Text>
                       <TextInput
                         style={styles.formInput}
                         value={draftEntry?.servingSize || ''}
@@ -1589,7 +1601,8 @@ export function CalorieScreen() {
                         </Text>
                         <Text style={styles.searchResultMacros}>
                           {food.calories} kcal | P: {food.protein}g | C: {food.carbs}g | F:{' '}
-                          {food.fat}g
+                          {food.fat}g | {food.servingSize}
+                          {food.servingUnit}
                         </Text>
                       </View>
                     </Pressable>
