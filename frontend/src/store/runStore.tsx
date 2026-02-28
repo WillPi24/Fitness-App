@@ -16,6 +16,7 @@ export type RunSession = {
   id: string;
   date: string;
   type: 'outdoor' | 'indoor';
+  activity?: string;
   startedAt: number;
   endedAt: number;
   durationMs: number;
@@ -28,6 +29,7 @@ export type ActiveRun = {
   id: string;
   date: string;
   type: 'outdoor' | 'indoor';
+  activity?: string;
   startedAt: number;
   segmentStartedAt: number;
   elapsedMs: number;
@@ -42,7 +44,7 @@ export type ActiveRun = {
 type RunContextValue = {
   runs: RunSession[];
   activeRun: ActiveRun | null;
-  startRun: (type: 'outdoor' | 'indoor') => Promise<boolean>;
+  startRun: (type: 'outdoor' | 'indoor', activity?: string) => Promise<boolean>;
   pauseRun: () => Promise<void>;
   resumeRun: () => Promise<void>;
   finishRun: () => Promise<void>;
@@ -92,6 +94,7 @@ function isRunSession(value: unknown): value is RunSession {
     typeof run.id === 'string' &&
     typeof run.date === 'string' &&
     (run.type === 'outdoor' || run.type === 'indoor') &&
+    (run.activity === undefined || typeof run.activity === 'string') &&
     typeof run.startedAt === 'number' &&
     typeof run.endedAt === 'number' &&
     typeof run.durationMs === 'number' &&
@@ -110,6 +113,7 @@ function isActiveRun(value: unknown): value is ActiveRun {
     typeof run.id === 'string' &&
     typeof run.date === 'string' &&
     (run.type === 'outdoor' || run.type === 'indoor') &&
+    (run.activity === undefined || typeof run.activity === 'string') &&
     typeof run.startedAt === 'number' &&
     typeof run.segmentStartedAt === 'number' &&
     typeof run.elapsedMs === 'number' &&
@@ -386,7 +390,7 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
   }, [activeRun, startLocationUpdates]);
 
   const startRun = useCallback(
-    async (type: 'outdoor' | 'indoor') => {
+    async (type: 'outdoor' | 'indoor', activity?: string) => {
       if (activeRun) {
         setError('Finish or discard the active run before starting a new one.');
         return false;
@@ -402,10 +406,17 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
       }
 
       const now = Date.now();
+      const selectedActivity =
+        typeof activity === 'string' && activity.trim().length > 0
+          ? activity.trim()
+          : type === 'outdoor'
+            ? 'Run'
+            : 'Treadmill';
       let nextRun: ActiveRun = {
         id: generateId(),
         date: formatISODate(new Date(now)),
         type,
+        activity: selectedActivity,
         startedAt: now,
         segmentStartedAt: now,
         elapsedMs: 0,
@@ -524,6 +535,7 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
       id: activeRun.id,
       date: activeRun.date,
       type: activeRun.type,
+      activity: activeRun.activity,
       startedAt: activeRun.startedAt,
       endedAt: now,
       durationMs,

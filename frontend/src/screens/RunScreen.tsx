@@ -84,8 +84,19 @@ export function RunScreen() {
   const [indoorDistance, setIndoorDistance] = useState('');
   const [confirmAction, setConfirmAction] = useState<'finish' | 'discard' | null>(null);
   const [showIndoorPicker, setShowIndoorPicker] = useState(false);
+  const [showOutdoorPicker, setShowOutdoorPicker] = useState(false);
   const [indoorActivity, setIndoorActivity] = useState('Treadmill');
+  const [outdoorActivity, setOutdoorActivity] = useState('Run');
   const [isEditingIndoorDistance, setIsEditingIndoorDistance] = useState(false);
+
+  const outdoorOptions = useMemo(
+    () => [
+      'Run',
+      'Walk',
+      'Bike',
+    ],
+    []
+  );
 
   const indoorOptions = useMemo(
     () => [
@@ -144,9 +155,16 @@ export function RunScreen() {
       : undefined;
 
   const recentRuns = useMemo(() => runs.slice(0, 5), [runs]);
+  const activeActivity = useMemo(() => {
+    if (!activeRun) {
+      return '';
+    }
+    return activeRun.activity ?? (activeRun.type === 'outdoor' ? 'Run' : 'Treadmill');
+  }, [activeRun]);
 
   const handleStart = async () => {
-    const ok = await startRun(runType);
+    const selectedActivity = runType === 'outdoor' ? outdoorActivity : indoorActivity;
+    const ok = await startRun(runType, selectedActivity);
     if (ok && runType === 'indoor') {
       setIndoorDistance('');
     }
@@ -179,7 +197,7 @@ export function RunScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.title}>Cardio tracker</Text>
-        <Text style={styles.subtitle}>Track outdoor runs with GPS or indoor cardio by logging distance.</Text>
+        <Text style={styles.subtitle}>Track outdoor cardio with GPS or indoor cardio by logging distance.</Text>
 
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
@@ -192,7 +210,7 @@ export function RunScreen() {
             {!activeRun ? (
               <>
                 <Card>
-                  <Text style={styles.sectionTitle}>Start a run</Text>
+                  <Text style={styles.sectionTitle}>Start cardio</Text>
                   <View style={styles.segmented}>
                     <Pressable
                       style={[
@@ -227,19 +245,27 @@ export function RunScreen() {
                       </Text>
                     </Pressable>
                   </View>
-                  {runType === 'indoor' ? (
-                    <View style={styles.indoorRow}>
-                      <Text style={styles.indoorLabel}>Indoor activity</Text>
-                      <Pressable
-                        style={styles.indoorValueButton}
-                        onPress={() => setShowIndoorPicker(true)}
-                      >
-                        <Text style={styles.indoorValueText}>{indoorActivity}</Text>
-                      </Pressable>
-                    </View>
-                  ) : null}
+                  <View style={styles.indoorRow}>
+                    <Text style={styles.indoorLabel}>
+                      {runType === 'outdoor' ? 'Outdoor activity' : 'Indoor activity'}
+                    </Text>
+                    <Pressable
+                      style={styles.indoorValueButton}
+                      onPress={() => {
+                        if (runType === 'outdoor') {
+                          setShowOutdoorPicker(true);
+                        } else {
+                          setShowIndoorPicker(true);
+                        }
+                      }}
+                    >
+                      <Text style={styles.indoorValueText}>
+                        {runType === 'outdoor' ? outdoorActivity : indoorActivity}
+                      </Text>
+                    </Pressable>
+                  </View>
                   <Pressable style={styles.primaryButton} onPress={handleStart}>
-                    <Text style={styles.primaryButtonText}>Start run</Text>
+                    <Text style={styles.primaryButtonText}>Start activity</Text>
                   </Pressable>
                 </Card>
 
@@ -265,7 +291,7 @@ export function RunScreen() {
                   <View style={styles.mapPlaceholder}>
                     <Text style={styles.mapPlaceholderTitle}>No GPS path yet</Text>
                     <Text style={styles.mapPlaceholderText}>
-                      Start an outdoor run to display your route.
+                      Start an outdoor activity to display your route.
                     </Text>
                   </View>
                 </Card>
@@ -316,7 +342,7 @@ export function RunScreen() {
                         <Text style={styles.mapPlaceholderText}>
                           {activeRun
                             ? 'Move outside with GPS enabled to see your route.'
-                            : 'Start an outdoor run to display your route.'}
+                            : 'Start an outdoor activity to display your route.'}
                         </Text>
                       </View>
                     )}
@@ -326,8 +352,8 @@ export function RunScreen() {
                 <Card>
                   <Text style={styles.sectionTitle}>
                     {activeRun.type === 'outdoor'
-                      ? 'Outdoor run'
-                      : `Indoor run · ${indoorActivity}`}
+                      ? `Outdoor ${activeActivity}`
+                      : `Indoor ${activeActivity}`}
                   </Text>
                   {activeRun.type === 'indoor' ? (
                     <View>
@@ -378,28 +404,66 @@ export function RunScreen() {
             )}
 
             <Card>
-              <Text style={styles.sectionTitle}>Recent runs</Text>
+              <Text style={styles.sectionTitle}>Cardio History</Text>
               {recentRuns.length === 0 ? (
                 <Text style={styles.emptyText}>No runs logged yet.</Text>
               ) : (
-                recentRuns.map((run) => (
-                  <View key={run.id} style={styles.runRow}>
-                    <View>
-                      <Text style={styles.runLabel}>
-                        {run.type === 'outdoor' ? 'Outdoor' : 'Indoor'} · {formatRunDate(run)}
-                      </Text>
-                      <Text style={styles.runSub}>
-                        {formatDuration(run.durationMs)} · {formatPace(run.durationMs, run.distanceMeters)}
-                      </Text>
+                recentRuns.map((run) => {
+                  const runActivity = run.activity ?? (run.type === 'outdoor' ? 'Run' : 'Treadmill');
+                  return (
+                    <View key={run.id} style={styles.runRow}>
+                      <View>
+                        <Text style={styles.runLabel}>
+                          {run.type === 'outdoor' ? 'Outdoor' : 'Indoor'} - {runActivity} - {formatRunDate(run)}
+                        </Text>
+                        <Text style={styles.runSub}>
+                          {formatDuration(run.durationMs)} · {formatPace(run.durationMs, run.distanceMeters)} · {formatDistanceKm(run.distanceMeters)}
+                        </Text>
+                      </View>
                     </View>
-                    <Text style={styles.runValue}>{formatDistanceKm(run.distanceMeters)}</Text>
-                  </View>
-                ))
+                  );
+                })
               )}
             </Card>
           </>
         )}
       </ScrollView>
+
+      <Modal
+        visible={showOutdoorPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowOutdoorPicker(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Card style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Choose outdoor activity</Text>
+            <View style={styles.modalList}>
+              {outdoorOptions.map((option) => {
+                const isSelected = option === outdoorActivity;
+                return (
+                  <Pressable
+                    key={option}
+                    style={[styles.modalOption, isSelected && styles.modalOptionActive]}
+                    onPress={() => {
+                      setOutdoorActivity(option);
+                      setShowOutdoorPicker(false);
+                    }}
+                  >
+                    <Text style={styles.modalOptionText}>{option}</Text>
+                    {isSelected ? <Text style={styles.modalOptionBadge}>Selected</Text> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalGhostButton} onPress={() => setShowOutdoorPicker(false)}>
+                <Text style={styles.modalGhostText}>Close</Text>
+              </Pressable>
+            </View>
+          </Card>
+        </View>
+      </Modal>
 
       <Modal
         visible={showIndoorPicker}
