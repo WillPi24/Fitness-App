@@ -13,6 +13,7 @@ import {
   Switch,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { CalendarList } from 'react-native-calendars';
@@ -108,6 +109,7 @@ export function CalorieScreen() {
   const today = new Date();
   const todayIso = useMemo(() => formatISODate(today), []);
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const [selectedDate, setSelectedDate] = useState(todayIso);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -1347,6 +1349,7 @@ export function CalorieScreen() {
               maxDate={todayIso}
               pastScrollRange={calendarPastRange}
               futureScrollRange={calendarFutureRange}
+              calendarWidth={Math.max(280, windowWidth - spacing.lg * 2)}
               horizontal
               pagingEnabled
               enableSwipeMonths
@@ -2002,10 +2005,17 @@ export function CalorieScreen() {
         <Text style={styles.pageTitle}>Calorie tracker</Text>
         {/* Week Selector */}
         <View style={styles.calendarCard}>
-          <Pressable style={styles.monthButton} onPress={() => setCalendarOpen(true)}>
-            <Text style={styles.monthLabel}>{monthLabel}</Text>
-            <Feather name="chevron-down" size={18} color={colors.muted} />
-          </Pressable>
+          <View style={styles.calendarTopRow}>
+            <Pressable style={styles.monthButton} onPress={() => setCalendarOpen(true)}>
+              <Text style={styles.monthLabel}>{monthLabel}</Text>
+              <Feather name="chevron-down" size={18} color={colors.muted} />
+            </Pressable>
+            {!isSelectedDateToday ? (
+              <Pressable style={styles.jumpTodayButton} onPress={() => setSelectedDate(todayIso)}>
+                <Text style={styles.jumpTodayText}>Jump to today</Text>
+              </Pressable>
+            ) : null}
+          </View>
           <View style={styles.weekRow}>
             {weekDates.map((date) => {
               const iso = formatISODate(date);
@@ -2246,10 +2256,28 @@ const styles = StyleSheet.create({
   calendarCard: {
     gap: spacing.sm,
   },
+  calendarTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   monthButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  jumpTodayButton: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.accentSoft,
+  },
+  jumpTodayText: {
+    ...typography.label,
+    color: colors.accent,
   },
   monthLabel: {
     ...typography.headline,

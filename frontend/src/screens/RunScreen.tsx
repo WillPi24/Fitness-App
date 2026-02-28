@@ -1,3 +1,4 @@
+import { Feather } from '@expo/vector-icons';
 import MapView, { Polyline } from 'react-native-maps';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -10,14 +11,59 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import { CalendarList } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../components/Card';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { ActiveRun, RunSession, useRunStore } from '../store/runStore';
+import { ActiveRun, useRunStore } from '../store/runStore';
 import { colors, spacing, typography } from '../theme';
+
+const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEK_STARTS_ON = 1;
+
+function formatISODate(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseISODate(dateString: string) {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function startOfWeek(date: Date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const day = start.getDay();
+  const diff = (day - WEEK_STARTS_ON + 7) % 7;
+  start.setDate(start.getDate() - diff);
+  return start;
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function formatMonthYear(date: Date) {
+  return `${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function formatShortDate(date: Date) {
+  return `${weekDays[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`;
+}
+
+function monthsBetween(start: Date, end: Date) {
+  return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+}
 
 function formatDuration(ms: number) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -58,9 +104,13 @@ function getElapsedMs(activeRun: ActiveRun | null, tick: number) {
   return activeRun.elapsedMs + (activeRun.isPaused ? 0 : tick - activeRun.segmentStartedAt);
 }
 
-function formatRunDate(run: RunSession) {
-  const date = new Date(run.startedAt);
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+function formatTime(timestamp: number) {
+  const date = new Date(timestamp);
+  let hours = date.getHours();
+  const minutes = `${date.getMinutes()}`.padStart(2, '0');
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  return `${hours}:${minutes} ${suffix}`;
 }
 
 export function RunScreen() {
@@ -78,7 +128,11 @@ export function RunScreen() {
     clearError,
   } = useRunStore();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const todayIso = useMemo(() => formatISODate(new Date()), []);
 
+  const [selectedDate, setSelectedDate] = useState(todayIso);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [runType, setRunType] = useState<'outdoor' | 'indoor'>('outdoor');
   const [timerTick, setTimerTick] = useState(Date.now());
   const [indoorDistance, setIndoorDistance] = useState('');
@@ -154,7 +208,51 @@ export function RunScreen() {
       ? activeRun.route[activeRun.route.length - 1]
       : undefined;
 
-  const recentRuns = useMemo(() => runs.slice(0, 5), [runs]);
+  const selectedDateObj = useMemo(() => parseISODate(selectedDate), [selectedDate]);
+  const monthLabel = useMemo(() => formatMonthYear(selectedDateObj), [selectedDateObj]);
+  const selectedDateLabel = useMemo(() => formatShortDate(selectedDateObj), [selectedDateObj]);
+  const isSelectedDateToday = selectedDate === todayIso;
+  const weekDates = useMemo(() => {
+    const start = startOfWeek(selectedDateObj);
+    return Array.from({ length: 7 }, (_, index) => addDays(start, index));
+  }, [selectedDateObj]);
+  const earliestRunDate = useMemo(() => {
+    if (runs.length === 0) {
+      return selectedDate;
+    }
+    return runs.reduce((minDate, run) => (run.date < minDate ? run.date : minDate), runs[0].date);
+  }, [runs, selectedDate]);
+  const markedDates = useMemo(() => {
+    const marks: Record<string, { marked?: boolean; selected?: boolean; selectedColor?: string; selectedTextColor?: string; dotColor?: string }> = {};
+    runs.forEach((run) => {
+      if (!marks[run.date]) {
+        marks[run.date] = { marked: true, dotColor: colors.accent };
+      }
+    });
+    const existing = marks[selectedDate] ?? {};
+    marks[selectedDate] = {
+      ...existing,
+      selected: true,
+      selectedColor: colors.accent,
+      selectedTextColor: '#fff',
+    };
+    return marks;
+  }, [runs, selectedDate]);
+  const calendarPastRange = useMemo(() => {
+    const earliest = parseISODate(earliestRunDate);
+    return Math.max(0, monthsBetween(earliest, selectedDateObj));
+  }, [earliestRunDate, selectedDateObj]);
+  const calendarFutureRange = useMemo(() => {
+    const todayDate = new Date();
+    return Math.max(0, monthsBetween(selectedDateObj, todayDate));
+  }, [selectedDateObj]);
+  const runsForSelectedDate = useMemo(
+    () =>
+      runs
+        .filter((run) => run.date === selectedDate)
+        .sort((a, b) => b.startedAt - a.startedAt),
+    [runs, selectedDate]
+  );
   const activeActivity = useMemo(() => {
     if (!activeRun) {
       return '';
@@ -192,12 +290,99 @@ export function RunScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <Modal visible={calendarOpen} transparent animationType="slide" onRequestClose={() => setCalendarOpen(false)}>
+        <View style={styles.calendarBackdrop}>
+          <View style={styles.calendarModal}>
+            <View style={styles.calendarHeader}>
+              <Text style={styles.calendarTitle}>Pick a date</Text>
+              <Pressable onPress={() => setCalendarOpen(false)}>
+                <Text style={styles.calendarClose}>Close</Text>
+              </Pressable>
+            </View>
+            <CalendarList
+              current={selectedDate}
+              minDate={earliestRunDate}
+              maxDate={todayIso}
+              pastScrollRange={calendarPastRange}
+              futureScrollRange={calendarFutureRange}
+              calendarWidth={Math.max(280, windowWidth - spacing.lg * 2)}
+              horizontal
+              pagingEnabled
+              enableSwipeMonths
+              hideExtraDays
+              firstDay={WEEK_STARTS_ON}
+              markedDates={markedDates}
+              onDayPress={(day) => {
+                setSelectedDate(day.dateString);
+                setCalendarOpen(false);
+              }}
+              theme={{
+                backgroundColor: colors.surface,
+                calendarBackground: colors.surface,
+                textSectionTitleColor: colors.muted,
+                textSectionTitleDisabledColor: colors.muted,
+                dayTextColor: colors.text,
+                todayTextColor: colors.accent,
+                monthTextColor: colors.text,
+                textMonthFontFamily: typography.headline.fontFamily,
+                textMonthFontSize: typography.headline.fontSize,
+                textDayFontFamily: typography.body.fontFamily,
+                textDayFontSize: typography.body.fontSize,
+                textDayHeaderFontFamily: typography.label.fontFamily,
+                textDayHeaderFontSize: typography.label.fontSize,
+                selectedDayBackgroundColor: colors.accent,
+                selectedDayTextColor: '#fff',
+                arrowColor: colors.accent,
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: spacing.lg + insets.top, paddingBottom: spacing.xl + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.title}>Cardio tracker</Text>
-        <Text style={styles.subtitle}>Track outdoor cardio with GPS or indoor cardio by logging distance.</Text>
+
+        <View style={styles.calendarCard}>
+          <View style={styles.calendarTopRow}>
+            <Pressable style={styles.monthButton} onPress={() => setCalendarOpen(true)}>
+              <Text style={styles.monthLabel}>{monthLabel}</Text>
+              <Feather name="chevron-down" size={18} color={colors.muted} />
+            </Pressable>
+            {!isSelectedDateToday ? (
+              <Pressable style={styles.jumpTodayButton} onPress={() => setSelectedDate(todayIso)}>
+                <Text style={styles.jumpTodayText}>Jump to today</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          <View style={styles.weekRow}>
+            {weekDates.map((date) => {
+              const iso = formatISODate(date);
+              const isToday = iso === todayIso;
+              const isSelected = iso === selectedDate;
+              return (
+                <Pressable
+                  key={iso}
+                  style={[
+                    styles.weekDay,
+                    isSelected ? styles.weekDaySelected : null,
+                    isToday && !isSelected ? styles.weekDayToday : null,
+                  ]}
+                  onPress={() => setSelectedDate(iso)}
+                >
+                  <Text style={[styles.weekDayLabel, isSelected ? styles.weekDayLabelSelected : null]}>
+                    {weekDays[date.getDay()]}
+                  </Text>
+                  <Text style={[styles.weekDayNumber, isSelected ? styles.weekDayNumberSelected : null]}>
+                    {date.getDate()}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
 
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
@@ -405,19 +590,20 @@ export function RunScreen() {
 
             <Card>
               <Text style={styles.sectionTitle}>Cardio History</Text>
-              {recentRuns.length === 0 ? (
-                <Text style={styles.emptyText}>No runs logged yet.</Text>
+              <Text style={styles.sectionSubtitle}>{selectedDateLabel}</Text>
+              {runsForSelectedDate.length === 0 ? (
+                <Text style={styles.emptyText}>No cardio logged for this day.</Text>
               ) : (
-                recentRuns.map((run) => {
+                runsForSelectedDate.map((run) => {
                   const runActivity = run.activity ?? (run.type === 'outdoor' ? 'Run' : 'Treadmill');
                   return (
                     <View key={run.id} style={styles.runRow}>
                       <View>
                         <Text style={styles.runLabel}>
-                          {run.type === 'outdoor' ? 'Outdoor' : 'Indoor'} - {runActivity} - {formatRunDate(run)}
+                          {run.type === 'outdoor' ? 'Outdoor' : 'Indoor'} - {runActivity} - {formatTime(run.startedAt)}
                         </Text>
                         <Text style={styles.runSub}>
-                          {formatDuration(run.durationMs)} · {formatPace(run.durationMs, run.distanceMeters)} · {formatDistanceKm(run.distanceMeters)}
+                          {formatDuration(run.durationMs)} - {formatPace(run.durationMs, run.distanceMeters)} - {formatDistanceKm(run.distanceMeters)}
                         </Text>
                       </View>
                     </View>
@@ -545,6 +731,72 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginBottom: spacing.md,
   },
+  calendarCard: {
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  calendarTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  monthButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  jumpTodayButton: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.accentSoft,
+  },
+  jumpTodayText: {
+    ...typography.label,
+    color: colors.accent,
+  },
+  monthLabel: {
+    ...typography.headline,
+    color: colors.text,
+  },
+  weekRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  weekDay: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+  },
+  weekDaySelected: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  weekDayToday: {
+    borderColor: colors.accent,
+  },
+  weekDayLabel: {
+    ...typography.label,
+    color: colors.muted,
+  },
+  weekDayLabelSelected: {
+    color: '#fff',
+  },
+  weekDayNumber: {
+    ...typography.body,
+    color: colors.text,
+  },
+  weekDayNumberSelected: {
+    color: '#fff',
+  },
   mapCard: {
     padding: 0,
     overflow: 'hidden',
@@ -622,6 +874,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.headline,
     color: colors.text,
+    marginBottom: spacing.sm,
+  },
+  sectionSubtitle: {
+    ...typography.body,
+    color: colors.muted,
     marginBottom: spacing.sm,
   },
   segmented: {
@@ -734,6 +991,32 @@ const styles = StyleSheet.create({
   runValue: {
     ...typography.headline,
     color: colors.text,
+  },
+  calendarBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(27, 31, 36, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  calendarModal: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: spacing.lg,
+    maxHeight: '85%',
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  calendarTitle: {
+    ...typography.headline,
+    color: colors.text,
+  },
+  calendarClose: {
+    ...typography.label,
+    color: colors.muted,
   },
   modalBackdrop: {
     flex: 1,
