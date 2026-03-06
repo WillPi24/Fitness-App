@@ -181,57 +181,168 @@ function createDemoWorkouts(): WorkoutSession[] {
   const now = new Date();
   now.setHours(12, 0, 0, 0);
 
-  const daysAgoOffsets = [170, 157, 144, 131, 118, 105, 92, 79, 66, 53, 40, 27, 20, 13, 6];
+  // ~8 months of training, 3-4 sessions per week alternating push/pull/legs
+  const sessions: WorkoutSession[] = [];
+  let sessionIndex = 0;
 
-  const workouts = daysAgoOffsets.map((daysAgo, index) => {
+  for (let daysAgo = 240; daysAgo >= 1; daysAgo--) {
+    const dayOfWeek = new Date(now.getTime() - daysAgo * 86400000).getDay();
+    // Train Mon(1), Tue(2), Thu(4), Fri(5), Sat(6)
+    if (dayOfWeek === 0 || dayOfWeek === 3) {
+      continue;
+    }
+
     const workoutDate = new Date(now);
     workoutDate.setDate(workoutDate.getDate() - daysAgo);
-
-    const bench = 55 + index * 2;
-    const row = 60 + index * 2;
-    const squat = 85 + index * 3;
-    const rdl = 90 + index * 3;
-    const overheadPress = 35 + index;
-
     const startedAt = workoutDate.getTime();
+    const progression = sessionIndex; // progressive overload index
 
-    return {
-      id: `${DEMO_WORKOUT_ID_PREFIX}${index}`,
+    // Cycle through 3 splits
+    const split = sessionIndex % 3;
+    let exercises: WorkoutExercise[];
+
+    const p = Math.floor(progression / 3); // slower progression per exercise
+
+    if (split === 0) {
+      // Push day
+      const bench = 60 + p * 1.5;
+      const ohp = 35 + p;
+      const incline = 50 + p * 1.5;
+      const lateralRaise = 8 + Math.floor(p / 3);
+      const tricepPushdown = 25 + Math.floor(p / 2);
+      const dip = 0 + Math.floor(p / 2);
+
+      exercises = [
+        createDemoExercise(sessionIndex, 0, 'Barbell Bench Press', [
+          { weight: bench, reps: 8 },
+          { weight: bench, reps: 7 },
+          { weight: bench - 5, reps: 10 },
+          { weight: bench - 5, reps: 9 },
+        ]),
+        createDemoExercise(sessionIndex, 1, 'Overhead Press', [
+          { weight: ohp, reps: 8 },
+          { weight: ohp, reps: 7 },
+          { weight: ohp - 2, reps: 10 },
+        ]),
+        createDemoExercise(sessionIndex, 2, 'Incline Dumbbell Press', [
+          { weight: incline, reps: 10 },
+          { weight: incline, reps: 9 },
+          { weight: incline - 4, reps: 12 },
+        ]),
+        createDemoExercise(sessionIndex, 3, 'Lateral Raise', [
+          { weight: lateralRaise, reps: 15 },
+          { weight: lateralRaise, reps: 14 },
+          { weight: lateralRaise, reps: 12 },
+        ]),
+        createDemoExercise(sessionIndex, 4, 'Tricep Pushdown', [
+          { weight: tricepPushdown, reps: 12 },
+          { weight: tricepPushdown, reps: 11 },
+          { weight: tricepPushdown, reps: 10 },
+        ]),
+        createDemoExercise(sessionIndex, 5, 'Dips', [
+          { weight: dip, reps: 12 },
+          { weight: dip, reps: 10 },
+        ]),
+      ];
+    } else if (split === 1) {
+      // Pull day
+      const deadlift = 100 + p * 2;
+      const row = 60 + p * 1.5;
+      const pullUp = 0 + Math.floor(p / 2);
+      const facePull = 15 + Math.floor(p / 3);
+      const hammerCurl = 12 + Math.floor(p / 3);
+      const barbellCurl = 25 + Math.floor(p / 2);
+
+      exercises = [
+        createDemoExercise(sessionIndex, 0, 'Deadlift', [
+          { weight: deadlift, reps: 5 },
+          { weight: deadlift, reps: 5 },
+          { weight: deadlift - 10, reps: 8 },
+        ]),
+        createDemoExercise(sessionIndex, 1, 'Barbell Row', [
+          { weight: row, reps: 8 },
+          { weight: row, reps: 8 },
+          { weight: row - 5, reps: 10 },
+        ]),
+        createDemoExercise(sessionIndex, 2, 'Pull-Up', [
+          { weight: pullUp, reps: 10 },
+          { weight: pullUp, reps: 8 },
+          { weight: pullUp, reps: 7 },
+        ]),
+        createDemoExercise(sessionIndex, 3, 'Face Pull', [
+          { weight: facePull, reps: 15 },
+          { weight: facePull, reps: 14 },
+          { weight: facePull, reps: 12 },
+        ]),
+        createDemoExercise(sessionIndex, 4, 'Barbell Curl', [
+          { weight: barbellCurl, reps: 10 },
+          { weight: barbellCurl, reps: 9 },
+          { weight: barbellCurl - 5, reps: 12 },
+        ]),
+        createDemoExercise(sessionIndex, 5, 'Hammer Curl', [
+          { weight: hammerCurl, reps: 12 },
+          { weight: hammerCurl, reps: 10 },
+        ]),
+      ];
+    } else {
+      // Leg day
+      const squat = 80 + p * 2;
+      const rdl = 80 + p * 2;
+      const legPress = 120 + p * 3;
+      const legCurl = 30 + p;
+      const calfRaise = 40 + p * 1.5;
+      const legExtension = 35 + p;
+
+      exercises = [
+        createDemoExercise(sessionIndex, 0, 'Barbell Squat', [
+          { weight: squat, reps: 6 },
+          { weight: squat, reps: 6 },
+          { weight: squat - 10, reps: 8 },
+          { weight: squat - 10, reps: 8 },
+        ]),
+        createDemoExercise(sessionIndex, 1, 'Romanian Deadlift', [
+          { weight: rdl, reps: 8 },
+          { weight: rdl, reps: 8 },
+          { weight: rdl - 10, reps: 10 },
+        ]),
+        createDemoExercise(sessionIndex, 2, 'Leg Press', [
+          { weight: legPress, reps: 10 },
+          { weight: legPress, reps: 10 },
+          { weight: legPress, reps: 8 },
+        ]),
+        createDemoExercise(sessionIndex, 3, 'Leg Curl', [
+          { weight: legCurl, reps: 12 },
+          { weight: legCurl, reps: 10 },
+          { weight: legCurl, reps: 10 },
+        ]),
+        createDemoExercise(sessionIndex, 4, 'Leg Extension', [
+          { weight: legExtension, reps: 12 },
+          { weight: legExtension, reps: 11 },
+          { weight: legExtension, reps: 10 },
+        ]),
+        createDemoExercise(sessionIndex, 5, 'Standing Calf Raise', [
+          { weight: calfRaise, reps: 15 },
+          { weight: calfRaise, reps: 14 },
+          { weight: calfRaise, reps: 12 },
+        ]),
+      ];
+    }
+
+    const durationMin = 55 + Math.floor(Math.random() * 25);
+
+    sessions.push({
+      id: `${DEMO_WORKOUT_ID_PREFIX}${sessionIndex}`,
       date: formatISODate(workoutDate),
       startedAt,
-      endedAt: startedAt + 62 * 60 * 1000,
-      exercises: [
-        createDemoExercise(index, 0, 'Bench Press', [
-          { weight: bench, reps: 8 },
-          { weight: bench, reps: 8 },
-          { weight: bench - 2, reps: 10 },
-        ]),
-        createDemoExercise(index, 1, 'Barbell Row', [
-          { weight: row, reps: 10 },
-          { weight: row, reps: 8 },
-          { weight: row - 2, reps: 10 },
-        ]),
-        createDemoExercise(index, 2, 'Back Squat', [
-          { weight: squat, reps: 6 },
-          { weight: squat, reps: 6 },
-          { weight: squat - 5, reps: 8 },
-        ]),
-        createDemoExercise(index, 3, 'Romanian Deadlift', [
-          { weight: rdl, reps: 8 },
-          { weight: rdl, reps: 8 },
-          { weight: rdl - 5, reps: 10 },
-        ]),
-        createDemoExercise(index, 4, 'Overhead Press', [
-          { weight: overheadPress, reps: 8 },
-          { weight: overheadPress, reps: 8 },
-          { weight: overheadPress - 2, reps: 10 },
-        ]),
-      ],
+      endedAt: startedAt + durationMin * 60 * 1000,
+      exercises,
       personalRecords: [],
-    } satisfies WorkoutSession;
-  });
+    });
 
-  return workouts.sort((a, b) => b.endedAt - a.endedAt);
+    sessionIndex++;
+  }
+
+  return sessions.sort((a, b) => b.endedAt - a.endedAt);
 }
 
 function isWorkoutSet(value: unknown): value is WorkoutSet {

@@ -1,5 +1,11 @@
-import React, { useMemo, useState } from 'react';
-import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  GestureResponderEvent,
+  LayoutChangeEvent,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { colors, spacing, typography } from '../theme';
 
@@ -7,12 +13,15 @@ type LineGraphValue = number | null;
 
 type LineGraphProps = {
   data: LineGraphValue[];
+  labels?: string[];
   color?: string;
   height?: number;
   compact?: boolean;
   startLabel?: string;
   endLabel?: string;
   valueSuffix?: string;
+  onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
 };
 
 type PlotPoint = {
@@ -27,16 +36,40 @@ function formatValue(value: number, suffix?: string) {
   return suffix ? `${rounded}${suffix}` : rounded;
 }
 
+function pickAxisLabels(
+  labels: string[],
+  maxLabels: number,
+): Array<{ index: number; label: string }> {
+  if (labels.length <= maxLabels) {
+    return labels.map((label, index) => ({ index, label }));
+  }
+  const result: Array<{ index: number; label: string }> = [];
+  // Always include first and last
+  result.push({ index: 0, label: labels[0] });
+  const innerCount = maxLabels - 2;
+  for (let i = 1; i <= innerCount; i++) {
+    const idx = Math.round((i / (innerCount + 1)) * (labels.length - 1));
+    result.push({ index: idx, label: labels[idx] });
+  }
+  result.push({ index: labels.length - 1, label: labels[labels.length - 1] });
+  return result;
+}
+
 export function LineGraph({
   data,
+  labels,
   color = colors.accent,
   height = 150,
   compact = false,
   startLabel,
   endLabel,
   valueSuffix,
+  onInteractionStart,
+  onInteractionEnd,
 }: LineGraphProps) {
   const [width, setWidth] = useState(0);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const pointsRef = useRef<PlotPoint[]>([]);
 
   const validValues = useMemo(
     () => data.filter((value): value is number => value !== null),
@@ -55,7 +88,7 @@ export function LineGraph({
     if (width <= 0 || data.length === 0 || validValues.length === 0) {
       return [] as PlotPoint[];
     }
-    return data
+    const result = data
       .map((value, index) => {
         if (value === null) {
           return null;
@@ -71,6 +104,8 @@ export function LineGraph({
         return { index, x, y, value };
       })
       .filter((point): point is PlotPoint => point !== null);
+    pointsRef.current = result;
+    return result;
   }, [data, validValues.length, width, horizontalPadding, verticalPadding, maxValue, range, plotHeight]);
 
   const segments = useMemo(() => {
@@ -95,6 +130,14 @@ export function LineGraph({
     return list;
   }, [points]);
 
+  const axisLabels = useMemo(() => {
+    if (compact || !labels || labels.length === 0) {
+      return null;
+    }
+    const maxLabels = Math.min(6, Math.max(2, Math.floor(width / 55)));
+    return pickAxisLabels(labels, maxLabels);
+  }, [compact, labels, width]);
+
   const onLayout = (event: LayoutChangeEvent) => {
     const nextWidth = Math.round(event.nativeEvent.layout.width);
     if (nextWidth !== width) {
@@ -102,9 +145,70 @@ export function LineGraph({
     }
   };
 
+  const findNearestPoint = useCallback(
+    (touchX: number) => {
+      const pts = pointsRef.current;
+      if (pts.length === 0) {
+        return null;
+      }
+      let nearest = pts[0];
+      let bestDist = Math.abs(touchX - nearest.x);
+      for (let i = 1; i < pts.length; i++) {
+        const dist = Math.abs(touchX - pts[i].x);
+        if (dist < bestDist) {
+          bestDist = dist;
+          nearest = pts[i];
+        }
+      }
+      return nearest;
+    },
+    [],
+  );
+
+  const handleTouch = useCallback(
+    (event: GestureResponderEvent) => {
+      const touchX = event.nativeEvent.locationX;
+      const nearest = findNearestPoint(touchX);
+      if (nearest) {
+        setActiveIndex(nearest.index);
+      }
+    },
+    [findNearestPoint],
+  );
+
+  const handleGrant = useCallback(
+    (event: GestureResponderEvent) => {
+      onInteractionStart?.();
+      handleTouch(event);
+    },
+    [onInteractionStart, handleTouch],
+  );
+
+  const handleRelease = useCallback(() => {
+    setActiveIndex(null);
+    onInteractionEnd?.();
+  }, [onInteractionEnd]);
+
+  const activePoint = activeIndex !== null
+    ? points.find((p) => p.index === activeIndex) ?? null
+    : null;
+
+  const activeLabel = activeIndex !== null && labels && labels[activeIndex]
+    ? labels[activeIndex]
+    : null;
+
   return (
     <View style={styles.wrapper}>
-      <View style={[styles.plot, { height }]} onLayout={onLayout}>
+      <View
+        style={[styles.plot, { height }]}
+        onLayout={onLayout}
+        onStartShouldSetResponder={() => !compact}
+        onMoveShouldSetResponder={() => !compact}
+        onResponderGrant={handleGrant}
+        onResponderMove={handleTouch}
+        onResponderRelease={handleRelease}
+        onResponderTerminate={handleRelease}
+      >
         {!compact
           ? [0.25, 0.5, 0.75].map((ratio) => (
               <View
@@ -135,22 +239,51 @@ export function LineGraph({
           />
         ))}
 
-        {points.map((point, index) => (
+        {points.map((point, index) => {
+          const isActive = point.index === activeIndex;
+          const dotSize = isActive ? 10 : compact ? 4 : 6;
+          return (
+            <View
+              key={`${index}-${point.x}-${point.y}`}
+              style={[
+                styles.dot,
+                {
+                  width: dotSize,
+                  height: dotSize,
+                  borderRadius: dotSize / 2,
+                  left: point.x - dotSize / 2,
+                  top: point.y - dotSize / 2,
+                  backgroundColor: isActive ? colors.text : color,
+                  borderWidth: isActive ? 2 : 0,
+                  borderColor: isActive ? colors.surface : undefined,
+                },
+              ]}
+            />
+          );
+        })}
+
+        {/* Tooltip */}
+        {activePoint && !compact ? (
           <View
-            key={`${index}-${point.x}-${point.y}`}
             style={[
-              styles.dot,
+              styles.tooltip,
               {
-                width: compact ? 4 : 6,
-                height: compact ? 4 : 6,
-                borderRadius: compact ? 2 : 3,
-                left: point.x - (compact ? 2 : 3),
-                top: point.y - (compact ? 2 : 3),
-                backgroundColor: color,
+                left: Math.min(
+                  Math.max(4, activePoint.x - 50),
+                  width - 104,
+                ),
+                top: Math.max(4, activePoint.y - 46),
               },
             ]}
-          />
-        ))}
+          >
+            <Text style={styles.tooltipValue}>
+              {formatValue(activePoint.value, valueSuffix)}
+            </Text>
+            {activeLabel ? (
+              <Text style={styles.tooltipLabel}>{activeLabel}</Text>
+            ) : null}
+          </View>
+        ) : null}
       </View>
 
       {!compact ? (
@@ -163,10 +296,33 @@ export function LineGraph({
               Max {formatValue(maxValue, valueSuffix)}
             </Text>
           </View>
-          <View style={styles.labelRow}>
-            <Text style={styles.axisLabel}>{startLabel ?? ''}</Text>
-            <Text style={styles.axisLabel}>{endLabel ?? ''}</Text>
-          </View>
+          {axisLabels ? (
+            <View style={styles.labelRow}>
+              {axisLabels.map((item) => (
+                <Text
+                  key={item.index}
+                  style={[
+                    styles.axisLabel,
+                    {
+                      textAlign:
+                        item.index === 0
+                          ? 'left'
+                          : item.index === (labels?.length ?? 1) - 1
+                            ? 'right'
+                            : 'center',
+                    },
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              ))}
+            </View>
+          ) : startLabel || endLabel ? (
+            <View style={styles.labelRow}>
+              <Text style={styles.axisLabel}>{startLabel ?? ''}</Text>
+              <Text style={styles.axisLabel}>{endLabel ?? ''}</Text>
+            </View>
+          ) : null}
         </>
       ) : null}
     </View>
@@ -201,6 +357,29 @@ const styles = StyleSheet.create({
   dot: {
     position: 'absolute',
   },
+  tooltip: {
+    position: 'absolute',
+    backgroundColor: colors.text,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  tooltipValue: {
+    ...typography.label,
+    color: colors.surface,
+    fontSize: 12,
+    lineHeight: 16,
+    textTransform: 'none',
+    letterSpacing: 0,
+  },
+  tooltipLabel: {
+    ...typography.body,
+    color: colors.border,
+    fontSize: 10,
+    lineHeight: 14,
+  },
   valueRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -224,5 +403,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 12,
     lineHeight: 16,
+    flex: 1,
   },
 });

@@ -1,19 +1,24 @@
 import { Feather } from '@expo/vector-icons';
-import React, { useMemo, useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../components/Card';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { ExerciseDetailModal } from '../components/ExerciseDetailModal';
 import { LineGraph } from '../components/LineGraph';
 import { EXERCISE_OPTIONS } from '../data/exercises';
+import { useRunStore } from '../store/runStore';
 import { estimateOneRepMax, useWorkoutStore } from '../store/workoutStore';
 import { colors, spacing, typography } from '../theme';
 
@@ -32,13 +37,19 @@ const months = [
   'Dec',
 ];
 
-type SectionKey =
+type ProgressTab = 'workouts' | 'cardio';
+
+type WorkoutSectionKey =
   | 'snapshot'
   | 'volume'
   | 'sets'
   | 'workouts'
   | 'strength'
   | 'muscles';
+
+type CardioSectionKey = 'cardioSnapshot' | 'cardioPace' | 'cardioFrequency';
+
+type SectionKey = WorkoutSectionKey | CardioSectionKey;
 
 type CanonicalBodyPart =
   | 'Chest'
@@ -69,6 +80,15 @@ type MuscleTrend = {
   currentMonth: number;
   previousMonth: number;
   delta: number;
+};
+
+type ExpandedGraph = {
+  title: string;
+  data: Array<number | null>;
+  labels?: string[];
+  valueSuffix?: string;
+  startLabel: string;
+  endLabel: string;
 };
 
 const BODY_PARTS: CanonicalBodyPart[] = [
@@ -191,6 +211,8 @@ function inferBodyPartFromExerciseName(name: string): CanonicalBodyPart {
   return 'Other';
 }
 
+/* ─── Collapsible section ─── */
+
 type CollapsibleSectionProps = {
   title: string;
   summary: string;
@@ -224,19 +246,134 @@ function CollapsibleSection({
   );
 }
 
+/* ─── Pressable graph wrapper ─── */
+
+type PressableGraphProps = {
+  title: string;
+  data: Array<number | null>;
+  labels?: string[];
+  valueSuffix?: string;
+  startLabel: string;
+  endLabel: string;
+  compact?: boolean;
+  height?: number;
+  color?: string;
+  onExpand: (graph: ExpandedGraph) => void;
+  onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
+};
+
+function PressableGraph({
+  title,
+  data,
+  labels,
+  valueSuffix,
+  startLabel,
+  endLabel,
+  compact,
+  height,
+  color,
+  onExpand,
+  onInteractionStart,
+  onInteractionEnd,
+}: PressableGraphProps) {
+  return (
+    <Pressable
+      onPress={() => onExpand({ title, data, labels, valueSuffix, startLabel, endLabel })}
+    >
+      <LineGraph
+        data={data}
+        labels={compact ? undefined : labels}
+        valueSuffix={valueSuffix}
+        startLabel={compact ? undefined : startLabel}
+        endLabel={compact ? undefined : endLabel}
+        compact={compact}
+        height={height}
+        color={color}
+        onInteractionStart={onInteractionStart}
+        onInteractionEnd={onInteractionEnd}
+      />
+    </Pressable>
+  );
+}
+
+/* ─── Full-screen graph modal ─── */
+
+type GraphModalProps = {
+  graph: ExpandedGraph | null;
+  onClose: () => void;
+};
+
+function GraphModal({ graph, onClose }: GraphModalProps) {
+  return (
+    <Modal
+      visible={graph !== null}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.graphModalBackdrop}>
+        <View style={styles.graphModalContent}>
+          <View style={styles.graphModalHeader}>
+            <Text style={styles.graphModalTitle}>{graph?.title}</Text>
+            <Pressable onPress={onClose}>
+              <Feather name="x" size={24} color={colors.muted} />
+            </Pressable>
+          </View>
+          {graph ? (
+            <LineGraph
+              data={graph.data}
+              labels={graph.labels}
+              valueSuffix={graph.valueSuffix}
+              startLabel={graph.startLabel}
+              endLabel={graph.endLabel}
+              height={300}
+            />
+          ) : null}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+/* ─── Main screen ─── */
+
 export function ProgressScreen() {
   const { workouts, isLoading, error, clearError, seedDemoWorkouts, clearDemoWorkouts } =
     useWorkoutStore();
+  const { runs, seedDemoRuns, clearDemoRuns } = useRunStore();
   const insets = useSafeAreaInsets();
 
+  const [activeTab, setActiveTab] = useState<ProgressTab>('workouts');
+
   const [expandedSections, setExpandedSections] = useState<Record<SectionKey, boolean>>({
-    snapshot: false,
+    snapshot: true,
     volume: false,
     sets: false,
     workouts: false,
     strength: false,
     muscles: false,
+    cardioSnapshot: true,
+    cardioPace: false,
+    cardioFrequency: false,
   });
+
+  const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
+  const [showAllExercises, setShowAllExercises] = useState(false);
+  const [exerciseSearch, setExerciseSearch] = useState('');
+  const [expandedGraph, setExpandedGraph] = useState<ExpandedGraph | null>(null);
+
+  const navigation = useNavigation();
+
+  const disableSwipe = useCallback(() => {
+    navigation.getParent()?.setOptions({ swipeEnabled: false });
+    navigation.setOptions({ swipeEnabled: false } as any);
+  }, [navigation]);
+
+  const enableSwipe = useCallback(() => {
+    navigation.getParent()?.setOptions({ swipeEnabled: true });
+    navigation.setOptions({ swipeEnabled: true } as any);
+  }, [navigation]);
 
   const toggleSection = (section: SectionKey) => {
     setExpandedSections((current) => ({
@@ -257,6 +394,8 @@ export function ProgressScreen() {
     return lookup;
   }, []);
 
+  /* ─── Workout progress memo ─── */
+
   const progress = useMemo(() => {
     if (workouts.length === 0) {
       const now = startOfMonth(new Date());
@@ -275,10 +414,12 @@ export function ProgressScreen() {
         currentMonth: { workouts: 0, sets: 0, volume: 0 },
         previousMonth: { workouts: 0, sets: 0, volume: 0 },
         avgWorkoutsPerMonth: 0,
+        avgWorkoutDurationMin: 0,
         volumeTrend: [0],
         setTrend: [0],
         workoutTrend: [0],
         topLiftTrends: [] as LiftTrend[],
+        allLiftTrends: [] as LiftTrend[],
         muscleTrends: [] as MuscleTrend[],
       };
     }
@@ -317,6 +458,7 @@ export function ProgressScreen() {
 
     let totalSets = 0;
     let totalVolume = 0;
+    let totalDurationMs = 0;
 
     const exerciseMonthBest = new Map<string, Array<number | null>>();
 
@@ -327,6 +469,11 @@ export function ProgressScreen() {
       }
 
       monthlyWorkoutIds[index].add(workout.id);
+
+      const workoutDurationMs = workout.endedAt - workout.startedAt;
+      if (workoutDurationMs > 0) {
+        totalDurationMs += workoutDurationMs;
+      }
 
       workout.exercises.forEach((exercise) => {
         const exerciseKey = exercise.name.trim().toLowerCase();
@@ -380,7 +527,7 @@ export function ProgressScreen() {
       volume: Math.round(monthlyVolume[previousMonthIndex]),
     };
 
-    const topLiftTrends = Array.from(exerciseMonthBest.entries())
+    const allLiftTrends = Array.from(exerciseMonthBest.entries())
       .map(([exercise, points]): LiftTrend | null => {
         const values = points.filter((value): value is number => value !== null);
         if (values.length < 2) {
@@ -407,8 +554,8 @@ export function ProgressScreen() {
           return b.delta - a.delta;
         }
         return b.latest - a.latest;
-      })
-      .slice(0, 8);
+      });
+    const topLiftTrends = allLiftTrends.slice(0, 8);
 
     const muscleTrends = (Object.entries(
       muscleMonthlySets,
@@ -445,10 +592,15 @@ export function ProgressScreen() {
       avgWorkoutsPerMonth:
         monthlyWorkouts.reduce((sum, value) => sum + value, 0) /
         monthlyWorkouts.length,
+      avgWorkoutDurationMin:
+        workouts.length > 0
+          ? Math.round(totalDurationMs / workouts.length / 60000)
+          : 0,
       volumeTrend: monthlyVolume.map((value) => Math.round(value)),
       setTrend: monthlySets,
       workoutTrend: monthlyWorkouts,
       topLiftTrends,
+      allLiftTrends,
       muscleTrends,
     };
   }, [workouts, exerciseBodyPartLookup]);
@@ -469,21 +621,157 @@ export function ProgressScreen() {
     return `${top.bodyPart}: ${top.total} sets`;
   }, [progress.muscleTrends]);
 
+  /* ─── Cardio progress memo ─── */
+
+  const cardioProgress = useMemo(() => {
+    if (runs.length === 0) {
+      return null;
+    }
+
+    const earliestRunAt = runs.reduce(
+      (min, run) => Math.min(min, run.startedAt),
+      runs[0].startedAt,
+    );
+    const earliestMonth = startOfMonth(new Date(earliestRunAt));
+    const currentMonthStart = startOfMonth(new Date());
+
+    const cardioMonthStarts: Date[] = [];
+    const cursor = new Date(earliestMonth);
+    while (cursor <= currentMonthStart) {
+      cardioMonthStarts.push(new Date(cursor));
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    const cardioMonthLabels = cardioMonthStarts.map(formatMonth);
+    const cardioMonthIndexByKey = new Map(
+      cardioMonthStarts.map((date, i) => [monthKey(date), i] as const),
+    );
+
+    const monthlyDistanceM = new Array(cardioMonthStarts.length).fill(0);
+    const monthlyDurationMs = new Array(cardioMonthStarts.length).fill(0);
+    const monthlyRunCount: number[] = new Array(cardioMonthStarts.length).fill(0);
+
+    let totalDistanceM = 0;
+    let totalDurationMs = 0;
+
+    runs.forEach((run) => {
+      const idx = cardioMonthIndexByKey.get(monthKey(new Date(run.startedAt)));
+      if (idx === undefined) {
+        return;
+      }
+      monthlyDistanceM[idx] += run.distanceMeters;
+      monthlyDurationMs[idx] += run.durationMs;
+      monthlyRunCount[idx] += 1;
+      totalDistanceM += run.distanceMeters;
+      totalDurationMs += run.durationMs;
+    });
+
+    const ci = cardioMonthStarts.length - 1;
+    const pi = Math.max(0, ci - 1);
+
+    const monthlyPace: Array<number | null> = cardioMonthStarts.map((_, i) => {
+      if (monthlyDistanceM[i] <= 0) {
+        return null;
+      }
+      const minutes = monthlyDurationMs[i] / 60000;
+      const km = monthlyDistanceM[i] / 1000;
+      return parseFloat((minutes / km).toFixed(2));
+    });
+
+    const totalHours = Math.floor(totalDurationMs / 3600000);
+    const totalRemainingMin = Math.round((totalDurationMs % 3600000) / 60000);
+
+    const avgRunsPerMonth =
+      monthlyRunCount.reduce((sum, v) => sum + v, 0) / monthlyRunCount.length;
+
+    return {
+      monthLabels: cardioMonthLabels,
+      startLabel: cardioMonthLabels[0],
+      endLabel: cardioMonthLabels[cardioMonthLabels.length - 1],
+      totalRuns: runs.length,
+      totalDistanceKm: parseFloat((totalDistanceM / 1000).toFixed(1)),
+      totalDurationLabel:
+        totalHours > 0
+          ? `${totalHours}h ${totalRemainingMin}m`
+          : `${totalRemainingMin}m`,
+      currentMonth: {
+        runs: monthlyRunCount[ci],
+        distanceKm: parseFloat((monthlyDistanceM[ci] / 1000).toFixed(1)),
+      },
+      previousMonth: {
+        runs: monthlyRunCount[pi],
+        distanceKm: parseFloat((monthlyDistanceM[pi] / 1000).toFixed(1)),
+      },
+      paceTrend: monthlyPace,
+      runCountTrend: monthlyRunCount,
+      avgRunsPerMonth,
+    };
+  }, [runs]);
+
+  /* ─── Render ─── */
+
   return (
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: spacing.lg + insets.top }]}
       >
         <Text style={styles.title}>Progress</Text>
-        <Text style={styles.subtitle}>Lifetime trends for strength, volume, and training balance.</Text>
+
+        {/* Segmented control */}
+        <View style={styles.segmentedControl}>
+          <Pressable
+            style={[
+              styles.segmentButton,
+              activeTab === 'workouts' && styles.segmentButtonActive,
+            ]}
+            onPress={() => setActiveTab('workouts')}
+          >
+            <Text
+              style={[
+                styles.segmentButtonText,
+                activeTab === 'workouts' && styles.segmentButtonTextActive,
+              ]}
+            >
+              Workouts
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.segmentButton,
+              activeTab === 'cardio' && styles.segmentButtonActive,
+            ]}
+            onPress={() => setActiveTab('cardio')}
+          >
+            <Text
+              style={[
+                styles.segmentButtonText,
+                activeTab === 'cardio' && styles.segmentButtonTextActive,
+              ]}
+            >
+              Cardio
+            </Text>
+          </Pressable>
+        </View>
 
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
         {!isLoading && __DEV__ ? (
           <Card>
-            <Pressable style={styles.devSeedButton} onPress={seedDemoWorkouts}>
+            <Pressable
+              style={styles.devSeedButton}
+              onPress={() => {
+                seedDemoWorkouts();
+                seedDemoRuns();
+              }}
+            >
               <Text style={styles.devSeedButtonText}>Load Sample Progress Data</Text>
             </Pressable>
-            <Pressable style={styles.devClearButton} onPress={clearDemoWorkouts}>
+            <Pressable
+              style={styles.devClearButton}
+              onPress={() => {
+                clearDemoWorkouts();
+                clearDemoRuns();
+              }}
+            >
               <Text style={styles.devClearButtonText}>Clear Sample Data</Text>
             </Pressable>
             <Text style={styles.devSeedHint}>
@@ -496,155 +784,355 @@ export function ProgressScreen() {
           <Card>
             <ActivityIndicator color={colors.accent} />
           </Card>
-        ) : workouts.length === 0 ? (
-          <Card>
-            <Text style={styles.emptyText}>Log workouts to unlock progress analytics.</Text>
-          </Card>
+        ) : activeTab === 'workouts' ? (
+          /* ═══ WORKOUT MODE ═══ */
+          workouts.length === 0 ? (
+            <Card>
+              <Text style={styles.emptyText}>Log workouts to unlock progress analytics.</Text>
+            </Card>
+          ) : (
+            <>
+              {/* Snapshot (auto-open) */}
+              <CollapsibleSection
+                title="Snapshot"
+                summary={`This month: ${progress.currentMonth.workouts} workouts, ${progress.currentMonth.sets} sets`}
+                expanded={expandedSections.snapshot}
+                onToggle={() => toggleSection('snapshot')}
+              >
+                <View style={styles.snapshotGrid}>
+                  <View style={styles.snapshotItem}>
+                    <Text style={styles.snapshotValue}>{progress.lifetime.workouts}</Text>
+                    <Text style={styles.snapshotLabel}>Lifetime workouts</Text>
+                  </View>
+                  <View style={styles.snapshotItem}>
+                    <Text style={styles.snapshotValue}>{formatCompactNumber(progress.lifetime.sets)}</Text>
+                    <Text style={styles.snapshotLabel}>Lifetime sets</Text>
+                  </View>
+                  <View style={styles.snapshotItem}>
+                    <Text style={styles.snapshotValue}>{formatCompactNumber(progress.lifetime.volume)}</Text>
+                    <Text style={styles.snapshotLabel}>Lifetime volume (kg)</Text>
+                  </View>
+                </View>
+                <View style={styles.snapshotGrid}>
+                  <View style={styles.snapshotItem}>
+                    <Text style={styles.snapshotValue}>{progress.currentMonth.workouts}</Text>
+                    <Text style={styles.snapshotLabel}>Workouts this month</Text>
+                    <Text style={styles.snapshotDelta}>
+                      {formatSigned(
+                        progress.currentMonth.workouts - progress.previousMonth.workouts,
+                      )}{' '}
+                      vs last month
+                    </Text>
+                  </View>
+                  <View style={styles.snapshotItem}>
+                    <Text style={styles.snapshotValue}>{progress.currentMonth.sets}</Text>
+                    <Text style={styles.snapshotLabel}>Sets this month</Text>
+                    <Text style={styles.snapshotDelta}>
+                      {formatSigned(progress.currentMonth.sets - progress.previousMonth.sets)} vs last month
+                    </Text>
+                  </View>
+                  <View style={styles.snapshotItem}>
+                    <Text style={styles.snapshotValue}>{formatCompactNumber(progress.currentMonth.volume)}</Text>
+                    <Text style={styles.snapshotLabel}>Volume this month (kg)</Text>
+                    <Text style={styles.snapshotDelta}>
+                      {formatSigned(progress.currentMonth.volume - progress.previousMonth.volume)} vs last month
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.helperText}>
+                  Avg workouts/month: {progress.avgWorkoutsPerMonth.toFixed(1)}. Avg volume/workout:{' '}
+                  {formatCompactNumber(progress.lifetime.avgVolumePerWorkout)}kg. Avg duration:{' '}
+                  {progress.avgWorkoutDurationMin}min.
+                </Text>
+              </CollapsibleSection>
+
+              {/* Volume */}
+              <CollapsibleSection
+                title="Volume Over Lifetime"
+                summary={`${formatCompactNumber(progress.lifetime.volume)}kg total`}
+                expanded={expandedSections.volume}
+                onToggle={() => toggleSection('volume')}
+              >
+                <PressableGraph
+                  title="Volume Over Lifetime"
+                  data={progress.volumeTrend}
+                  labels={progress.monthLabels}
+                  valueSuffix="kg"
+                  startLabel={progress.startLabel}
+                  endLabel={progress.endLabel}
+                  onExpand={setExpandedGraph}
+                  onInteractionStart={disableSwipe}
+                  onInteractionEnd={enableSwipe}
+                />
+              </CollapsibleSection>
+
+              {/* Sets */}
+              <CollapsibleSection
+                title="Sets Over Lifetime"
+                summary={`${formatCompactNumber(progress.lifetime.sets)} sets total`}
+                expanded={expandedSections.sets}
+                onToggle={() => toggleSection('sets')}
+              >
+                <PressableGraph
+                  title="Sets Over Lifetime"
+                  data={progress.setTrend}
+                  labels={progress.monthLabels}
+                  startLabel={progress.startLabel}
+                  endLabel={progress.endLabel}
+                  onExpand={setExpandedGraph}
+                  onInteractionStart={disableSwipe}
+                  onInteractionEnd={enableSwipe}
+                />
+              </CollapsibleSection>
+
+              {/* Frequency */}
+              <CollapsibleSection
+                title="Workout Frequency Over Lifetime"
+                summary={`${progress.avgWorkoutsPerMonth.toFixed(1)} workouts/month avg`}
+                expanded={expandedSections.workouts}
+                onToggle={() => toggleSection('workouts')}
+              >
+                <PressableGraph
+                  title="Workout Frequency Over Lifetime"
+                  data={progress.workoutTrend}
+                  labels={progress.monthLabels}
+                  startLabel={progress.startLabel}
+                  endLabel={progress.endLabel}
+                  onExpand={setExpandedGraph}
+                  onInteractionStart={disableSwipe}
+                  onInteractionEnd={enableSwipe}
+                />
+              </CollapsibleSection>
+
+              {/* Strength */}
+              <CollapsibleSection
+                title="Strength Over Lifetime"
+                summary={strengthSummary}
+                expanded={expandedSections.strength}
+                onToggle={() => toggleSection('strength')}
+              >
+                {progress.allLiftTrends.length === 0 ? (
+                  <Text style={styles.emptyText}>Add repeated sessions on the same lift to show trends.</Text>
+                ) : (
+                  <>
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder="Search exercises..."
+                      placeholderTextColor={colors.muted}
+                      value={exerciseSearch}
+                      onChangeText={setExerciseSearch}
+                    />
+                    {(() => {
+                      const query = exerciseSearch.trim().toLowerCase();
+                      const filtered = query
+                        ? progress.allLiftTrends.filter((t) =>
+                            t.exercise.toLowerCase().includes(query),
+                          )
+                        : showAllExercises
+                          ? progress.allLiftTrends
+                          : progress.topLiftTrends;
+
+                      if (filtered.length === 0) {
+                        return (
+                          <Text style={styles.emptyText}>
+                            No exercises matching "{exerciseSearch.trim()}"
+                          </Text>
+                        );
+                      }
+
+                      return filtered.map((trend) => (
+                        <View key={trend.exercise} style={styles.trendItem}>
+                          <View style={styles.trendHeader}>
+                            <Pressable
+                              style={styles.exerciseButton}
+                              onPress={() => setSelectedExercise(trend.exercise)}
+                            >
+                              <Text style={styles.exerciseButtonText}>{trend.exercise}</Text>
+                              <Feather name="chevron-right" size={14} color={colors.muted} />
+                            </Pressable>
+                            <Text style={styles.liftValue}>{trend.latest}kg</Text>
+                          </View>
+                            <Text style={styles.liftSub}>
+                              Start {trend.first}kg to now {trend.latest}kg ({formatSigned(trend.delta)}kg,{' '}
+                              {formatSigned(Math.round(trend.deltaPercent))}%)
+                            </Text>
+                            <PressableGraph
+                              title={`${trend.exercise} — Estimated 1RM`}
+                              data={trend.points}
+                              labels={progress.monthLabels}
+                              valueSuffix="kg"
+                              startLabel={progress.startLabel}
+                              endLabel={progress.endLabel}
+                              compact
+                              height={36}
+                              color={colors.accent}
+                              onExpand={setExpandedGraph}
+                              onInteractionStart={disableSwipe}
+                              onInteractionEnd={enableSwipe}
+                            />
+                          </View>
+                      ));
+                    })()}
+                    {!exerciseSearch.trim() && progress.allLiftTrends.length > 8 && !showAllExercises ? (
+                      <Pressable onPress={() => setShowAllExercises(true)}>
+                        <Text style={styles.viewAllText}>
+                          View all {progress.allLiftTrends.length} exercises
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </>
+                )}
+              </CollapsibleSection>
+
+              {/* Muscle groups */}
+              <CollapsibleSection
+                title="Muscle-Group Sets Over Lifetime"
+                summary={muscleSummary}
+                expanded={expandedSections.muscles}
+                onToggle={() => toggleSection('muscles')}
+              >
+                {progress.muscleTrends.length === 0 ? (
+                  <Text style={styles.emptyText}>No mapped muscle-group data yet.</Text>
+                ) : (
+                  progress.muscleTrends.map((trend) => (
+                    <View key={trend.bodyPart} style={styles.trendItem}>
+                      <View style={styles.trendHeader}>
+                        <Text style={styles.liftName}>{trend.bodyPart}</Text>
+                        <Text style={styles.liftValue}>{trend.currentMonth} sets</Text>
+                      </View>
+                      <Text style={styles.liftSub}>
+                        {formatSigned(trend.delta)} vs last month, {trend.total} total sets
+                      </Text>
+                      <PressableGraph
+                        title={`${trend.bodyPart} — Sets`}
+                        data={trend.values}
+                        labels={progress.monthLabels}
+                        startLabel={progress.startLabel}
+                        endLabel={progress.endLabel}
+                        compact
+                        height={36}
+                        color={colors.accent}
+                        onExpand={setExpandedGraph}
+                        onInteractionStart={disableSwipe}
+                        onInteractionEnd={enableSwipe}
+                      />
+                    </View>
+                  ))
+                )}
+              </CollapsibleSection>
+            </>
+          )
         ) : (
-          <>
-            <CollapsibleSection
-              title="Snapshot"
-              summary={`This month: ${progress.currentMonth.workouts} workouts, ${progress.currentMonth.sets} sets`}
-              expanded={expandedSections.snapshot}
-              onToggle={() => toggleSection('snapshot')}
-            >
-              <View style={styles.snapshotGrid}>
-                <View style={styles.snapshotItem}>
-                  <Text style={styles.snapshotValue}>{progress.lifetime.workouts}</Text>
-                  <Text style={styles.snapshotLabel}>Lifetime workouts</Text>
-                </View>
-                <View style={styles.snapshotItem}>
-                  <Text style={styles.snapshotValue}>{formatCompactNumber(progress.lifetime.sets)}</Text>
-                  <Text style={styles.snapshotLabel}>Lifetime sets</Text>
-                </View>
-                <View style={styles.snapshotItem}>
-                  <Text style={styles.snapshotValue}>{formatCompactNumber(progress.lifetime.volume)}</Text>
-                  <Text style={styles.snapshotLabel}>Lifetime volume (kg)</Text>
-                </View>
-              </View>
-              <View style={styles.snapshotGrid}>
-                <View style={styles.snapshotItem}>
-                  <Text style={styles.snapshotValue}>{progress.currentMonth.workouts}</Text>
-                  <Text style={styles.snapshotLabel}>Workouts this month</Text>
-                  <Text style={styles.snapshotDelta}>
-                    {formatSigned(
-                      progress.currentMonth.workouts - progress.previousMonth.workouts,
-                    )}{' '}
-                    vs last month
-                  </Text>
-                </View>
-                <View style={styles.snapshotItem}>
-                  <Text style={styles.snapshotValue}>{progress.currentMonth.sets}</Text>
-                  <Text style={styles.snapshotLabel}>Sets this month</Text>
-                  <Text style={styles.snapshotDelta}>
-                    {formatSigned(progress.currentMonth.sets - progress.previousMonth.sets)} vs last month
-                  </Text>
-                </View>
-                <View style={styles.snapshotItem}>
-                  <Text style={styles.snapshotValue}>{formatCompactNumber(progress.currentMonth.volume)}</Text>
-                  <Text style={styles.snapshotLabel}>Volume this month (kg)</Text>
-                  <Text style={styles.snapshotDelta}>
-                    {formatSigned(progress.currentMonth.volume - progress.previousMonth.volume)} vs last month
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.helperText}>
-                Avg workouts/month: {progress.avgWorkoutsPerMonth.toFixed(1)}. Avg volume/workout:{' '}
-                {formatCompactNumber(progress.lifetime.avgVolumePerWorkout)}kg.
-              </Text>
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              title="Volume Over Lifetime"
-              summary={`${formatCompactNumber(progress.lifetime.volume)}kg total`}
-              expanded={expandedSections.volume}
-              onToggle={() => toggleSection('volume')}
-            >
-              <LineGraph
-                data={progress.volumeTrend}
-                valueSuffix="kg"
-                startLabel={progress.startLabel}
-                endLabel={progress.endLabel}
-              />
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              title="Sets Over Lifetime"
-              summary={`${formatCompactNumber(progress.lifetime.sets)} sets total`}
-              expanded={expandedSections.sets}
-              onToggle={() => toggleSection('sets')}
-            >
-              <LineGraph
-                data={progress.setTrend}
-                startLabel={progress.startLabel}
-                endLabel={progress.endLabel}
-              />
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              title="Workout Frequency Over Lifetime"
-              summary={`${progress.avgWorkoutsPerMonth.toFixed(1)} workouts/month avg`}
-              expanded={expandedSections.workouts}
-              onToggle={() => toggleSection('workouts')}
-            >
-              <LineGraph
-                data={progress.workoutTrend}
-                startLabel={progress.startLabel}
-                endLabel={progress.endLabel}
-              />
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              title="Strength Over Lifetime"
-              summary={strengthSummary}
-              expanded={expandedSections.strength}
-              onToggle={() => toggleSection('strength')}
-            >
-              {progress.topLiftTrends.length === 0 ? (
-                <Text style={styles.emptyText}>Add repeated sessions on the same lift to show trends.</Text>
-              ) : (
-                progress.topLiftTrends.map((trend) => (
-                  <View key={trend.exercise} style={styles.trendItem}>
-                    <View style={styles.trendHeader}>
-                      <Text style={styles.liftName}>{trend.exercise}</Text>
-                      <Text style={styles.liftValue}>{trend.latest}kg</Text>
-                    </View>
-                    <Text style={styles.liftSub}>
-                      Start {trend.first}kg to now {trend.latest}kg ({formatSigned(trend.delta)}kg,{' '}
-                      {formatSigned(Math.round(trend.deltaPercent))}%)
-                    </Text>
-                    <LineGraph data={trend.points} compact height={36} color={colors.accent} />
+          /* ═══ CARDIO MODE ═══ */
+          !cardioProgress ? (
+            <Card>
+              <Text style={styles.emptyText}>Log cardio sessions to see your progress here.</Text>
+            </Card>
+          ) : (
+            <>
+              {/* Cardio Snapshot (auto-open) */}
+              <CollapsibleSection
+                title="Snapshot"
+                summary={`This month: ${cardioProgress.currentMonth.runs} sessions, ${cardioProgress.currentMonth.distanceKm}km`}
+                expanded={expandedSections.cardioSnapshot}
+                onToggle={() => toggleSection('cardioSnapshot')}
+              >
+                <View style={styles.snapshotGrid}>
+                  <View style={styles.snapshotItem}>
+                    <Text style={styles.snapshotValue}>{cardioProgress.totalRuns}</Text>
+                    <Text style={styles.snapshotLabel}>Total sessions</Text>
                   </View>
-                ))
-              )}
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              title="Muscle-Group Sets Over Lifetime"
-              summary={muscleSummary}
-              expanded={expandedSections.muscles}
-              onToggle={() => toggleSection('muscles')}
-            >
-              {progress.muscleTrends.length === 0 ? (
-                <Text style={styles.emptyText}>No mapped muscle-group data yet.</Text>
-              ) : (
-                progress.muscleTrends.map((trend) => (
-                  <View key={trend.bodyPart} style={styles.trendItem}>
-                    <View style={styles.trendHeader}>
-                      <Text style={styles.liftName}>{trend.bodyPart}</Text>
-                      <Text style={styles.liftValue}>{trend.currentMonth} sets</Text>
-                    </View>
-                    <Text style={styles.liftSub}>
-                      {formatSigned(trend.delta)} vs last month, {trend.total} total sets
-                    </Text>
-                    <LineGraph data={trend.values} compact height={36} color={colors.accent} />
+                  <View style={styles.snapshotItem}>
+                    <Text style={styles.snapshotValue}>{cardioProgress.totalDistanceKm}</Text>
+                    <Text style={styles.snapshotLabel}>Total km</Text>
                   </View>
-                ))
-              )}
-            </CollapsibleSection>
-          </>
+                  <View style={styles.snapshotItem}>
+                    <Text style={styles.snapshotValue}>{cardioProgress.totalDurationLabel}</Text>
+                    <Text style={styles.snapshotLabel}>Total time</Text>
+                  </View>
+                </View>
+                <View style={styles.snapshotGrid}>
+                  <View style={styles.snapshotItem}>
+                    <Text style={styles.snapshotValue}>{cardioProgress.currentMonth.runs}</Text>
+                    <Text style={styles.snapshotLabel}>Sessions this month</Text>
+                    <Text style={styles.snapshotDelta}>
+                      {formatSigned(
+                        cardioProgress.currentMonth.runs - cardioProgress.previousMonth.runs,
+                      )}{' '}
+                      vs last month
+                    </Text>
+                  </View>
+                  <View style={styles.snapshotItem}>
+                    <Text style={styles.snapshotValue}>{cardioProgress.currentMonth.distanceKm}</Text>
+                    <Text style={styles.snapshotLabel}>km this month</Text>
+                    <Text style={styles.snapshotDelta}>
+                      {formatSigned(
+                        parseFloat(
+                          (cardioProgress.currentMonth.distanceKm - cardioProgress.previousMonth.distanceKm).toFixed(1),
+                        ),
+                      )}{' '}
+                      vs last month
+                    </Text>
+                  </View>
+                </View>
+              </CollapsibleSection>
+
+              {/* Pace Over Time */}
+              <CollapsibleSection
+                title="Pace Over Time"
+                summary="Avg pace per month (min/km)"
+                expanded={expandedSections.cardioPace}
+                onToggle={() => toggleSection('cardioPace')}
+              >
+                <PressableGraph
+                  title="Pace Over Time"
+                  data={cardioProgress.paceTrend}
+                  labels={cardioProgress.monthLabels}
+                  valueSuffix="min/km"
+                  startLabel={cardioProgress.startLabel}
+                  endLabel={cardioProgress.endLabel}
+                  onExpand={setExpandedGraph}
+                  onInteractionStart={disableSwipe}
+                  onInteractionEnd={enableSwipe}
+                />
+              </CollapsibleSection>
+
+              {/* Run Frequency */}
+              <CollapsibleSection
+                title="Run Frequency"
+                summary={`${cardioProgress.avgRunsPerMonth.toFixed(1)} runs/month avg`}
+                expanded={expandedSections.cardioFrequency}
+                onToggle={() => toggleSection('cardioFrequency')}
+              >
+                <PressableGraph
+                  title="Run Frequency"
+                  data={cardioProgress.runCountTrend}
+                  labels={cardioProgress.monthLabels}
+                  startLabel={cardioProgress.startLabel}
+                  endLabel={cardioProgress.endLabel}
+                  onExpand={setExpandedGraph}
+                  onInteractionStart={disableSwipe}
+                  onInteractionEnd={enableSwipe}
+                />
+              </CollapsibleSection>
+            </>
+          )
         )}
       </ScrollView>
+
+      {/* Full-screen graph modal */}
+      <GraphModal graph={expandedGraph} onClose={() => setExpandedGraph(null)} />
+
+      {/* Exercise drill-down modal */}
+      <ExerciseDetailModal
+        visible={selectedExercise !== null}
+        exerciseName={selectedExercise}
+        workouts={workouts}
+        monthLabels={progress.monthLabels}
+        startLabel={progress.startLabel}
+        endLabel={progress.endLabel}
+        onClose={() => setSelectedExercise(null)}
+      />
     </View>
   );
 }
@@ -663,11 +1151,34 @@ const styles = StyleSheet.create({
     ...typography.title,
     color: colors.text,
   },
-  subtitle: {
-    ...typography.body,
-    color: colors.muted,
-    marginBottom: spacing.md,
+
+  /* Segmented control */
+  segmentedControl: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    padding: 3,
   },
+  segmentButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: 10,
+  },
+  segmentButtonActive: {
+    backgroundColor: colors.accent,
+  },
+  segmentButtonText: {
+    ...typography.label,
+    color: colors.muted,
+  },
+  segmentButtonTextActive: {
+    color: '#FFFFFF',
+  },
+
+  /* Sections */
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -690,6 +1201,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     gap: spacing.md,
   },
+
+  /* Snapshot */
   snapshotGrid: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -721,6 +1234,8 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.muted,
   },
+
+  /* Trends */
   trendItem: {
     gap: spacing.xs,
     paddingVertical: spacing.xs,
@@ -736,6 +1251,24 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
   },
+  exerciseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    flex: 0,
+    flexShrink: 1,
+  },
+  exerciseButtonText: {
+    ...typography.body,
+    color: colors.muted,
+    flexShrink: 1,
+  },
   liftSub: {
     ...typography.body,
     color: colors.muted,
@@ -746,10 +1279,53 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.text,
   },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: '#fff',
+    ...typography.body,
+    color: colors.text,
+  },
+  viewAllText: {
+    ...typography.label,
+    color: colors.accent,
+    textAlign: 'center',
+    paddingVertical: spacing.sm,
+  },
   emptyText: {
     ...typography.body,
     color: colors.muted,
   },
+
+  /* Graph modal */
+  graphModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(27, 31, 36, 0.6)',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  graphModalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  graphModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  graphModalTitle: {
+    ...typography.headline,
+    color: colors.text,
+    flex: 1,
+  },
+
+  /* Dev tools */
   devSeedButton: {
     marginTop: spacing.md,
     borderWidth: 1,

@@ -50,6 +50,8 @@ type RunContextValue = {
   finishRun: () => Promise<void>;
   discardRun: () => Promise<void>;
   updateIndoorDistance: (meters: number) => Promise<void>;
+  seedDemoRuns: () => void;
+  clearDemoRuns: () => void;
   isLoading: boolean;
   error: string | null;
   clearError: () => void;
@@ -60,10 +62,73 @@ const ACTIVE_RUN_KEY = 'fitnessapp.activeRun.v1';
 const RUN_LOCATION_TASK = 'fitnessapp.runLocationTask.v1';
 const LOCATION_ACCURACY_METERS = 50;
 
+const DEMO_RUN_ID_PREFIX = 'demo-run-';
+
 const RunContext = createContext<RunContextValue | undefined>(undefined);
 
 function generateId() {
   return `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+}
+
+function isDemoRun(run: RunSession) {
+  return run.id.startsWith(DEMO_RUN_ID_PREFIX);
+}
+
+function createDemoRuns(): RunSession[] {
+  const now = new Date();
+  now.setHours(7, 30, 0, 0);
+
+  const sessions: RunSession[] = [];
+  let runIndex = 0;
+
+  // ~8 months of running, 2-3 runs per week (Tue, Thu, Sun)
+  for (let daysAgo = 240; daysAgo >= 1; daysAgo--) {
+    const day = new Date(now.getTime() - daysAgo * 86400000).getDay();
+    // Run on Tue(2), Thu(4), Sun(0)
+    if (day !== 0 && day !== 2 && day !== 4) {
+      continue;
+    }
+
+    const runDate = new Date(now);
+    runDate.setDate(runDate.getDate() - daysAgo);
+    const startedAt = runDate.getTime();
+
+    // Gradual improvement: pace goes from ~6.5 min/km down to ~5.2 min/km
+    // Distance increases from ~3km to ~7km
+    const progressFactor = runIndex / 80; // 0 → ~1 over the period
+    const baseDistanceKm = 3 + progressFactor * 4;
+    // Add some variance
+    const variance = 0.8 + Math.sin(runIndex * 1.7) * 0.2;
+    const distanceKm = baseDistanceKm * variance;
+    const distanceMeters = Math.round(distanceKm * 1000);
+
+    const basePaceMinPerKm = 6.5 - progressFactor * 1.3;
+    const paceVariance = 1 + Math.sin(runIndex * 2.3) * 0.08;
+    const paceMinPerKm = basePaceMinPerKm * paceVariance;
+    const durationMs = Math.round(distanceKm * paceMinPerKm * 60000);
+
+    // Alternate between outdoor runs and some indoor treadmill sessions
+    const isIndoor = runIndex % 7 === 3;
+    const activities = ['Run', 'Run', 'Run', 'Walk', 'Run'];
+    const activity = isIndoor ? 'Treadmill' : activities[runIndex % activities.length];
+
+    sessions.push({
+      id: `${DEMO_RUN_ID_PREFIX}${runIndex}`,
+      date: formatISODate(runDate),
+      type: isIndoor ? 'indoor' : 'outdoor',
+      activity,
+      startedAt,
+      endedAt: startedAt + durationMs,
+      durationMs,
+      distanceMeters,
+      route: [],
+      manualDistanceMeters: isIndoor ? distanceMeters : undefined,
+    });
+
+    runIndex++;
+  }
+
+  return sessions.sort((a, b) => b.startedAt - a.startedAt);
 }
 
 function formatISODate(date: Date) {
@@ -558,6 +623,23 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
     await persistActiveRun(null);
   }, [activeRun, persistActiveRun, stopLocationUpdates]);
 
+  const seedDemoRuns = useCallback(() => {
+    if (!__DEV__) {
+      return;
+    }
+    setRuns((prev) => {
+      const userRuns = prev.filter((run) => !isDemoRun(run));
+      return [...createDemoRuns(), ...userRuns].sort((a, b) => b.startedAt - a.startedAt);
+    });
+  }, []);
+
+  const clearDemoRuns = useCallback(() => {
+    if (!__DEV__) {
+      return;
+    }
+    setRuns((prev) => prev.filter((run) => !isDemoRun(run)));
+  }, []);
+
   const value = useMemo(
     () => ({
       runs,
@@ -568,11 +650,13 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
       finishRun,
       discardRun,
       updateIndoorDistance,
+      seedDemoRuns,
+      clearDemoRuns,
       isLoading,
       error,
       clearError: () => setError(null),
     }),
-    [runs, activeRun, startRun, pauseRun, resumeRun, finishRun, discardRun, updateIndoorDistance, isLoading, error]
+    [runs, activeRun, startRun, pauseRun, resumeRun, finishRun, discardRun, updateIndoorDistance, seedDemoRuns, clearDemoRuns, isLoading, error]
   );
 
   return <RunContext.Provider value={value}>{children}</RunContext.Provider>;
