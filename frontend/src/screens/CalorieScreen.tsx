@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -100,6 +101,7 @@ export function CalorieScreen() {
     updateSavedMeal,
     deleteSavedMeal,
     addSavedMealToDay,
+    quickAddFood,
     isLoading,
     isSearching,
     error,
@@ -119,6 +121,10 @@ export function CalorieScreen() {
   const [scanned, setScanned] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [goalInput, setGoalInput] = useState(String(dailyGoal));
+  const [quickCalories, setQuickCalories] = useState('');
+  const [quickProtein, setQuickProtein] = useState('');
+  const [quickCarbs, setQuickCarbs] = useState('');
+  const [quickFat, setQuickFat] = useState('');
   const [renamingMealId, setRenamingMealId] = useState<string | null>(null);
   const [renameInput, setRenameInput] = useState('');
   const [permission, requestPermission] = useCameraPermissions();
@@ -548,6 +554,10 @@ export function CalorieScreen() {
 
   const handleOpenSettings = () => {
     setGoalInput(String(dailyGoal));
+    setQuickCalories('');
+    setQuickProtein('');
+    setQuickCarbs('');
+    setQuickFat('');
     setSettingsOpen(true);
   };
 
@@ -555,6 +565,21 @@ export function CalorieScreen() {
     const goal = Number(goalInput);
     if (goal > 0) {
       setDailyGoal(goal);
+      setSettingsOpen(false);
+    }
+  };
+
+  const handleQuickAdd = () => {
+    const cals = Number(quickCalories);
+    const prot = Number(quickProtein) || 0;
+    const carb = Number(quickCarbs) || 0;
+    const f = Number(quickFat) || 0;
+    if (cals > 0) {
+      quickAddFood(selectedDate, cals, prot, carb, f);
+      setQuickCalories('');
+      setQuickProtein('');
+      setQuickCarbs('');
+      setQuickFat('');
       setSettingsOpen(false);
     }
   };
@@ -1141,20 +1166,22 @@ export function CalorieScreen() {
       style={styles.container}
       behavior={Platform.select({ ios: 'padding', android: undefined })}
     >
-      {/* Settings Modal (Calorie Goal) */}
+      {/* Settings Modal */}
       <Modal visible={settingsOpen} transparent animationType="fade" onRequestClose={() => setSettingsOpen(false)}>
         <KeyboardAvoidingView
-          style={styles.modalBackdrop}
+          style={styles.settingsBackdrop}
           behavior={Platform.select({ ios: 'padding', android: 'height' })}
         >
           <Pressable style={styles.modalDismiss} onPress={() => setSettingsOpen(false)} />
-          <View style={styles.settingsModal}>
+          <Pressable style={styles.settingsModal} onPress={Keyboard.dismiss}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Daily Calorie Goal</Text>
+              <Text style={styles.modalTitle}>Settings</Text>
               <Pressable onPress={() => setSettingsOpen(false)}>
-                <Text style={styles.modalClose}>Cancel</Text>
+                <Text style={styles.modalClose}>Close</Text>
               </Pressable>
             </View>
+
+            <Text style={styles.settingsSectionTitle}>Daily Calorie Goal</Text>
             <Text style={styles.settingsLabel}>
               Set your daily calorie target. This will be remembered.
             </Text>
@@ -1169,7 +1196,69 @@ export function CalorieScreen() {
             <Pressable style={styles.saveButton} onPress={handleSaveGoal}>
               <Text style={styles.saveButtonText}>Save Goal</Text>
             </Pressable>
-          </View>
+
+            <View style={styles.settingsDivider} />
+
+            <Text style={styles.settingsSectionTitle}>Quick Add</Text>
+            <Text style={styles.settingsLabel}>
+              Eating out or can't find the exact food? Add your macros directly.
+            </Text>
+            <View style={styles.quickAddRow}>
+              <View style={styles.quickAddField}>
+                <Text style={styles.quickAddFieldLabel}>Calories</Text>
+                <TextInput
+                  style={styles.quickAddInput}
+                  value={quickCalories}
+                  onChangeText={setQuickCalories}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.muted}
+                />
+              </View>
+              <View style={styles.quickAddField}>
+                <Text style={styles.quickAddFieldLabel}>Protein (g)</Text>
+                <TextInput
+                  style={styles.quickAddInput}
+                  value={quickProtein}
+                  onChangeText={setQuickProtein}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.muted}
+                />
+              </View>
+            </View>
+            <View style={styles.quickAddRow}>
+              <View style={styles.quickAddField}>
+                <Text style={styles.quickAddFieldLabel}>Carbs (g)</Text>
+                <TextInput
+                  style={styles.quickAddInput}
+                  value={quickCarbs}
+                  onChangeText={setQuickCarbs}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.muted}
+                />
+              </View>
+              <View style={styles.quickAddField}>
+                <Text style={styles.quickAddFieldLabel}>Fat (g)</Text>
+                <TextInput
+                  style={styles.quickAddInput}
+                  value={quickFat}
+                  onChangeText={setQuickFat}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.muted}
+                />
+              </View>
+            </View>
+            <Pressable
+              style={[styles.saveButton, !quickCalories && styles.saveButtonDisabled]}
+              onPress={handleQuickAdd}
+            >
+              <Text style={styles.saveButtonText}>Add to Today</Text>
+            </Pressable>
+          </Pressable>
+          <Pressable style={styles.modalDismiss} onPress={() => setSettingsOpen(false)} />
         </KeyboardAvoidingView>
       </Modal>
 
@@ -2571,12 +2660,52 @@ const styles = StyleSheet.create({
   modalDismiss: {
     flex: 1,
   },
+  settingsBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(27, 31, 36, 0.6)',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
   settingsModal: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderRadius: 24,
     padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  settingsSectionTitle: {
+    ...typography.headline,
+    color: colors.text,
+    marginTop: spacing.xs,
+  },
+  settingsDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.sm,
+  },
+  quickAddRow: {
+    flexDirection: 'row',
     gap: spacing.md,
+  },
+  quickAddField: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  quickAddFieldLabel: {
+    ...typography.label,
+    color: colors.muted,
+  },
+  quickAddInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: '#fff',
+    ...typography.body,
+    color: colors.text,
+  },
+  saveButtonDisabled: {
+    opacity: 0.4,
   },
   confirmModal: {
     backgroundColor: colors.surface,

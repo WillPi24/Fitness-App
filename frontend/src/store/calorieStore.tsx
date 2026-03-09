@@ -117,6 +117,7 @@ type CalorieContextValue = {
   updateSavedMeal: (id: string, name: string, foods: SavedMealFood[]) => void;
   deleteSavedMeal: (id: string) => void;
   addSavedMealToDay: (savedMealId: string, date: string, targetMealId: string) => void;
+  quickAddFood: (date: string, calories: number, protein: number, carbs: number, fat: number) => void;
   isLoading: boolean;
   isSearching: boolean;
   error: string | null;
@@ -922,6 +923,53 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const quickAddFood = (date: string, calories: number, protein: number, carbs: number, fat: number) => {
+    if (!Number.isFinite(calories) || calories <= 0) {
+      setError('Enter a calorie amount greater than 0.');
+      return;
+    }
+    const foodItem: FoodItem = {
+      id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      name: 'Quick Add',
+      calories: Math.round(calories),
+      protein: Math.round(protein),
+      carbs: Math.round(carbs),
+      fat: Math.round(fat),
+      servingSize: 1,
+      servingUnit: 'serving',
+      servings: 1,
+      micronutrients: createEmptyMicronutrients(),
+      hasMicronutrientData: false,
+      timestamp: Date.now(),
+    };
+    const quickMealId = `quick-add-${date}`;
+    setCalorieDays((prev) => {
+      const existingDay = prev.find((day) => day.date === date);
+      if (!existingDay) {
+        return [...prev, { date, meals: [{ id: quickMealId, name: 'Quick Add', foods: [foodItem] }] }];
+      }
+      const quickMeal = existingDay.meals.find((m) => m.name === 'Quick Add');
+      if (quickMeal) {
+        return prev.map((day) =>
+          day.date === date
+            ? {
+                ...day,
+                meals: day.meals.map((meal) =>
+                  meal.id === quickMeal.id ? { ...meal, foods: [...meal.foods, foodItem] } : meal
+                ),
+              }
+            : day
+        );
+      }
+      return prev.map((day) =>
+        day.date === date
+          ? { ...day, meals: [...day.meals, { id: quickMealId, name: 'Quick Add', foods: [foodItem] }] }
+          : day
+      );
+    });
+    setError(null);
+  };
+
   const value = useMemo(
     () => ({
       calorieDays,
@@ -943,6 +991,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       updateSavedMeal,
       deleteSavedMeal,
       addSavedMealToDay,
+      quickAddFood,
       isLoading,
       isSearching,
       error,
