@@ -3,18 +3,23 @@ import { SpaceGrotesk_400Regular, SpaceGrotesk_500Medium, SpaceGrotesk_600SemiBo
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { AccountScreen } from './src/screens/AccountScreen';
+import { BodyInfoScreen } from './src/screens/BodyInfoScreen';
 import { CalorieScreen } from './src/screens/CalorieScreen';
+import { LoginScreen } from './src/screens/LoginScreen';
 import { LogScreen } from './src/screens/LogScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { RunScreen } from './src/screens/RunScreen';
-import { SummaryScreen } from './src/screens/SummaryScreen';
+import { SignUpScreen } from './src/screens/SignUpScreen';
+import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { CalorieProvider } from './src/store/calorieStore';
 import { RunProvider } from './src/store/runStore';
+import { UserProvider, useUserStore } from './src/store/userStore';
 import { WorkoutProvider } from './src/store/workoutStore';
 import { colors } from './src/theme';
 
@@ -24,10 +29,126 @@ type RootTabParamList = {
   Log: undefined;
   Cardio: undefined;
   Progress: undefined;
-  Info: undefined;
+  Account: undefined;
 };
 
 const Tab = createMaterialTopTabNavigator<RootTabParamList>();
+
+type AuthStep = 'welcome' | 'signup' | 'bodyinfo' | 'login';
+
+function AuthFlow({ onComplete }: { onComplete: () => void }) {
+  const [step, setStep] = useState<AuthStep>('welcome');
+
+  switch (step) {
+    case 'welcome':
+      return (
+        <WelcomeScreen
+          onSignUp={() => setStep('signup')}
+          onLogin={() => setStep('login')}
+        />
+      );
+    case 'signup':
+      return (
+        <SignUpScreen
+          onBack={() => setStep('welcome')}
+          onNext={() => setStep('bodyinfo')}
+        />
+      );
+    case 'bodyinfo':
+      return (
+        <BodyInfoScreen
+          onBack={() => setStep('signup')}
+          onComplete={onComplete}
+        />
+      );
+    case 'login':
+      return (
+        <LoginScreen
+          onBack={() => setStep('welcome')}
+          onSuccess={onComplete}
+        />
+      );
+  }
+}
+
+function MainApp() {
+  return (
+    <NavigationContainer theme={navTheme}>
+      <StatusBar style="dark" />
+      <Tab.Navigator
+        tabBarPosition="bottom"
+        screenOptions={({ route }) => ({
+          swipeEnabled: true,
+          animationEnabled: true,
+          lazy: false,
+          tabBarShowIcon: true,
+          tabBarAllowFontScaling: false,
+          sceneStyle: styles.scene,
+          tabBarStyle: styles.tabBar,
+          tabBarIndicatorStyle: styles.tabIndicator,
+          tabBarItemStyle: styles.tabItem,
+          tabBarIconStyle: styles.tabIcon,
+          tabBarActiveTintColor: colors.accent,
+          tabBarInactiveTintColor: colors.muted,
+          tabBarLabelStyle: styles.tabLabel,
+          tabBarIcon: ({ color }) => {
+            const iconName =
+              route.name === 'Log'
+                ? 'edit'
+                : route.name === 'Calories'
+                ? 'pie-chart'
+                : route.name === 'Account'
+                ? 'user'
+                : route.name === 'Cardio'
+                ? 'map'
+                : 'bar-chart-2';
+            return <Feather name={iconName} size={24} color={color} />;
+          },
+        })}
+      >
+        <Tab.Screen name="Calories" component={CalorieScreen} />
+        <Tab.Screen name="Log" component={LogScreen} />
+        <Tab.Screen name="Cardio" component={RunScreen} />
+        <Tab.Screen name="Progress" component={ProgressScreen} />
+        <Tab.Screen name="Account" component={AccountScreen} />
+      </Tab.Navigator>
+    </NavigationContainer>
+  );
+}
+
+function AppContent() {
+  const { user, isLoading } = useUserStore();
+  const [authComplete, setAuthComplete] = useState(false);
+
+  if (isLoading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color={colors.accent} />
+      </View>
+    );
+  }
+
+  const isSignedIn = user && user.bodyweightKg > 0;
+
+  if (!isSignedIn) {
+    return (
+      <>
+        <StatusBar style="dark" />
+        <AuthFlow onComplete={() => setAuthComplete(true)} />
+      </>
+    );
+  }
+
+  return (
+    <RunProvider>
+      <WorkoutProvider>
+        <CalorieProvider>
+          <MainApp />
+        </CalorieProvider>
+      </WorkoutProvider>
+    </RunProvider>
+  );
+}
 
 // Root app shell with font loading, providers, and navigation.
 export default function App() {
@@ -51,52 +172,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <RunProvider>
-          <WorkoutProvider>
-            <CalorieProvider>
-              <NavigationContainer theme={navTheme}>
-                <StatusBar style="dark" />
-                <Tab.Navigator
-                  tabBarPosition="bottom"
-                  screenOptions={({ route }) => ({
-                    swipeEnabled: true,
-                    animationEnabled: true,
-                    lazy: false,
-                    tabBarShowIcon: true,
-                    tabBarAllowFontScaling: false,
-                    sceneStyle: styles.scene,
-                    tabBarStyle: styles.tabBar,
-                    tabBarIndicatorStyle: styles.tabIndicator,
-                    tabBarItemStyle: styles.tabItem,
-                    tabBarIconStyle: styles.tabIcon,
-                    tabBarActiveTintColor: colors.accent,
-                    tabBarInactiveTintColor: colors.muted,
-                    tabBarLabelStyle: styles.tabLabel,
-                    tabBarIcon: ({ color }) => {
-                      const iconName =
-                        route.name === 'Log'
-                          ? 'edit'
-                          : route.name === 'Calories'
-                          ? 'pie-chart'
-                          : route.name === 'Info'
-                          ? 'shopping-bag'
-                          : route.name === 'Cardio'
-                          ? 'map'
-                          : 'bar-chart-2';
-                      return <Feather name={iconName} size={24} color={color} />;
-                    },
-                  })}
-                >
-                  <Tab.Screen name="Calories" component={CalorieScreen} />
-                  <Tab.Screen name="Log" component={LogScreen} />
-                  <Tab.Screen name="Cardio" component={RunScreen} />
-                  <Tab.Screen name="Progress" component={ProgressScreen} />
-                  <Tab.Screen name="Info" component={SummaryScreen} />
-                </Tab.Navigator>
-              </NavigationContainer>
-            </CalorieProvider>
-          </WorkoutProvider>
-        </RunProvider>
+        <UserProvider>
+          <AppContent />
+        </UserProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

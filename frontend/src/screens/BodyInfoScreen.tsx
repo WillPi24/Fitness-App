@@ -1,0 +1,177 @@
+import { Feather } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { UserSex, useUserStore } from '../store/userStore';
+import { colors, spacing, typography } from '../theme';
+
+type BodyInfoScreenProps = {
+  onBack: () => void;
+  onComplete: () => void;
+};
+
+export function BodyInfoScreen({ onBack, onComplete }: BodyInfoScreenProps) {
+  const insets = useSafeAreaInsets();
+  const { setBodyInfo } = useUserStore();
+  const [sex, setSex] = useState<UserSex>('male');
+  const [weight, setWeight] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const handleComplete = () => {
+    const kg = Number(weight);
+    if (!Number.isFinite(kg) || kg <= 0) {
+      setError('Please enter your bodyweight.');
+      return;
+    }
+    setBodyInfo(sex, kg);
+    onComplete();
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.xl },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Pressable style={styles.backButton} onPress={onBack}>
+            <Feather name="arrow-left" size={24} color={colors.text} />
+          </Pressable>
+
+          <Text style={styles.title}>About you</Text>
+          <Text style={styles.subtitle}>This helps us personalise your experience.</Text>
+
+          <View style={styles.form}>
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Sex</Text>
+              <View style={styles.segmented}>
+                <Pressable
+                  style={[styles.segment, sex === 'male' && styles.segmentActive]}
+                  onPress={() => setSex('male')}
+                >
+                  <Text style={[styles.segmentText, sex === 'male' && styles.segmentTextActive]}>Male</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.segment, sex === 'female' && styles.segmentActive]}
+                  onPress={() => setSex('female')}
+                >
+                  <Text style={[styles.segmentText, sex === 'female' && styles.segmentTextActive]}>Female</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Bodyweight (kg)</Text>
+              <TextInput
+                style={styles.input}
+                value={weight}
+                onChangeText={setWeight}
+                placeholder="e.g. 75"
+                placeholderTextColor={colors.muted}
+                keyboardType="decimal-pad"
+              />
+            </View>
+
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+            <Pressable style={styles.primaryButton} onPress={handleComplete}>
+              <Text style={styles.primaryButtonText}>Get Started</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </Pressable>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    padding: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  title: {
+    ...typography.title,
+    color: colors.text,
+  },
+  subtitle: {
+    ...typography.body,
+    color: colors.muted,
+  },
+  form: {
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  field: {
+    gap: spacing.xs,
+  },
+  fieldLabel: {
+    ...typography.label,
+    color: colors.muted,
+  },
+  segmented: {
+    flexDirection: 'row',
+    backgroundColor: colors.accentSoft,
+    borderRadius: 14,
+    padding: 4,
+    gap: 4,
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  segmentActive: {
+    backgroundColor: colors.accent,
+  },
+  segmentText: {
+    ...typography.headline,
+    color: colors.text,
+    fontSize: 16,
+  },
+  segmentTextActive: {
+    color: '#fff',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface,
+    ...typography.body,
+    color: colors.text,
+  },
+  errorText: {
+    ...typography.body,
+    color: colors.danger,
+  },
+  primaryButton: {
+    backgroundColor: colors.accent,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  primaryButtonText: {
+    ...typography.headline,
+    color: '#fff',
+    fontSize: 18,
+  },
+});

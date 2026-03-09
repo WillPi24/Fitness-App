@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "FitnessApp",
-    "slug": "FitnessApp",
+    "name": "Helm",
+    "slug": "Helm",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/helm-app-icon.png",
@@ -15,9 +15,9 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Allow FitnessApp to access your location to track outdoor runs.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow FitnessApp to track your run route even when the screen is locked.",
-        "NSLocationAlwaysUsageDescription": "Allow FitnessApp to track your run route even when the screen is locked.",
+        "NSLocationWhenInUseUsageDescription": "Allow Helm to access your location to track outdoor runs.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow Helm to track your run route even when the screen is locked.",
+        "NSLocationAlwaysUsageDescription": "Allow Helm to track your run route even when the screen is locked.",
         "UIBackgroundModes": [
           "location",
           "location"
@@ -54,7 +54,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow FitnessApp to scan food barcodes for calorie tracking."
+          "cameraPermission": "Allow Helm to scan food barcodes for calorie tracking."
         }
       ],
       "expo-location"

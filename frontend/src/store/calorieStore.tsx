@@ -580,7 +580,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
         `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`,
         {
           headers: {
-            'User-Agent': 'FitnessApp - React Native - Version 1.0',
+            'User-Agent': 'Helm - React Native - Version 1.0',
           },
         }
       );

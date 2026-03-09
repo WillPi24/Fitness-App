@@ -27,6 +27,7 @@ import {
   WorkoutCompletionPreview,
   useWorkoutStore,
 } from '../store/workoutStore';
+import { useUserStore } from '../store/userStore';
 import { colors, spacing, typography } from '../theme';
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -219,6 +220,7 @@ export function LogScreen() {
     clearError,
   } = useWorkoutStore();
 
+  const { user } = useUserStore();
   const today = new Date();
   const todayIso = useMemo(() => formatISODate(today), [today]);
   const insets = useSafeAreaInsets();
@@ -1183,7 +1185,7 @@ export function LogScreen() {
             </Card>
           ) : (
             <>
-              <WeeklyMuscleMap bodyPartCounts={weeklyBodyPartCounts} />
+              <WeeklyMuscleMap bodyPartCounts={weeklyBodyPartCounts} sex={user?.sex} />
 
               <Card style={styles.weeklyPrCard}>
                 <Text style={styles.prTitle}>Personal bests this week</Text>

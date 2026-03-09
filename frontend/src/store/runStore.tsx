@@ -348,7 +348,7 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
       showsBackgroundLocationIndicator: true,
       foregroundService: {
         notificationTitle: 'Tracking your run',
-        notificationBody: 'FitnessApp is recording your route and distance.',
+        notificationBody: 'Helm is recording your route and distance.',
         notificationColor: '#E4572E',
       },
     });

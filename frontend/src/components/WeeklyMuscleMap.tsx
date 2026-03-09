@@ -18,6 +18,7 @@ export type CanonicalBodyPart =
 
 type WeeklyMuscleMapProps = {
   bodyPartCounts: Partial<Record<CanonicalBodyPart, number>>;
+  sex?: 'male' | 'female';
 };
 
 const BODY_PART_LABELS: Record<CanonicalBodyPart, string> = {
@@ -33,9 +34,10 @@ const BODY_PART_LABELS: Record<CanonicalBodyPart, string> = {
   absCore: 'Abs/Core',
 };
 
-const MUSCLE_IMAGE = require('../../assets/Male_Transparent.png');
+const MALE_FIGURE = require('../../assets/Male_Transparent.png');
+const FEMALE_FIGURE = require('../../assets/Female_Transparent.png');
 
-const MASK_IMAGE_BY_PART: Record<CanonicalBodyPart, number> = {
+const MALE_MASKS: Record<CanonicalBodyPart, number> = {
   chest: require('../../assets/muscle-masks/male/chest.png'),
   back: require('../../assets/muscle-masks/male/back.png'),
   shoulders: require('../../assets/muscle-masks/male/shoulders.png'),
@@ -48,7 +50,22 @@ const MASK_IMAGE_BY_PART: Record<CanonicalBodyPart, number> = {
   absCore: require('../../assets/muscle-masks/male/absCore.png'),
 };
 
-export function WeeklyMuscleMap({ bodyPartCounts }: WeeklyMuscleMapProps) {
+const FEMALE_MASKS: Record<CanonicalBodyPart, number> = {
+  chest: require('../../assets/muscle-masks/female/chest.png'),
+  back: require('../../assets/muscle-masks/female/back.png'),
+  shoulders: require('../../assets/muscle-masks/female/shoulders.png'),
+  quads: require('../../assets/muscle-masks/female/quads.png'),
+  hamsGlutes: require('../../assets/muscle-masks/female/hamsGlutes.png'),
+  calves: require('../../assets/muscle-masks/female/calves.png'),
+  triceps: require('../../assets/muscle-masks/female/triceps.png'),
+  biceps: require('../../assets/muscle-masks/female/biceps.png'),
+  forearms: require('../../assets/muscle-masks/female/forearms.png'),
+  absCore: require('../../assets/muscle-masks/female/absCore.png'),
+};
+
+export function WeeklyMuscleMap({ bodyPartCounts, sex = 'male' }: WeeklyMuscleMapProps) {
+  const figureImage = sex === 'female' ? FEMALE_FIGURE : MALE_FIGURE;
+  const maskImages = sex === 'female' ? FEMALE_MASKS : MALE_MASKS;
   const activeBodyParts = useMemo(
     () =>
       (Object.keys(bodyPartCounts) as CanonicalBodyPart[])
@@ -61,14 +78,14 @@ export function WeeklyMuscleMap({ bodyPartCounts }: WeeklyMuscleMapProps) {
     <Card style={styles.card}>
       <Text style={styles.title}>Muscles worked this week</Text>
       <View style={styles.figureWrapper}>
-        <Image source={MUSCLE_IMAGE} style={styles.figureImage} resizeMode="contain" />
+        <Image source={figureImage} style={styles.figureImage} resizeMode="contain" />
         {activeBodyParts.map((bodyPart) => {
           const count = bodyPartCounts[bodyPart] ?? 0;
           const opacity = Math.min(0.18 + count * 0.06, 0.5);
           return (
             <Image
               key={bodyPart}
-              source={MASK_IMAGE_BY_PART[bodyPart]}
+              source={maskImages[bodyPart]}
               style={[styles.maskImage, { opacity }]}
               resizeMode="contain"
             />
