@@ -1,6 +1,13 @@
 import { Feather } from '@expo/vector-icons';
-import MapView, { Polyline } from 'react-native-maps';
 import React, { useEffect, useMemo, useState } from 'react';
+
+let MapLibreGL: any = null;
+try {
+  MapLibreGL = require('@maplibre/maplibre-react-native').default;
+  MapLibreGL.setAccessToken(null);
+} catch {
+  // Native module not available (e.g. Expo Go) — map features disabled
+}
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -19,8 +26,27 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../components/Card';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { ActiveRun, useRunStore } from '../store/runStore';
+import { ActiveRun, RunPoint, useRunStore } from '../store/runStore';
 import { colors, spacing, typography } from '../theme';
+
+function splitRouteSegments(route: RunPoint[], segmentBreaks?: number[]): [number, number][][] {
+  if (!route || route.length === 0) return [];
+  const breaks = segmentBreaks ?? [];
+  const breakSet = new Set(breaks);
+  const segments: [number, number][][] = [];
+  let current: [number, number][] = [];
+  for (let i = 0; i < route.length; i++) {
+    if (breakSet.has(i) && current.length > 0) {
+      segments.push(current);
+      current = [];
+    }
+    current.push([route[i].longitude, route[i].latitude]);
+  }
+  if (current.length > 0) {
+    segments.push(current);
+  }
+  return segments;
+}
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -142,6 +168,7 @@ export function RunScreen() {
   const [indoorActivity, setIndoorActivity] = useState('Treadmill');
   const [outdoorActivity, setOutdoorActivity] = useState('Run');
   const [isEditingIndoorDistance, setIsEditingIndoorDistance] = useState(false);
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
 
   const outdoorOptions = useMemo(
     () => [
@@ -196,12 +223,9 @@ export function RunScreen() {
   }, [activeRun]);
 
   const pace = useMemo(() => formatPace(elapsedMs, distanceMeters), [elapsedMs, distanceMeters]);
-  const routeCoords = useMemo(
-    () => (activeRun?.route ?? []).map((point) => ({
-      latitude: point.latitude,
-      longitude: point.longitude,
-    })),
-    [activeRun?.route]
+  const routeSegments = useMemo(
+    () => splitRouteSegments(activeRun?.route ?? [], activeRun?.segmentBreaks),
+    [activeRun?.route, activeRun?.segmentBreaks]
   );
   const lastPoint =
     activeRun && activeRun.route.length > 0
@@ -507,20 +531,44 @@ export function RunScreen() {
 
                 {activeRun.type !== 'indoor' ? (
                   <Card style={styles.mapCard}>
-                    {activeRun?.type === 'outdoor' && routeCoords.length > 0 && lastPoint ? (
-                      <MapView
+                    {activeRun?.type === 'outdoor' && routeSegments.length > 0 && lastPoint && MapLibreGL ? (
+                      <MapLibreGL.MapView
                         style={styles.map}
-                        showsUserLocation
-                        followsUserLocation
-                        initialRegion={{
-                          latitude: lastPoint.latitude,
-                          longitude: lastPoint.longitude,
-                          latitudeDelta: 0.01,
-                          longitudeDelta: 0.01,
-                        }}
+                        mapStyle="https://tiles.openfreemap.org/styles/liberty"
+                        attributionEnabled={true}
+                        logoEnabled={false}
                       >
-                        <Polyline coordinates={routeCoords} strokeColor={colors.accent} strokeWidth={4} />
-                      </MapView>
+                        <MapLibreGL.Camera
+                          centerCoordinate={[lastPoint.longitude, lastPoint.latitude]}
+                          zoomLevel={15}
+                          followUserLocation
+                        />
+                        <MapLibreGL.UserLocation visible />
+                        {routeSegments.map((segment, i) => (
+                          <MapLibreGL.ShapeSource
+                            key={`route-seg-${i}`}
+                            id={`route-seg-${i}`}
+                            shape={{
+                              type: 'Feature',
+                              properties: {},
+                              geometry: {
+                                type: 'LineString',
+                                coordinates: segment,
+                              },
+                            }}
+                          >
+                            <MapLibreGL.LineLayer
+                              id={`route-line-${i}`}
+                              style={{
+                                lineColor: colors.accent,
+                                lineWidth: 4,
+                                lineJoin: 'round',
+                                lineCap: 'round',
+                              }}
+                            />
+                          </MapLibreGL.ShapeSource>
+                        ))}
+                      </MapLibreGL.MapView>
                     ) : (
                       <View style={styles.mapPlaceholder}>
                         <Text style={styles.mapPlaceholderTitle}>No GPS path yet</Text>
@@ -596,16 +644,96 @@ export function RunScreen() {
               ) : (
                 runsForSelectedDate.map((run) => {
                   const runActivity = run.activity ?? (run.type === 'outdoor' ? 'Run' : 'Treadmill');
+                  const isExpanded = expandedRunId === run.id;
+                  const hasRoute = run.type === 'outdoor' && run.route && run.route.length > 1;
+                  const runSegments = hasRoute
+                    ? splitRouteSegments(run.route, run.segmentBreaks)
+                    : [];
+                  const runBounds = hasRoute
+                    ? run.route.reduce(
+                        (acc, p) => ({
+                          minLng: Math.min(acc.minLng, p.longitude),
+                          maxLng: Math.max(acc.maxLng, p.longitude),
+                          minLat: Math.min(acc.minLat, p.latitude),
+                          maxLat: Math.max(acc.maxLat, p.latitude),
+                        }),
+                        { minLng: Infinity, maxLng: -Infinity, minLat: Infinity, maxLat: -Infinity },
+                      )
+                    : null;
                   return (
-                    <View key={run.id} style={styles.runRow}>
-                      <View>
-                        <Text style={styles.runLabel}>
-                          {run.type === 'outdoor' ? 'Outdoor' : 'Indoor'} - {runActivity} - {formatTime(run.startedAt)}
-                        </Text>
-                        <Text style={styles.runSub}>
-                          {formatDuration(run.durationMs)} - {formatPace(run.durationMs, run.distanceMeters)} - {formatDistanceKm(run.distanceMeters)}
-                        </Text>
-                      </View>
+                    <View key={run.id}>
+                      <Pressable
+                        style={styles.runRow}
+                        onPress={() => setExpandedRunId(isExpanded ? null : run.id)}
+                      >
+                        <View style={styles.runRowContent}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.runLabel}>
+                              {run.type === 'outdoor' ? 'Outdoor' : 'Indoor'} - {runActivity} - {formatTime(run.startedAt)}
+                            </Text>
+                            <Text style={styles.runSub}>
+                              {formatDuration(run.durationMs)} - {formatPace(run.durationMs, run.distanceMeters)} - {formatDistanceKm(run.distanceMeters)}
+                            </Text>
+                          </View>
+                          {hasRoute ? (
+                            <Feather
+                              name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                              size={18}
+                              color={colors.muted}
+                            />
+                          ) : null}
+                        </View>
+                      </Pressable>
+                      {isExpanded && hasRoute && MapLibreGL && runBounds ? (
+                        <View style={styles.historyMapContainer}>
+                          <MapLibreGL.MapView
+                            style={styles.historyMap}
+                            mapStyle="https://tiles.openfreemap.org/styles/liberty"
+                            attributionEnabled={false}
+                            logoEnabled={false}
+                            scrollEnabled={false}
+                            pitchEnabled={false}
+                            rotateEnabled={false}
+                            zoomEnabled={false}
+                          >
+                            <MapLibreGL.Camera
+                              bounds={{
+                                ne: [runBounds.maxLng, runBounds.maxLat],
+                                sw: [runBounds.minLng, runBounds.minLat],
+                                paddingTop: 30,
+                                paddingBottom: 30,
+                                paddingLeft: 30,
+                                paddingRight: 30,
+                              }}
+                              animationDuration={0}
+                            />
+                            {runSegments.map((segment, i) => (
+                              <MapLibreGL.ShapeSource
+                                key={`history-seg-${run.id}-${i}`}
+                                id={`history-seg-${run.id}-${i}`}
+                                shape={{
+                                  type: 'Feature',
+                                  properties: {},
+                                  geometry: {
+                                    type: 'LineString',
+                                    coordinates: segment,
+                                  },
+                                }}
+                              >
+                                <MapLibreGL.LineLayer
+                                  id={`history-line-${run.id}-${i}`}
+                                  style={{
+                                    lineColor: colors.accent,
+                                    lineWidth: 3,
+                                    lineJoin: 'round',
+                                    lineCap: 'round',
+                                  }}
+                                />
+                              </MapLibreGL.ShapeSource>
+                            ))}
+                          </MapLibreGL.MapView>
+                        </View>
+                      ) : null}
                     </View>
                   );
                 })
@@ -974,11 +1102,14 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   runRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  runRowContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   runLabel: {
     ...typography.body,
@@ -991,6 +1122,15 @@ const styles = StyleSheet.create({
   runValue: {
     ...typography.headline,
     color: colors.text,
+  },
+  historyMapContainer: {
+    marginTop: spacing.sm,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  historyMap: {
+    width: '100%',
+    height: 180,
   },
   calendarBackdrop: {
     flex: 1,

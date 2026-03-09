@@ -42,12 +42,14 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.FitnessApp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "@maplibre/maplibre-react-native",
       "expo-font",
       [
         "expo-camera",

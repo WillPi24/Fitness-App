@@ -22,6 +22,7 @@ export type RunSession = {
   durationMs: number;
   distanceMeters: number;
   route: RunPoint[];
+  segmentBreaks?: number[];
   manualDistanceMeters?: number;
 };
 
@@ -36,6 +37,7 @@ export type ActiveRun = {
   isPaused: boolean;
   distanceMeters: number;
   route: RunPoint[];
+  segmentBreaks?: number[];
   lastPoint?: RunPoint;
   manualDistanceMeters?: number;
   lastUpdatedAt: number;
@@ -555,10 +557,16 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
     }
 
     const now = Date.now();
+    const breaks = [...(activeRun.segmentBreaks ?? [])];
+    if (activeRun.route.length > 0) {
+      breaks.push(activeRun.route.length);
+    }
     await persistActiveRun({
       ...activeRun,
       segmentStartedAt: now,
       isPaused: false,
+      segmentBreaks: breaks,
+      lastPoint: undefined,
       lastUpdatedAt: now,
     });
   }, [activeRun, ensureLocationPermissions, persistActiveRun, startLocationUpdates]);
@@ -606,6 +614,7 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
       durationMs,
       distanceMeters,
       route: activeRun.route,
+      segmentBreaks: activeRun.segmentBreaks,
       manualDistanceMeters: activeRun.manualDistanceMeters,
     };
 
