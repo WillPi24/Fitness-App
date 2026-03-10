@@ -1,0 +1,159 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Helm fitness app backend — Cognito auth, DynamoDB storage, API Gateway + Lambda sync API
+
+Parameters:
+  Stage:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, prod]
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 10
+    MemorySize: 256
+    Environment:
+      Variables:
+        DATA_TABLE: !Ref DataTable
+
+Resources:
+  # ──────────────────────────────────────────────
+  # Cognito — email / password authentication
+  # ──────────────────────────────────────────────
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub helm-users-${Stage}
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 6
+          RequireLowercase: false
+          RequireNumbers: false
+          RequireSymbols: false
+          RequireUppercase: false
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+        - Name: name
+          Required: false
+          Mutable: true
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub helm-mobile-${Stage}
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      AccessTokenValidity: 1    # hours
+      IdTokenValidity: 1
+      RefreshTokenValidity: 30  # days
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+  # ──────────────────────────────────────────────
+  # DynamoDB — single-table key-value store
+  # Each row = one AsyncStorage key for one user
+  #
+  # PK: userId  (Cognito sub)
+  # SK: dataKey  (e.g. "userProfile", "workouts", "calorieDays", …)
+  # data: JSON string blob
+  # updatedAt: epoch ms
+  # ──────────────────────────────────────────────
+  DataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub helm-data-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: dataKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: dataKey
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  # ──────────────────────────────────────────────
+  # API Gateway — REST API with Cognito authorizer
+  # ──────────────────────────────────────────────
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub helm-api-${Stage}
+      StageName: !Ref Stage
+      Cors:
+        AllowOrigin: "'*'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowMethods: "'GET,PUT,DELETE,OPTIONS'"
+      Auth:
+        DefaultAuthorizer: CognitoAuth
+        Authorizers:
+          CognitoAuth:
+            UserPoolArn: !GetAtt UserPool.Arn
+
+  # ──────────────────────────────────────────────
+  # Lambda — sync function (single handler, all routes)
+  # ──────────────────────────────────────────────
+  SyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub helm-sync-${Stage}
+      CodeUri: ./lambda/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DataTable
+      Events:
+        GetAll:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /data
+            Method: GET
+        GetItem:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /data/{key}
+            Method: GET
+        PutItem:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /data/{key}
+            Method: PUT
+        DeleteItem:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /data/{key}
+            Method: DELETE
+
+Outputs:
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+
+  UserPoolClientId:
+    Description: Cognito App Client ID (use in the mobile app)
+    Value: !Ref UserPoolClient
+
+  ApiUrl:
+    Description: Base URL for the sync API
+    Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${Stage}
