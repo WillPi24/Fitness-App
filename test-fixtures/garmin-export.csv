@@ -1,0 +1,11 @@
+Activity Type,Date,Favorite,Title,Distance,Calories,Time,Avg HR,Max HR,Aerobic TE,Avg Run Cadence,Max Run Cadence,Avg Pace,Best Pace,Elev Gain,Elev Loss
+Running,2025-02-03 06:45,false,Morning Run,5.23,380,00:26:15,145,168,3.5,172,185,5:01,4:22,42,38
+Running,2025-02-06 07:00,false,Easy Run,8.01,520,00:41:30,138,155,3.2,168,178,5:11,4:45,65,61
+Walking,2025-02-08 12:00,false,Lunch Walk,3.50,180,00:38:00,95,110,1.5,,,10:51,8:30,15,12
+Trail Running,2025-02-10 08:00,true,Trail Run,12.40,890,01:08:22,152,175,4.1,165,190,5:31,4:10,310,305
+Cycling,2025-02-12 17:00,false,After Work Ride,32.10,650,01:15:00,135,158,2.8,,,2:20,1:45,180,175
+Treadmill Running,2025-02-14 06:30,false,Treadmill Intervals,6.00,410,00:30:00,155,178,3.8,175,192,5:00,3:30,0,0
+Indoor Cycling,2025-02-15 09:00,false,Spin Class,18.50,480,00:45:00,142,170,3.0,,,,,,
+Pool Swimming,2025-02-17 07:00,false,Morning Swim,1.80,320,00:40:00,128,145,2.5,,,,,,
+Strength Training,2025-02-18 16:00,false,Upper Body,0,280,00:55:00,110,135,1.2,,,,,,
+Elliptical Trainer,2025-02-20 06:00,false,Morning Cardio,4.20,350,00:35:00,140,160,2.8,,,,,,

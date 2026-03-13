@@ -1,0 +1,10 @@
+Activity ID,Activity Date,Activity Name,Activity Type,Activity Description,Elapsed Time,Distance,Max Heart Rate,Relative Effort,Commute,Activity Gear,Filename,Athlete Weight,Bike Weight,Elapsed Time.1,Moving Time,Distance.1,Max Speed,Average Speed,Elevation Gain,Elevation Loss,Elevation Low,Elevation High,Max Grade,Average Grade
+1234567890,"Jan 5, 2025, 7:15:00 AM",Morning Run,Run,,1845,5.12,,,,,,75,,1845,1780,5120,,,,,,,,
+1234567891,"Jan 8, 2025, 6:00:00 PM",Evening Walk,Walk,,2700,3.2,,,,,,75,,2700,2650,3200,,,,,,,,
+1234567892,"Jan 12, 2025, 8:00:00 AM",Long Run,Run,,3920,10.5,,,,,,75,,3920,3800,10500,,,,,,,,
+1234567893,"Jan 15, 2025, 12:00:00 PM",Lunch Ride,Ride,,5400,25.3,,,,,,75,,5400,5200,25300,,,,,,,,
+1234567894,"Jan 18, 2025, 7:00:00 AM",Trail Run,Trail Run,,2400,6.8,,,,,,75,,2400,2300,6800,,,,,,,,
+1234567895,"Jan 20, 2025, 6:30:00 AM",Treadmill,Virtual Run,,1800,4.0,,,,,,75,,1800,1800,4000,,,,,,,,
+1234567896,"Jan 22, 2025, 7:00:00 PM",Pool Laps,Pool Swim,,2100,1.5,,,,,,75,,2100,2000,1500,,,,,,,,
+1234567897,"Jan 25, 2025, 9:00:00 AM",Gym Workout,Weight Training,,3600,0,,,,,,75,,3600,3600,0,,,,,,,,
+1234567898,"Feb 1, 2025, 7:30:00 AM",Saturday Hike,Hike,,7200,12.4,,,,,,75,,7200,7000,12400,,,,,,,,

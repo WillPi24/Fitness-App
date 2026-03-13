@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 export type UserSex = 'male' | 'female';
+export type WeightUnit = 'kg' | 'lbs';
 
 export type UserProfile = {
   name: string;
@@ -9,8 +10,21 @@ export type UserProfile = {
   password: string;
   sex: UserSex;
   bodyweightKg: number;
+  weightUnit: WeightUnit;
   createdAt: number;
 };
+
+const KG_TO_LBS = 2.20462;
+
+export function toDisplayWeight(kg: number, unit: WeightUnit): number {
+  if (unit === 'lbs') return Math.round(kg * KG_TO_LBS * 10) / 10;
+  return Math.round(kg * 10) / 10;
+}
+
+export function fromDisplayWeight(value: number, unit: WeightUnit): number {
+  if (unit === 'lbs') return Math.round((value / KG_TO_LBS) * 10) / 10;
+  return Math.round(value * 10) / 10;
+}
 
 type UserContextValue = {
   user: UserProfile | null;
@@ -18,10 +32,10 @@ type UserContextValue = {
   error: string | null;
   clearError: () => void;
   signUp: (name: string, email: string, password: string) => boolean;
-  setBodyInfo: (sex: UserSex, bodyweightKg: number) => void;
+  setBodyInfo: (sex: UserSex, bodyweightKg: number, weightUnit: WeightUnit) => void;
   login: (email: string, password: string) => boolean;
   signOut: () => void;
-  updateProfile: (updates: Partial<Pick<UserProfile, 'name' | 'sex' | 'bodyweightKg'>>) => void;
+  updateProfile: (updates: Partial<Pick<UserProfile, 'name' | 'sex' | 'bodyweightKg' | 'weightUnit'>>) => void;
 };
 
 const USER_KEY = 'fitnessapp.userProfile.v1';
@@ -30,15 +44,22 @@ const UserContext = createContext<UserContextValue | undefined>(undefined);
 
 function isUserProfile(value: unknown): value is UserProfile {
   if (!value || typeof value !== 'object') return false;
-  const u = value as UserProfile;
-  return (
+  const u = value as Record<string, unknown>;
+  if (
     typeof u.name === 'string' &&
     typeof u.email === 'string' &&
     typeof u.password === 'string' &&
     (u.sex === 'male' || u.sex === 'female') &&
     typeof u.bodyweightKg === 'number' &&
     typeof u.createdAt === 'number'
-  );
+  ) {
+    // Migrate: add weightUnit if missing (existing profiles default to kg)
+    if (u.weightUnit !== 'kg' && u.weightUnit !== 'lbs') {
+      (u as Record<string, unknown>).weightUnit = 'kg';
+    }
+    return true;
+  }
+  return false;
 }
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
@@ -102,16 +123,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       password,
       sex: 'male',
       bodyweightKg: 0,
+      weightUnit: 'kg',
       createdAt: Date.now(),
     });
     setError(null);
     return true;
   }, []);
 
-  const setBodyInfo = useCallback((sex: UserSex, bodyweightKg: number) => {
+  const setBodyInfo = useCallback((sex: UserSex, bodyweightKg: number, weightUnit: WeightUnit) => {
     setUser((prev) => {
       if (!prev) return prev;
-      return { ...prev, sex, bodyweightKg };
+      return { ...prev, sex, bodyweightKg, weightUnit };
     });
   }, []);
 
@@ -132,7 +154,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
-  const updateProfile = useCallback((updates: Partial<Pick<UserProfile, 'name' | 'sex' | 'bodyweightKg'>>) => {
+  const updateProfile = useCallback((updates: Partial<Pick<UserProfile, 'name' | 'sex' | 'bodyweightKg' | 'weightUnit'>>) => {
     setUser((prev) => {
       if (!prev) return prev;
       return { ...prev, ...updates };

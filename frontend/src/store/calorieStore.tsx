@@ -118,6 +118,7 @@ type CalorieContextValue = {
   deleteSavedMeal: (id: string) => void;
   addSavedMealToDay: (savedMealId: string, date: string, targetMealId: string) => void;
   quickAddFood: (date: string, calories: number, protein: number, carbs: number, fat: number) => void;
+  importCalorieDays: (days: CalorieDay[]) => void;
   isLoading: boolean;
   isSearching: boolean;
   error: string | null;
@@ -297,7 +298,7 @@ function isMeal(value: unknown): value is Meal {
   );
 }
 
-function isCalorieDay(value: unknown): value is CalorieDay {
+export function isCalorieDay(value: unknown): value is CalorieDay {
   if (!value || typeof value !== 'object') {
     return false;
   }
@@ -970,6 +971,27 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
     setError(null);
   };
 
+  const importCalorieDays = (days: CalorieDay[]) => {
+    setCalorieDays((prev) => {
+      const dayMap = new Map<string, CalorieDay>();
+      for (const day of prev) {
+        dayMap.set(day.date, day);
+      }
+      for (const day of days) {
+        const existing = dayMap.get(day.date);
+        if (existing) {
+          dayMap.set(day.date, {
+            ...existing,
+            meals: [...existing.meals, ...day.meals],
+          });
+        } else {
+          dayMap.set(day.date, day);
+        }
+      }
+      return Array.from(dayMap.values());
+    });
+  };
+
   const value = useMemo(
     () => ({
       calorieDays,
@@ -992,6 +1014,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       deleteSavedMeal,
       addSavedMealToDay,
       quickAddFood,
+      importCalorieDays,
       isLoading,
       isSearching,
       error,

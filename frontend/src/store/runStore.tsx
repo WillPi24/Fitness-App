@@ -52,6 +52,7 @@ type RunContextValue = {
   finishRun: () => Promise<void>;
   discardRun: () => Promise<void>;
   updateIndoorDistance: (meters: number) => Promise<void>;
+  importRuns: (sessions: RunSession[]) => void;
   seedDemoRuns: () => void;
   clearDemoRuns: () => void;
   isLoading: boolean;
@@ -152,7 +153,7 @@ function isRunPoint(value: unknown): value is RunPoint {
   );
 }
 
-function isRunSession(value: unknown): value is RunSession {
+export function isRunSession(value: unknown): value is RunSession {
   if (!value || typeof value !== 'object') {
     return false;
   }
@@ -649,6 +650,10 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
     setRuns((prev) => prev.filter((run) => !isDemoRun(run)));
   }, []);
 
+  const importRuns = useCallback((sessions: RunSession[]) => {
+    setRuns((prev) => [...prev, ...sessions].sort((a, b) => b.startedAt - a.startedAt));
+  }, []);
+
   const value = useMemo(
     () => ({
       runs,
@@ -659,13 +664,14 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
       finishRun,
       discardRun,
       updateIndoorDistance,
+      importRuns,
       seedDemoRuns,
       clearDemoRuns,
       isLoading,
       error,
       clearError: () => setError(null),
     }),
-    [runs, activeRun, startRun, pauseRun, resumeRun, finishRun, discardRun, updateIndoorDistance, seedDemoRuns, clearDemoRuns, isLoading, error]
+    [runs, activeRun, startRun, pauseRun, resumeRun, finishRun, discardRun, updateIndoorDistance, importRuns, seedDemoRuns, clearDemoRuns, isLoading, error]
   );
 
   return <RunContext.Provider value={value}>{children}</RunContext.Provider>;

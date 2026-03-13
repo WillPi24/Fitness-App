@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 
+import { type WeightUnit, toDisplayWeight } from '../store/userStore';
 import { estimateOneRepMax, type WorkoutSession } from '../store/workoutStore';
 import { colors, spacing, typography } from '../theme';
 import { LineGraph } from './LineGraph';
@@ -20,6 +21,7 @@ type ExerciseDetailModalProps = {
   monthLabels: string[];
   startLabel: string;
   endLabel: string;
+  weightUnit: WeightUnit;
   onClose: () => void;
 };
 
@@ -51,6 +53,7 @@ export function ExerciseDetailModal({
   visible,
   exerciseName,
   workouts,
+  weightUnit,
   onClose,
 }: ExerciseDetailModalProps) {
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
@@ -196,9 +199,9 @@ export function ExerciseDetailModal({
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Estimated 1RM Trend</Text>
               <LineGraph
-                data={detail.e1rmTrend}
+                data={detail.e1rmTrend.map(v => v !== null ? toDisplayWeight(v, weightUnit) : null)}
                 labels={detail.monthLabels}
-                valueSuffix="kg"
+                valueSuffix={weightUnit}
                 startLabel={detail.startLabel}
                 endLabel={detail.endLabel}
                 color={colors.accent}
@@ -210,7 +213,7 @@ export function ExerciseDetailModal({
               <View style={styles.bestSet}>
                 <Text style={styles.sectionLabel}>Best set</Text>
                 <Text style={styles.bestSetValue}>
-                  {detail.bestSetEver.weight}kg × {detail.bestSetEver.reps} reps
+                  {toDisplayWeight(detail.bestSetEver.weight, weightUnit)}{weightUnit} × {detail.bestSetEver.reps} reps
                 </Text>
                 <Text style={styles.bestSetDate}>
                   on {detail.bestSetEver.date}
@@ -223,8 +226,8 @@ export function ExerciseDetailModal({
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Volume per session</Text>
                 <LineGraph
-                  data={detail.volumeTrend}
-                  valueSuffix="kg"
+                  data={detail.volumeTrend.map(v => toDisplayWeight(v, weightUnit))}
+                  valueSuffix={weightUnit}
                   compact
                   height={50}
                   color={colors.accent}
@@ -246,7 +249,7 @@ export function ExerciseDetailModal({
                     <View style={styles.sessionMeta}>
                       <Text style={styles.sessionDate}>{session.date}</Text>
                       <Text style={styles.sessionSummary}>
-                        {session.sets.length} sets, {session.volumeKg}kg vol, est. 1RM {session.bestE1RM}kg
+                        {session.sets.length} sets, {toDisplayWeight(session.volumeKg, weightUnit)}{weightUnit} vol, est. 1RM {toDisplayWeight(session.bestE1RM, weightUnit)}{weightUnit}
                       </Text>
                     </View>
                     <Feather
@@ -263,7 +266,7 @@ export function ExerciseDetailModal({
                     <View style={styles.sessionSets}>
                       {session.sets.map((set, i) => (
                         <Text key={`${session.workoutId}-${i}`} style={styles.setText}>
-                          Set {i + 1}: {set.weight}kg × {set.reps}
+                          Set {i + 1}: {toDisplayWeight(set.weight, weightUnit)}{weightUnit} × {set.reps}
                         </Text>
                       ))}
                     </View>

@@ -90,8 +90,9 @@ type WorkoutContextValue = {
   addSet: (exerciseId: string) => void;
   updateSet: (exerciseId: string, setId: string, field: 'weight' | 'reps', value: string) => void;
   removeSet: (exerciseId: string, setId: string) => void;
-  previewWorkoutCompletion: () => WorkoutCompletionPreview | null;
+  previewWorkoutCompletion: (convertWeight?: (w: number) => number) => WorkoutCompletionPreview | null;
   confirmWorkoutCompletion: (completedWorkout: WorkoutSession) => void;
+  importWorkouts: (sessions: WorkoutSession[]) => void;
   isLoading: boolean;
   error: string | null;
   clearError: () => void;
@@ -370,7 +371,7 @@ function isWorkoutExercise(value: unknown): value is WorkoutExercise {
   );
 }
 
-function isWorkoutSession(value: unknown): value is WorkoutSession {
+export function isWorkoutSession(value: unknown): value is WorkoutSession {
   if (!value || typeof value !== 'object') {
     return false;
   }
@@ -847,7 +848,7 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const previewWorkoutCompletion = (): WorkoutCompletionPreview | null => {
+  const previewWorkoutCompletion = (convertWeight?: (w: number) => number): WorkoutCompletionPreview | null => {
     if (!activeWorkout) {
       setError('Start a workout to log sets.');
       return null;
@@ -875,13 +876,15 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
       const parsedSets: WorkoutSet[] = [];
 
       for (const set of exercise.sets) {
-        const weight = Number(set.weight);
+        const rawWeight = Number(set.weight);
         const reps = Number(set.reps);
 
-        if (!Number.isFinite(weight) || weight <= 0 || !Number.isFinite(reps) || reps <= 0) {
+        if (!Number.isFinite(rawWeight) || rawWeight <= 0 || !Number.isFinite(reps) || reps <= 0) {
           setError('Fill in weight and reps for every set, or remove the empty sets.');
           return null;
         }
+
+        const weight = convertWeight ? convertWeight(rawWeight) : rawWeight;
 
         parsedSets.push({
           id: set.id,
@@ -920,6 +923,10 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     setWorkouts((prev) => [completedWorkout, ...prev].sort((a, b) => b.endedAt - a.endedAt));
     setActiveWorkout(null);
     setError(null);
+  };
+
+  const importWorkouts = (sessions: WorkoutSession[]) => {
+    setWorkouts((prev) => [...prev, ...sessions].sort((a, b) => b.endedAt - a.endedAt));
   };
 
   const seedDemoWorkouts = () => {
@@ -963,6 +970,7 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
       removeSet,
       previewWorkoutCompletion,
       confirmWorkoutCompletion,
+      importWorkouts,
       isLoading,
       error,
       clearError: () => setError(null),

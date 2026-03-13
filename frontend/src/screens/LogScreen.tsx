@@ -27,7 +27,7 @@ import {
   WorkoutCompletionPreview,
   useWorkoutStore,
 } from '../store/workoutStore';
-import { useUserStore } from '../store/userStore';
+import { useUserStore, toDisplayWeight, fromDisplayWeight } from '../store/userStore';
 import { colors, spacing, typography } from '../theme';
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -221,6 +221,7 @@ export function LogScreen() {
   } = useWorkoutStore();
 
   const { user } = useUserStore();
+  const weightUnit = user?.weightUnit ?? 'kg';
   const today = new Date();
   const todayIso = useMemo(() => formatISODate(today), [today]);
   const insets = useSafeAreaInsets();
@@ -614,7 +615,7 @@ export function LogScreen() {
       setConfirmOpen(true);
       return;
     }
-    const preview = previewWorkoutCompletion();
+    const preview = previewWorkoutCompletion((w) => fromDisplayWeight(w, weightUnit));
     if (preview) {
       setCompletionPreview(preview);
       setConfirmMode('complete');
@@ -682,7 +683,7 @@ export function LogScreen() {
                 placeholderTextColor={colors.muted}
                 keyboardType="numeric"
               />
-              <Text style={styles.setInputSuffix}>kg</Text>
+              <Text style={styles.setInputSuffix}>{weightUnit}</Text>
             </View>
             <View style={styles.setInputWrapper}>
               <TextInput
@@ -982,7 +983,7 @@ export function LogScreen() {
                       <View style={styles.exerciseHistoryMeta}>
                         <Text style={styles.exerciseHistoryDate}>{formatShortDate(parseISODate(entry.date))}</Text>
                         <Text style={styles.exerciseHistoryTopSet}>
-                          Top set: {entry.topWeight} kg x {entry.topReps}
+                          Top set: {toDisplayWeight(entry.topWeight, weightUnit)} {weightUnit} x {entry.topReps}
                         </Text>
                       </View>
                       <Feather
@@ -995,7 +996,7 @@ export function LogScreen() {
                       <View style={styles.exerciseHistorySets}>
                         {entry.sets.map((set, index) => (
                           <Text key={`${entry.workoutId}-set-${index}`} style={styles.exerciseHistorySetRow}>
-                            Set {index + 1}: {set.weight} kg x {set.reps}
+                            Set {index + 1}: {toDisplayWeight(set.weight, weightUnit)} {weightUnit} x {set.reps}
                           </Text>
                         ))}
                       </View>
@@ -1052,7 +1053,7 @@ export function LogScreen() {
                     <View key={record.exercise} style={styles.prRow}>
                       <Text style={styles.prExercise}>{record.exercise}</Text>
                       <Text style={styles.prValue}>
-                        {record.weight} kg x {record.reps} (1RM {record.estimated1RM} kg)
+                        {toDisplayWeight(record.weight, weightUnit)} {weightUnit} x {record.reps} (1RM {toDisplayWeight(record.estimated1RM, weightUnit)} {weightUnit})
                       </Text>
                     </View>
                   ))}
@@ -1197,7 +1198,7 @@ export function LogScreen() {
                       <Text style={styles.weeklyPrMeta}>
                         {record.exercise}:{' '}
                         <Text style={styles.weeklyPrValue}>
-                          {record.weight}kg x {record.reps}
+                          {toDisplayWeight(record.weight, weightUnit)}{weightUnit} x {record.reps}
                         </Text>
                       </Text>
                     </View>
@@ -1231,7 +1232,7 @@ export function LogScreen() {
                               <Text style={styles.historyExerciseName}>{exercise.name}</Text>
                               <Text style={styles.historyExerciseDetail}>
                                 {exercise.sets
-                                  .map((set) => `${set.weight} kg x ${set.reps}`)
+                                  .map((set) => `${toDisplayWeight(set.weight, weightUnit)} ${weightUnit} x ${set.reps}`)
                                   .join(', ')}
                               </Text>
                             </View>

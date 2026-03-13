@@ -19,6 +19,7 @@ import { ExerciseDetailModal } from '../components/ExerciseDetailModal';
 import { LineGraph } from '../components/LineGraph';
 import { EXERCISE_OPTIONS } from '../data/exercises';
 import { useRunStore } from '../store/runStore';
+import { useUserStore, toDisplayWeight } from '../store/userStore';
 import { estimateOneRepMax, useWorkoutStore } from '../store/workoutStore';
 import { colors, spacing, typography } from '../theme';
 
@@ -342,6 +343,8 @@ export function ProgressScreen() {
   const { workouts, isLoading, error, clearError, seedDemoWorkouts, clearDemoWorkouts } =
     useWorkoutStore();
   const { runs, seedDemoRuns, clearDemoRuns } = useRunStore();
+  const { user } = useUserStore();
+  const weightUnit = user?.weightUnit ?? 'kg';
   const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<ProgressTab>('workouts');
@@ -610,8 +613,8 @@ export function ProgressScreen() {
       return 'No repeated lift history yet';
     }
     const best = progress.topLiftTrends[0];
-    return `${best.exercise}: ${formatSigned(best.delta)}kg`;
-  }, [progress.topLiftTrends]);
+    return `${best.exercise}: ${formatSigned(toDisplayWeight(best.delta, weightUnit))}${weightUnit}`;
+  }, [progress.topLiftTrends, weightUnit]);
 
   const muscleSummary = useMemo(() => {
     if (progress.muscleTrends.length === 0) {
@@ -809,8 +812,8 @@ export function ProgressScreen() {
                     <Text style={styles.snapshotLabel}>Lifetime sets</Text>
                   </View>
                   <View style={styles.snapshotItem}>
-                    <Text style={styles.snapshotValue}>{formatCompactNumber(progress.lifetime.volume)}</Text>
-                    <Text style={styles.snapshotLabel}>Lifetime volume (kg)</Text>
+                    <Text style={styles.snapshotValue}>{formatCompactNumber(toDisplayWeight(progress.lifetime.volume, weightUnit))}</Text>
+                    <Text style={styles.snapshotLabel}>Lifetime volume ({weightUnit})</Text>
                   </View>
                 </View>
                 <View style={styles.snapshotGrid}>
@@ -832,16 +835,16 @@ export function ProgressScreen() {
                     </Text>
                   </View>
                   <View style={styles.snapshotItem}>
-                    <Text style={styles.snapshotValue}>{formatCompactNumber(progress.currentMonth.volume)}</Text>
-                    <Text style={styles.snapshotLabel}>Volume this month (kg)</Text>
+                    <Text style={styles.snapshotValue}>{formatCompactNumber(toDisplayWeight(progress.currentMonth.volume, weightUnit))}</Text>
+                    <Text style={styles.snapshotLabel}>Volume this month ({weightUnit})</Text>
                     <Text style={styles.snapshotDelta}>
-                      {formatSigned(progress.currentMonth.volume - progress.previousMonth.volume)} vs last month
+                      {formatSigned(toDisplayWeight(progress.currentMonth.volume - progress.previousMonth.volume, weightUnit))} vs last month
                     </Text>
                   </View>
                 </View>
                 <Text style={styles.helperText}>
                   Avg workouts/month: {progress.avgWorkoutsPerMonth.toFixed(1)}. Avg volume/workout:{' '}
-                  {formatCompactNumber(progress.lifetime.avgVolumePerWorkout)}kg. Avg duration:{' '}
+                  {formatCompactNumber(toDisplayWeight(progress.lifetime.avgVolumePerWorkout, weightUnit))}{weightUnit}. Avg duration:{' '}
                   {progress.avgWorkoutDurationMin}min.
                 </Text>
               </CollapsibleSection>
@@ -849,15 +852,15 @@ export function ProgressScreen() {
               {/* Volume */}
               <CollapsibleSection
                 title="Volume Over Lifetime"
-                summary={`${formatCompactNumber(progress.lifetime.volume)}kg total`}
+                summary={`${formatCompactNumber(toDisplayWeight(progress.lifetime.volume, weightUnit))}${weightUnit} total`}
                 expanded={expandedSections.volume}
                 onToggle={() => toggleSection('volume')}
               >
                 <PressableGraph
                   title="Volume Over Lifetime"
-                  data={progress.volumeTrend}
+                  data={progress.volumeTrend.map(v => v !== null ? toDisplayWeight(v, weightUnit) : null)}
                   labels={progress.monthLabels}
-                  valueSuffix="kg"
+                  valueSuffix={weightUnit}
                   startLabel={progress.startLabel}
                   endLabel={progress.endLabel}
                   onExpand={setExpandedGraph}
@@ -950,17 +953,17 @@ export function ProgressScreen() {
                               <Text style={styles.exerciseButtonText}>{trend.exercise}</Text>
                               <Feather name="chevron-right" size={14} color={colors.muted} />
                             </Pressable>
-                            <Text style={styles.liftValue}>{trend.latest}kg</Text>
+                            <Text style={styles.liftValue}>{toDisplayWeight(trend.latest, weightUnit)}{weightUnit}</Text>
                           </View>
                             <Text style={styles.liftSub}>
-                              Start {trend.first}kg to now {trend.latest}kg ({formatSigned(trend.delta)}kg,{' '}
+                              Start {toDisplayWeight(trend.first, weightUnit)}{weightUnit} to now {toDisplayWeight(trend.latest, weightUnit)}{weightUnit} ({formatSigned(toDisplayWeight(trend.delta, weightUnit))}{weightUnit},{' '}
                               {formatSigned(Math.round(trend.deltaPercent))}%)
                             </Text>
                             <PressableGraph
                               title={`${trend.exercise} — Estimated 1RM`}
-                              data={trend.points}
+                              data={trend.points.map(v => v !== null ? toDisplayWeight(v, weightUnit) : null)}
                               labels={progress.monthLabels}
-                              valueSuffix="kg"
+                              valueSuffix={weightUnit}
                               startLabel={progress.startLabel}
                               endLabel={progress.endLabel}
                               compact
@@ -1131,6 +1134,7 @@ export function ProgressScreen() {
         monthLabels={progress.monthLabels}
         startLabel={progress.startLabel}
         endLabel={progress.endLabel}
+        weightUnit={weightUnit}
         onClose={() => setSelectedExercise(null)}
       />
     </View>
