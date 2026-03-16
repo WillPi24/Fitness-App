@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { UserSex, WeightUnit, fromDisplayWeight, useUserStore } from '../store/userStore';
+import { UserSex, WeightUnit, fromDisplayWeight, toDisplayWeight, useUserStore } from '../store/userStore';
 import { colors, spacing, typography } from '../theme';
 
 type BodyInfoScreenProps = {
@@ -18,6 +18,18 @@ export function BodyInfoScreen({ onBack, onComplete }: BodyInfoScreenProps) {
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('kg');
   const [weight, setWeight] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  const handleWeightUnitChange = (nextUnit: WeightUnit) => {
+    if (nextUnit === weightUnit) return;
+
+    const value = Number(weight);
+    if (Number.isFinite(value) && value > 0) {
+      const kg = fromDisplayWeight(value, weightUnit);
+      setWeight(String(toDisplayWeight(kg, nextUnit)));
+    }
+
+    setWeightUnit(nextUnit);
+  };
 
   const handleComplete = () => {
     const value = Number(weight);
@@ -74,13 +86,13 @@ export function BodyInfoScreen({ onBack, onComplete }: BodyInfoScreenProps) {
               <View style={styles.segmented}>
                 <Pressable
                   style={[styles.segment, weightUnit === 'kg' && styles.segmentActive]}
-                  onPress={() => setWeightUnit('kg')}
+                  onPress={() => handleWeightUnitChange('kg')}
                 >
                   <Text style={[styles.segmentText, weightUnit === 'kg' && styles.segmentTextActive]}>kg</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.segment, weightUnit === 'lbs' && styles.segmentActive]}
-                  onPress={() => setWeightUnit('lbs')}
+                  onPress={() => handleWeightUnitChange('lbs')}
                 >
                   <Text style={[styles.segmentText, weightUnit === 'lbs' && styles.segmentTextActive]}>lbs</Text>
                 </Pressable>

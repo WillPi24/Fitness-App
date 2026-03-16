@@ -6,6 +6,7 @@ import { createEmptyMicronutrients } from '../nutrition/micronutrients';
 import { mapStrongExercise } from './exerciseMapping';
 
 const LBS_TO_KG = 1 / 2.20462;
+const MILES_TO_METERS = 1609.34;
 
 // ── File type detection ──
 
@@ -20,6 +21,8 @@ export type DetectedFileType =
   | 'mfp-csv'
   | 'cronometer-csv'
   | 'unknown';
+
+export type GarminDistanceUnit = 'km' | 'miles';
 
 export function detectFileType(content: string): DetectedFileType {
   const trimmed = content.trim();
@@ -157,6 +160,25 @@ function parseCSV(content: string): { headers: string[]; rows: string[][] } {
   const rows = lines.slice(1).map((line) => parseCSVRow(line, delimiter));
 
   return { headers, rows };
+}
+
+export function detectGarminDistanceUnit(csvString: string): GarminDistanceUnit | null {
+  const { headers } = parseCSV(csvString);
+  if (headers.length === 0) return null;
+
+  const distanceHeader = headers.find((header) => /distance/i.test(header));
+  if (distanceHeader) {
+    if (/\b(mi|mile|miles)\b/i.test(distanceHeader)) return 'miles';
+    if (/\b(km|kilometer|kilometers)\b/i.test(distanceHeader)) return 'km';
+  }
+
+  const paceHeader = headers.find((header) => /pace/i.test(header));
+  if (paceHeader) {
+    if (/min\/mi|pace.*mile/i.test(paceHeader)) return 'miles';
+    if (/min\/km|pace.*km/i.test(paceHeader)) return 'km';
+  }
+
+  return null;
 }
 
 // ── ID generation ──
@@ -308,7 +330,7 @@ function makeFoodItem(
 
 // ── Strong CSV parsing ──
 
-export function parseStrongCSV(csvString: string, userUnit: WeightUnit = 'kg'): WorkoutSession[] {
+export function parseStrongCSV(csvString: string, sourceUnit: WeightUnit = 'kg'): WorkoutSession[] {
   const { headers, rows } = parseCSV(csvString);
   if (headers.length === 0 || rows.length === 0) return [];
 
@@ -322,8 +344,8 @@ export function parseStrongCSV(csvString: string, userUnit: WeightUnit = 'kg'): 
 
   if (dateIdx === -1 || exerciseIdx === -1) return [];
 
-  // Strong header just says "Weight" — assume user's preferred unit
-  const needsConversion = userUnit === 'lbs';
+  // Strong header just says "Weight" — caller must provide the source unit
+  const needsConversion = sourceUnit === 'lbs';
 
   // Group rows by workout (Date + Workout Name)
   const workoutGroups = new Map<string, typeof rows>();
@@ -713,6 +735,7 @@ export function parseStravaCSV(csvString: string): RunSession[] {
   const elapsedIdx = col('Elapsed Time');
   const movingIdx = col('Moving Time');
   const distanceIdx = col('Distance');
+  const distanceMetersIdx = col('Distance.1');
 
   // Activity Date is required
   if (dateIdx === -1) return [];
@@ -741,11 +764,14 @@ export function parseStravaCSV(csvString: string): RunSession[] {
 
     if (durationMs <= 0) continue;
 
-    let distanceMeters = distanceIdx >= 0 ? parseFloat(row[distanceIdx]) : 0;
-    if (!Number.isFinite(distanceMeters)) distanceMeters = 0;
-    // Heuristic: if distance < 100 and duration > 60s, likely km not meters
-    if (distanceMeters > 0 && distanceMeters < 100 && durationSeconds > 60) {
-      distanceMeters = distanceMeters * 1000;
+    let distanceMeters = distanceMetersIdx >= 0 ? parseFloat(row[distanceMetersIdx]) : NaN;
+    if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) {
+      distanceMeters = distanceIdx >= 0 ? parseFloat(row[distanceIdx]) : 0;
+      if (!Number.isFinite(distanceMeters)) distanceMeters = 0;
+      // Fallback: if distance < 100 and duration > 60s, likely km not meters
+      if (distanceMeters > 0 && distanceMeters < 100 && durationSeconds > 60) {
+        distanceMeters = distanceMeters * 1000;
+      }
     }
 
     sessions.push({
@@ -766,7 +792,7 @@ export function parseStravaCSV(csvString: string): RunSession[] {
 
 // ── Garmin CSV parsing ──
 
-export function parseGarminCSV(csvString: string): RunSession[] {
+export function parseGarminCSV(csvString: string, distanceUnit?: GarminDistanceUnit): RunSession[] {
   const { headers, rows } = parseCSV(csvString);
   if (headers.length === 0 || rows.length === 0) return [];
 
@@ -798,12 +824,17 @@ export function parseGarminCSV(csvString: string): RunSession[] {
     const durationMs = timeIdx >= 0 ? parseTimeToMs(row[timeIdx]) : 0;
     if (durationMs <= 0) continue;
 
-    // Garmin distance — could be km or miles depending on user's Garmin settings
-    // We use the same heuristic as Strava
+    // Garmin distance is user-configurable in exports, so prefer an explicit unit
     let distanceMeters = distanceIdx >= 0 ? parseFloat(row[distanceIdx]) : 0;
     if (!Number.isFinite(distanceMeters)) distanceMeters = 0;
-    if (distanceMeters > 0 && distanceMeters < 100 && durationMs > 60000) {
-      distanceMeters = distanceMeters * 1000;
+    if (distanceMeters > 0) {
+      if (distanceUnit === 'miles') {
+        distanceMeters = distanceMeters * MILES_TO_METERS;
+      } else if (distanceUnit === 'km') {
+        distanceMeters = distanceMeters * 1000;
+      } else if (distanceMeters < 100 && durationMs > 60000) {
+        distanceMeters = distanceMeters * 1000;
+      }
     }
 
     sessions.push({
@@ -1018,19 +1049,34 @@ export type MergeResult = {
   calorieDaysDuplicate: number;
 };
 
-function workoutSignature(w: WorkoutSession): string {
-  const names = w.exercises
-    .map((e) => e.name.toLowerCase())
+function normalizeSignatureNumber(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  return String(Math.round(value * 10) / 10);
+}
+
+function exerciseSignature(exercise: WorkoutExercise): string {
+  const sets = exercise.sets
+    .map((set) => `${normalizeSignatureNumber(set.weight)}x${set.reps}`)
+    .join(',');
+  return `${exercise.name.trim().toLowerCase()}[${sets}]`;
+}
+
+export function getWorkoutSignature(workout: WorkoutSession): string {
+  const exercises = workout.exercises
+    .map(exerciseSignature)
     .sort()
     .join('|');
-  return `${w.date}::${names}`;
+  const durationMs = Number.isFinite(workout.endedAt - workout.startedAt)
+    ? Math.max(0, Math.round(workout.endedAt - workout.startedAt))
+    : 0;
+  return `${workout.date}::${workout.startedAt}::${durationMs}::${exercises}`;
 }
 
-function runSignature(r: RunSession): string {
-  return `${r.date}::${r.startedAt}`;
+export function getRunSignature(run: RunSession): string {
+  return `${run.date}::${run.startedAt}`;
 }
 
-function mealSignature(m: Meal): string {
+export function getMealSignature(m: Meal): string {
   const foodNames = m.foods
     .map((f) => f.name.toLowerCase())
     .sort()
@@ -1042,13 +1088,13 @@ export function mergeWorkouts(
   existing: WorkoutSession[],
   incoming: WorkoutSession[],
 ): { merged: WorkoutSession[]; added: number; duplicates: number } {
-  const existingSigs = new Set(existing.map(workoutSignature));
+  const existingSigs = new Set(existing.map(getWorkoutSignature));
   let added = 0;
   let duplicates = 0;
   const result = [...existing];
 
   for (const workout of incoming) {
-    const sig = workoutSignature(workout);
+    const sig = getWorkoutSignature(workout);
     if (existingSigs.has(sig)) {
       duplicates++;
     } else {
@@ -1069,13 +1115,13 @@ export function mergeRuns(
   existing: RunSession[],
   incoming: RunSession[],
 ): { merged: RunSession[]; added: number; duplicates: number } {
-  const existingSigs = new Set(existing.map(runSignature));
+  const existingSigs = new Set(existing.map(getRunSignature));
   let added = 0;
   let duplicates = 0;
   const result = [...existing];
 
   for (const run of incoming) {
-    const sig = runSignature(run);
+    const sig = getRunSignature(run);
     if (existingSigs.has(sig)) {
       duplicates++;
     } else {
@@ -1110,11 +1156,11 @@ export function mergeCalorieDays(
       dayMap.set(incomingDay.date, incomingDay);
       added++;
     } else {
-      const existingMealSigs = new Set(existingDay.meals.map(mealSignature));
+      const existingMealSigs = new Set(existingDay.meals.map(getMealSignature));
       let dayHadNew = false;
 
       for (const meal of incomingDay.meals) {
-        const sig = mealSignature(meal);
+        const sig = getMealSignature(meal);
         if (existingMealSigs.has(sig)) {
           duplicates++;
         } else {

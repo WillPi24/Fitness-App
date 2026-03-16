@@ -10,10 +10,39 @@ import { UserSex, WeightUnit, toDisplayWeight, fromDisplayWeight, useUserStore }
 import { useWorkoutStore } from '../store/workoutStore';
 import { colors, spacing, typography } from '../theme';
 import { exportToJSON, exportWorkoutsToCSV, exportRunsToCSV, exportCaloriesToCSV } from '../services/exportData';
-import { detectFileType, parseStrongCSV, parseHevyCSV, parseFitbodCSV, parseFitNotesCSV, parseStravaCSV, parseGarminCSV, parseMFPCSV, parseCronometerCSV, parseHelmJSON, mergeWorkouts, mergeRuns, mergeCalorieDays, MergeResult } from '../services/importData';
+import {
+  detectFileType,
+  detectGarminDistanceUnit,
+  type DetectedFileType,
+  type GarminDistanceUnit,
+  getMealSignature,
+  getRunSignature,
+  getWorkoutSignature,
+  parseStrongCSV,
+  parseHevyCSV,
+  parseFitbodCSV,
+  parseFitNotesCSV,
+  parseStravaCSV,
+  parseGarminCSV,
+  parseMFPCSV,
+  parseCronometerCSV,
+  parseHelmJSON,
+  mergeWorkouts,
+  mergeRuns,
+  mergeCalorieDays,
+  MergeResult,
+} from '../services/importData';
 import { writeAndShareFile, pickAndReadFile } from '../services/fileIO';
 
 type ExportFormat = 'json' | 'csv';
+type PendingImport = {
+  content: string;
+  fileType: DetectedFileType;
+};
+type ImportOptions = {
+  strongUnit?: WeightUnit;
+  garminDistanceUnit?: GarminDistanceUnit;
+};
 
 export function AccountScreen() {
   const insets = useSafeAreaInsets();
@@ -38,8 +67,19 @@ export function AccountScreen() {
   const [importResult, setImportResult] = useState<MergeResult | null>(null);
   const [importResultModalOpen, setImportResultModalOpen] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
+  const [strongUnitModalOpen, setStrongUnitModalOpen] = useState(false);
+  const [strongImportUnit, setStrongImportUnit] = useState<WeightUnit>(user?.weightUnit ?? 'kg');
+  const [garminUnitModalOpen, setGarminUnitModalOpen] = useState(false);
+  const [garminDistanceUnit, setGarminDistanceUnit] = useState<GarminDistanceUnit>('km');
 
   if (!user) return null;
+
+  const clearImportPreflight = () => {
+    setPendingImport(null);
+    setStrongUnitModalOpen(false);
+    setGarminUnitModalOpen(false);
+  };
 
   const handleEditUnitChange = (newUnit: WeightUnit) => {
     if (newUnit === editWeightUnit) return;
@@ -106,22 +146,15 @@ export function AccountScreen() {
     }
   };
 
-  const handleImport = async () => {
+  const runImport = async (
+    fileContent: string,
+    fileType: Exclude<DetectedFileType, 'unknown'>,
+    options: ImportOptions = {},
+  ) => {
+    clearImportPreflight();
     setImportError(null);
+    setIsImporting(true);
     try {
-      const file = await pickAndReadFile();
-      if (!file) return;
-
-      setIsImporting(true);
-
-      const fileType = detectFileType(file.content);
-
-      if (fileType === 'unknown') {
-        setImportError('Unrecognized file format. Please use a JSON or CSV export from your fitness app.');
-        setIsImporting(false);
-        return;
-      }
-
       const result: MergeResult = {
         workoutsAdded: 0,
         workoutsDuplicate: 0,
@@ -134,48 +167,44 @@ export function AccountScreen() {
       // ── Workout imports (Strong, Hevy, Fitbod, FitNotes) ──
       if (fileType === 'strong-csv' || fileType === 'hevy-csv' || fileType === 'fitbod-csv' || fileType === 'fitnotes-csv') {
         const parsers = {
-          'strong-csv': (c: string) => parseStrongCSV(c, user.weightUnit),
+          'strong-csv': (c: string) => parseStrongCSV(c, options.strongUnit ?? user.weightUnit),
           'hevy-csv': (c: string) => parseHevyCSV(c),
           'fitbod-csv': (c: string) => parseFitbodCSV(c),
           'fitnotes-csv': (c: string) => parseFitNotesCSV(c),
         };
-        const parsed = parsers[fileType](file.content);
+        const parsed = parsers[fileType](fileContent);
         if (parsed.length === 0) {
           setImportError('No workout data found in this CSV file.');
-          setIsImporting(false);
           return;
         }
         const merged = mergeWorkouts(workouts, parsed);
-        const existingSigs = new Set(workouts.map(w => `${w.date}::${w.exercises.map(e => e.name.toLowerCase()).sort().join('|')}`));
-        const newWorkouts = parsed.filter(w => {
-          const sig = `${w.date}::${w.exercises.map(e => e.name.toLowerCase()).sort().join('|')}`;
-          return !existingSigs.has(sig);
-        });
+        const existingSigs = new Set(workouts.map(getWorkoutSignature));
+        const newWorkouts = parsed.filter((workout) => !existingSigs.has(getWorkoutSignature(workout)));
         if (newWorkouts.length > 0) importWorkouts(newWorkouts);
         result.workoutsAdded = merged.added;
         result.workoutsDuplicate = merged.duplicates;
 
       // ── Cardio imports (Strava, Garmin) ──
       } else if (fileType === 'strava-csv' || fileType === 'garmin-csv') {
-        const parsed = fileType === 'strava-csv' ? parseStravaCSV(file.content) : parseGarminCSV(file.content);
+        const parsed = fileType === 'strava-csv'
+          ? parseStravaCSV(fileContent)
+          : parseGarminCSV(fileContent, options.garminDistanceUnit);
         if (parsed.length === 0) {
           setImportError('No cardio activities found in this CSV file.');
-          setIsImporting(false);
           return;
         }
         const rMerge = mergeRuns(runs, parsed);
-        const existingRunSigs = new Set(runs.map(r => `${r.date}::${r.startedAt}`));
-        const newRuns = parsed.filter(r => !existingRunSigs.has(`${r.date}::${r.startedAt}`));
+        const existingRunSigs = new Set(runs.map(getRunSignature));
+        const newRuns = parsed.filter((run) => !existingRunSigs.has(getRunSignature(run)));
         if (newRuns.length > 0) importRuns(newRuns);
         result.runsAdded = rMerge.added;
         result.runsDuplicate = rMerge.duplicates;
 
       // ── Nutrition imports (MyFitnessPal, Cronometer) ──
       } else if (fileType === 'mfp-csv' || fileType === 'cronometer-csv') {
-        const parsed = fileType === 'mfp-csv' ? parseMFPCSV(file.content) : parseCronometerCSV(file.content);
+        const parsed = fileType === 'mfp-csv' ? parseMFPCSV(fileContent) : parseCronometerCSV(fileContent);
         if (parsed.length === 0) {
           setImportError('No nutrition data found in this CSV file.');
-          setIsImporting(false);
           return;
         }
         const cMerge = mergeCalorieDays(calorieDays, parsed);
@@ -187,11 +216,10 @@ export function AccountScreen() {
             const existing = calorieDays.find(ed => ed.date === d.date);
             if (!existing) return d;
             const existingMealSigs = new Set(
-              existing.meals.map(m => `${m.name.toLowerCase()}::${m.foods.map(f => f.name.toLowerCase()).sort().join('|')}`)
+              existing.meals.map(getMealSignature)
             );
             const newMeals = d.meals.filter(m => {
-              const sig = `${m.name.toLowerCase()}::${m.foods.map(f => f.name.toLowerCase()).sort().join('|')}`;
-              return !existingMealSigs.has(sig);
+              return !existingMealSigs.has(getMealSignature(m));
             });
             if (newMeals.length === 0) return null;
             return { date: d.date, meals: newMeals };
@@ -204,20 +232,16 @@ export function AccountScreen() {
 
       // ── Helm JSON (all data types) ──
       } else if (fileType === 'helm-json') {
-        const parsed = parseHelmJSON(file.content);
+        const parsed = parseHelmJSON(fileContent);
         if (!parsed) {
           setImportError('Could not parse this Helm export file.');
-          setIsImporting(false);
           return;
         }
 
         if (parsed.workouts.length > 0) {
           const wMerge = mergeWorkouts(workouts, parsed.workouts);
-          const existingSigs = new Set(workouts.map(w => `${w.date}::${w.exercises.map(e => e.name.toLowerCase()).sort().join('|')}`));
-          const newWorkouts = parsed.workouts.filter(w => {
-            const sig = `${w.date}::${w.exercises.map(e => e.name.toLowerCase()).sort().join('|')}`;
-            return !existingSigs.has(sig);
-          });
+          const existingSigs = new Set(workouts.map(getWorkoutSignature));
+          const newWorkouts = parsed.workouts.filter((workout) => !existingSigs.has(getWorkoutSignature(workout)));
           if (newWorkouts.length > 0) importWorkouts(newWorkouts);
           result.workoutsAdded = wMerge.added;
           result.workoutsDuplicate = wMerge.duplicates;
@@ -225,8 +249,8 @@ export function AccountScreen() {
 
         if (parsed.runs.length > 0) {
           const rMerge = mergeRuns(runs, parsed.runs);
-          const existingRunSigs = new Set(runs.map(r => `${r.date}::${r.startedAt}`));
-          const newRuns = parsed.runs.filter(r => !existingRunSigs.has(`${r.date}::${r.startedAt}`));
+          const existingRunSigs = new Set(runs.map(getRunSignature));
+          const newRuns = parsed.runs.filter((run) => !existingRunSigs.has(getRunSignature(run)));
           if (newRuns.length > 0) importRuns(newRuns);
           result.runsAdded = rMerge.added;
           result.runsDuplicate = rMerge.duplicates;
@@ -242,11 +266,10 @@ export function AccountScreen() {
               const existing = calorieDays.find(ed => ed.date === d.date);
               if (!existing) return d;
               const existingMealSigs = new Set(
-                existing.meals.map(m => `${m.name.toLowerCase()}::${m.foods.map(f => f.name.toLowerCase()).sort().join('|')}`)
+                existing.meals.map(getMealSignature)
               );
               const newMeals = d.meals.filter(m => {
-                const sig = `${m.name.toLowerCase()}::${m.foods.map(f => f.name.toLowerCase()).sort().join('|')}`;
-                return !existingMealSigs.has(sig);
+                return !existingMealSigs.has(getMealSignature(m));
               });
               if (newMeals.length === 0) return null;
               return { date: d.date, meals: newMeals };
@@ -268,6 +291,57 @@ export function AccountScreen() {
     } finally {
       setIsImporting(false);
     }
+  };
+
+  const handleImport = async () => {
+    setImportError(null);
+    try {
+      const file = await pickAndReadFile();
+      if (!file) return;
+
+      const fileType = detectFileType(file.content);
+      if (fileType === 'unknown') {
+        setImportError('Unrecognized file format. Please use a JSON or CSV export from your fitness app.');
+        return;
+      }
+
+      if (fileType === 'strong-csv') {
+        setStrongImportUnit(user.weightUnit);
+        setPendingImport({ content: file.content, fileType });
+        setImportModalOpen(false);
+        setStrongUnitModalOpen(true);
+        return;
+      }
+
+      if (fileType === 'garmin-csv') {
+        const detectedDistanceUnit = detectGarminDistanceUnit(file.content);
+        if (detectedDistanceUnit) {
+          await runImport(file.content, fileType, { garminDistanceUnit: detectedDistanceUnit });
+          return;
+        }
+
+        setGarminDistanceUnit('km');
+        setPendingImport({ content: file.content, fileType });
+        setImportModalOpen(false);
+        setGarminUnitModalOpen(true);
+        return;
+      }
+
+      await runImport(file.content, fileType);
+    } catch (e) {
+      console.error('Import failed', e);
+      setImportError('Something went wrong during import. Please try again.');
+    }
+  };
+
+  const handleStrongImportConfirm = async () => {
+    if (!pendingImport || pendingImport.fileType !== 'strong-csv') return;
+    await runImport(pendingImport.content, pendingImport.fileType, { strongUnit: strongImportUnit });
+  };
+
+  const handleGarminImportConfirm = async () => {
+    if (!pendingImport || pendingImport.fileType !== 'garmin-csv') return;
+    await runImport(pendingImport.content, pendingImport.fileType, { garminDistanceUnit });
   };
 
   return (
@@ -328,7 +402,7 @@ export function AccountScreen() {
 
         <Card>
           <Text style={[styles.sectionTitle, { marginBottom: spacing.xs }]}>Data Management</Text>
-          <Pressable style={styles.dataRow} onPress={() => { setImportError(null); setImportModalOpen(true); }}>
+          <Pressable style={styles.dataRow} onPress={() => { setImportError(null); clearImportPreflight(); setImportModalOpen(true); }}>
             <Feather name="download-cloud" size={20} color={colors.accent} />
             <Text style={[styles.infoValue, { flex: 1 }]}>Import Data</Text>
             <Feather name="chevron-right" size={20} color={colors.muted} />
@@ -503,6 +577,78 @@ export function AccountScreen() {
                 ) : (
                   <Text style={styles.saveButtonText}>Choose File</Text>
                 )}
+              </Pressable>
+            </View>
+          </Card>
+        </View>
+      </Modal>
+
+      {/* Weight Unit Modal */}
+      <Modal visible={strongUnitModalOpen} transparent animationType="fade" onRequestClose={clearImportPreflight}>
+        <View style={styles.confirmBackdrop}>
+          <Card style={styles.confirmModal}>
+            <Text style={styles.modalTitle}>Choose Weight Unit</Text>
+            <Text style={styles.confirmText}>
+              This file does not include weight units. Choose the unit used in the file.
+            </Text>
+
+            <View style={styles.segmented}>
+              <Pressable
+                style={[styles.segment, strongImportUnit === 'kg' && styles.segmentActive]}
+                onPress={() => setStrongImportUnit('kg')}
+              >
+                <Text style={[styles.segmentText, strongImportUnit === 'kg' && styles.segmentTextActive]}>kg</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.segment, strongImportUnit === 'lbs' && styles.segmentActive]}
+                onPress={() => setStrongImportUnit('lbs')}
+              >
+                <Text style={[styles.segmentText, strongImportUnit === 'lbs' && styles.segmentTextActive]}>lbs</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.importActions}>
+              <Pressable style={styles.importCancel} onPress={clearImportPreflight} disabled={isImporting}>
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={[styles.importChoose, isImporting && styles.buttonDisabled]} onPress={handleStrongImportConfirm} disabled={isImporting}>
+                {isImporting ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Import</Text>}
+              </Pressable>
+            </View>
+          </Card>
+        </View>
+      </Modal>
+
+      {/* Distance Unit Modal */}
+      <Modal visible={garminUnitModalOpen} transparent animationType="fade" onRequestClose={clearImportPreflight}>
+        <View style={styles.confirmBackdrop}>
+          <Card style={styles.confirmModal}>
+            <Text style={styles.modalTitle}>Choose Distance Unit</Text>
+            <Text style={styles.confirmText}>
+              This file does not clearly show whether distances are in kilometers or miles.
+            </Text>
+
+            <View style={styles.segmented}>
+              <Pressable
+                style={[styles.segment, garminDistanceUnit === 'km' && styles.segmentActive]}
+                onPress={() => setGarminDistanceUnit('km')}
+              >
+                <Text style={[styles.segmentText, garminDistanceUnit === 'km' && styles.segmentTextActive]}>km</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.segment, garminDistanceUnit === 'miles' && styles.segmentActive]}
+                onPress={() => setGarminDistanceUnit('miles')}
+              >
+                <Text style={[styles.segmentText, garminDistanceUnit === 'miles' && styles.segmentTextActive]}>miles</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.importActions}>
+              <Pressable style={styles.importCancel} onPress={clearImportPreflight} disabled={isImporting}>
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={[styles.importChoose, isImporting && styles.buttonDisabled]} onPress={handleGarminImportConfirm} disabled={isImporting}>
+                {isImporting ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Import</Text>}
               </Pressable>
             </View>
           </Card>
