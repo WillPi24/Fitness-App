@@ -5,12 +5,16 @@ export type WorkoutSet = {
   id: string;
   weight: number;
   reps: number;
+  weightR?: number;
+  repsR?: number;
 };
 
 export type WorkoutExercise = {
   id: string;
   name: string;
   sets: WorkoutSet[];
+  isWarmup?: boolean;
+  isUnilateral?: boolean;
 };
 
 export type WorkoutPersonalRecord = {
@@ -34,12 +38,16 @@ export type DraftWorkoutSet = {
   id: string;
   weight: string;
   reps: string;
+  weightR?: string;
+  repsR?: string;
 };
 
 export type DraftWorkoutExercise = {
   id: string;
   name: string;
   sets: DraftWorkoutSet[];
+  isWarmup?: boolean;
+  isUnilateral?: boolean;
 };
 
 export type DraftWorkout = {
@@ -88,7 +96,9 @@ type WorkoutContextValue = {
   updateExerciseName: (exerciseId: string, name: string) => void;
   removeExercise: (exerciseId: string) => void;
   addSet: (exerciseId: string) => void;
-  updateSet: (exerciseId: string, setId: string, field: 'weight' | 'reps', value: string) => void;
+  updateSet: (exerciseId: string, setId: string, field: 'weight' | 'reps' | 'weightR' | 'repsR', value: string) => void;
+  toggleExerciseWarmup: (exerciseId: string) => void;
+  toggleExerciseUnilateral: (exerciseId: string) => void;
   removeSet: (exerciseId: string, setId: string) => void;
   previewWorkoutCompletion: (convertWeight?: (w: number) => number) => WorkoutCompletionPreview | null;
   confirmWorkoutCompletion: (completedWorkout: WorkoutSession) => void;
@@ -482,11 +492,18 @@ function getBestEstimatesByExercise(workouts: WorkoutSession[]) {
   const map: Record<string, number> = {};
   workouts.forEach((workout) => {
     workout.exercises.forEach((exercise) => {
+      if (exercise.isWarmup) return;
       exercise.sets.forEach((set) => {
-        const estimate = estimateOneRepMax(set.weight, set.reps);
         const key = normalizeExercise(exercise.name);
+        const estimate = estimateOneRepMax(set.weight, set.reps);
         if (!map[key] || estimate > map[key]) {
           map[key] = estimate;
+        }
+        if (exercise.isUnilateral && set.weightR && set.repsR) {
+          const estimateR = estimateOneRepMax(set.weightR, set.repsR);
+          if (!map[key] || estimateR > map[key]) {
+            map[key] = estimateR;
+          }
         }
       });
     });
@@ -501,6 +518,7 @@ function buildPersonalRecords(
   const records: WorkoutPersonalRecord[] = [];
 
   workout.exercises.forEach((exercise) => {
+    if (exercise.isWarmup) return;
     let bestSet: WorkoutSet | null = null;
     let bestEstimate = 0;
 
@@ -509,6 +527,13 @@ function buildPersonalRecords(
       if (!bestSet || estimate > bestEstimate) {
         bestSet = set;
         bestEstimate = estimate;
+      }
+      if (exercise.isUnilateral && set.weightR && set.repsR) {
+        const estimateR = estimateOneRepMax(set.weightR, set.repsR);
+        if (estimateR > bestEstimate) {
+          bestSet = set;
+          bestEstimate = estimateR;
+        }
       }
     }
 
@@ -804,7 +829,7 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
   const updateSet = (
     exerciseId: string,
     setId: string,
-    field: 'weight' | 'reps',
+    field: 'weight' | 'reps' | 'weightR' | 'repsR',
     value: string
   ) => {
     setActiveWorkout((prev) => {
@@ -821,6 +846,34 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
                   set.id === setId ? { ...set, [field]: value } : set
                 ),
               }
+            : exercise
+        ),
+      };
+    });
+  };
+
+  const toggleExerciseWarmup = (exerciseId: string) => {
+    setActiveWorkout((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        exercises: prev.exercises.map((exercise) =>
+          exercise.id === exerciseId
+            ? { ...exercise, isWarmup: !exercise.isWarmup }
+            : exercise
+        ),
+      };
+    });
+  };
+
+  const toggleExerciseUnilateral = (exerciseId: string) => {
+    setActiveWorkout((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        exercises: prev.exercises.map((exercise) =>
+          exercise.id === exerciseId
+            ? { ...exercise, isUnilateral: !exercise.isUnilateral }
             : exercise
         ),
       };
@@ -885,18 +938,30 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
         }
 
         const weight = convertWeight ? convertWeight(rawWeight) : rawWeight;
+        const parsedSet: WorkoutSet = { id: set.id, weight, reps };
 
-        parsedSets.push({
-          id: set.id,
-          weight,
-          reps,
-        });
+        if (exercise.isUnilateral) {
+          const rawWeightR = Number(set.weightR);
+          const repsR = Number(set.repsR);
+
+          if (!Number.isFinite(rawWeightR) || rawWeightR <= 0 || !Number.isFinite(repsR) || repsR <= 0) {
+            setError('Fill in both sides for unilateral exercises, or turn off unilateral.');
+            return null;
+          }
+
+          parsedSet.weightR = convertWeight ? convertWeight(rawWeightR) : rawWeightR;
+          parsedSet.repsR = repsR;
+        }
+
+        parsedSets.push(parsedSet);
       }
 
       parsedExercises.push({
         id: exercise.id,
         name: trimmedName,
         sets: parsedSets,
+        isWarmup: exercise.isWarmup || undefined,
+        isUnilateral: exercise.isUnilateral || undefined,
       });
     }
 
@@ -967,6 +1032,8 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
       removeExercise,
       addSet,
       updateSet,
+      toggleExerciseWarmup,
+      toggleExerciseUnilateral,
       removeSet,
       previewWorkoutCompletion,
       confirmWorkoutCompletion,

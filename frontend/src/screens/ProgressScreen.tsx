@@ -484,11 +484,15 @@ export function ProgressScreen() {
           exerciseBodyPartLookup.get(exerciseKey) ??
           inferBodyPartFromExerciseName(exercise.name);
 
+        if (exercise.isWarmup) return;
         muscleMonthlySets[bodyPart][index] += exercise.sets.length;
 
         let bestEstimateForMonth = 0;
         exercise.sets.forEach((set) => {
-          const volume = set.weight * set.reps;
+          let volume = set.weight * set.reps;
+          if (exercise.isUnilateral && set.weightR && set.repsR) {
+            volume += set.weightR * set.repsR;
+          }
           const estimate = estimateOneRepMax(set.weight, set.reps);
 
           totalSets += 1;
@@ -498,6 +502,12 @@ export function ProgressScreen() {
 
           if (estimate > bestEstimateForMonth) {
             bestEstimateForMonth = estimate;
+          }
+          if (exercise.isUnilateral && set.weightR && set.repsR) {
+            const estimateR = estimateOneRepMax(set.weightR, set.repsR);
+            if (estimateR > bestEstimateForMonth) {
+              bestEstimateForMonth = estimateR;
+            }
           }
         });
 
