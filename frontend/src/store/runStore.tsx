@@ -12,6 +12,21 @@ export type RunPoint = {
   timestamp: number;
 };
 
+type KalmanAxisState = {
+  x: number;
+  v: number;
+  p00: number;
+  p01: number;
+  p10: number;
+  p11: number;
+};
+
+type GPSKalmanState = {
+  lat: KalmanAxisState;
+  lon: KalmanAxisState;
+  timestamp: number;
+};
+
 export type RunSession = {
   id: string;
   date: string;
@@ -41,6 +56,7 @@ export type ActiveRun = {
   lastPoint?: RunPoint;
   manualDistanceMeters?: number;
   lastUpdatedAt: number;
+  kalmanState?: GPSKalmanState;
 };
 
 type RunContextValue = {
@@ -63,7 +79,10 @@ type RunContextValue = {
 const RUNS_KEY = 'fitnessapp.runs.v1';
 const ACTIVE_RUN_KEY = 'fitnessapp.activeRun.v1';
 const RUN_LOCATION_TASK = 'fitnessapp.runLocationTask.v1';
-const LOCATION_ACCURACY_METERS = 50;
+const LOCATION_ACCURACY_METERS = 20;
+const MAX_SPEED_MPS = 15;
+const METERS_PER_DEGREE_LAT = 111_320;
+const ACCEL_NOISE_MPS2 = 2.0;
 
 const DEMO_RUN_ID_PREFIX = 'demo-run-';
 
@@ -221,10 +240,106 @@ function haversineDistanceMeters(a: RunPoint, b: RunPoint) {
   return 2 * earthRadius * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+function initKalman(point: RunPoint): GPSKalmanState {
+  const accMeters = point.accuracy ?? 10;
+  const accLatDeg = accMeters / METERS_PER_DEGREE_LAT;
+  const cosLat = Math.cos((point.latitude * Math.PI) / 180);
+  const accLonDeg = accMeters / (METERS_PER_DEGREE_LAT * cosLat);
+
+  return {
+    lat: {
+      x: point.latitude,
+      v: 0,
+      p00: accLatDeg * accLatDeg,
+      p01: 0,
+      p10: 0,
+      p11: (accLatDeg * accLatDeg) / 4,
+    },
+    lon: {
+      x: point.longitude,
+      v: 0,
+      p00: accLonDeg * accLonDeg,
+      p01: 0,
+      p10: 0,
+      p11: (accLonDeg * accLonDeg) / 4,
+    },
+    timestamp: point.timestamp,
+  };
+}
+
+function kalmanPredictAxis(s: KalmanAxisState, dt: number, qScale: number): KalmanAxisState {
+  const dt2 = dt * dt;
+  const dt3 = dt2 * dt;
+  return {
+    x: s.x + s.v * dt,
+    v: s.v,
+    p00: s.p00 + dt * (s.p10 + s.p01) + dt2 * s.p11 + (qScale * dt3) / 3,
+    p01: s.p01 + dt * s.p11 + (qScale * dt2) / 2,
+    p10: s.p10 + dt * s.p11 + (qScale * dt2) / 2,
+    p11: s.p11 + qScale * dt,
+  };
+}
+
+function kalmanUpdateAxis(s: KalmanAxisState, z: number, r: number): KalmanAxisState {
+  const y = z - s.x;
+  const invS = 1 / (s.p00 + r);
+  const k0 = s.p00 * invS;
+  const k1 = s.p10 * invS;
+  return {
+    x: s.x + k0 * y,
+    v: s.v + k1 * y,
+    p00: s.p00 - k0 * s.p00,
+    p01: s.p01 - k0 * s.p01,
+    p10: s.p10 - k1 * s.p00,
+    p11: s.p11 - k1 * s.p01,
+  };
+}
+
+function kalmanSmooth(
+  state: GPSKalmanState,
+  point: RunPoint
+): { smoothed: RunPoint; nextState: GPSKalmanState } {
+  const dt = (point.timestamp - state.timestamp) / 1000;
+  if (dt <= 0) {
+    return { smoothed: point, nextState: state };
+  }
+
+  const accMeters = point.accuracy ?? 10;
+  const cosLat = Math.cos((point.latitude * Math.PI) / 180);
+  const metersPerDegreeLon = METERS_PER_DEGREE_LAT * cosLat;
+
+  const rLat = Math.pow(accMeters / METERS_PER_DEGREE_LAT, 2);
+  const rLon = Math.pow(accMeters / metersPerDegreeLon, 2);
+  const qLat = Math.pow(ACCEL_NOISE_MPS2 / METERS_PER_DEGREE_LAT, 2);
+  const qLon = Math.pow(ACCEL_NOISE_MPS2 / metersPerDegreeLon, 2);
+
+  const predLat = kalmanPredictAxis(state.lat, dt, qLat);
+  const predLon = kalmanPredictAxis(state.lon, dt, qLon);
+  const newLat = kalmanUpdateAxis(predLat, point.latitude, rLat);
+  const newLon = kalmanUpdateAxis(predLon, point.longitude, rLon);
+
+  return {
+    smoothed: {
+      latitude: newLat.x,
+      longitude: newLon.x,
+      altitude: point.altitude,
+      accuracy: point.accuracy,
+      speed: point.speed,
+      timestamp: point.timestamp,
+    },
+    nextState: {
+      lat: newLat,
+      lon: newLon,
+      timestamp: point.timestamp,
+    },
+  };
+}
+
 function appendLocations(activeRun: ActiveRun, locations: Location.LocationObject[]) {
   let distanceMeters = activeRun.distanceMeters;
   const route = [...activeRun.route];
   let lastPoint = activeRun.lastPoint ?? route[route.length - 1];
+  let kalmanState = activeRun.kalmanState ?? null;
 
   locations.forEach((location) => {
     if (!location?.coords) {
@@ -234,10 +349,33 @@ function appendLocations(activeRun: ActiveRun, locations: Location.LocationObjec
     if (accuracy > LOCATION_ACCURACY_METERS) {
       return;
     }
-    const point = toRunPoint(location);
-    if (lastPoint && point.timestamp <= lastPoint.timestamp) {
+    const rawPoint = toRunPoint(location);
+    if (lastPoint && rawPoint.timestamp <= lastPoint.timestamp) {
       return;
     }
+
+    // Reject points that imply impossible speed (GPS jumps)
+    if (lastPoint) {
+      const dt = (rawPoint.timestamp - lastPoint.timestamp) / 1000;
+      if (dt > 0) {
+        const dist = haversineDistanceMeters(lastPoint, rawPoint);
+        if (dist / dt > MAX_SPEED_MPS) {
+          return;
+        }
+      }
+    }
+
+    // Apply Kalman smoothing
+    let point: RunPoint;
+    if (!kalmanState) {
+      kalmanState = initKalman(rawPoint);
+      point = rawPoint;
+    } else {
+      const result = kalmanSmooth(kalmanState, rawPoint);
+      point = result.smoothed;
+      kalmanState = result.nextState;
+    }
+
     if (lastPoint) {
       distanceMeters += haversineDistanceMeters(lastPoint, point);
     }
@@ -254,6 +392,7 @@ function appendLocations(activeRun: ActiveRun, locations: Location.LocationObjec
     route,
     lastPoint,
     distanceMeters,
+    kalmanState: kalmanState ?? undefined,
     lastUpdatedAt: Date.now(),
   };
 }
@@ -340,10 +479,10 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
 
     await Location.startLocationUpdatesAsync(RUN_LOCATION_TASK, {
       accuracy: Location.Accuracy.BestForNavigation,
-      timeInterval: 5000,
-      distanceInterval: 5,
-      deferredUpdatesInterval: 5000,
-      deferredUpdatesDistance: 5,
+      timeInterval: 3000,
+      distanceInterval: 3,
+      deferredUpdatesInterval: 3000,
+      deferredUpdatesDistance: 3,
       pausesUpdatesAutomatically: false,
       activityType: Location.ActivityType.Fitness,
       showsBackgroundLocationIndicator: true,
@@ -568,6 +707,7 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
       isPaused: false,
       segmentBreaks: breaks,
       lastPoint: undefined,
+      kalmanState: undefined,
       lastUpdatedAt: now,
     });
   }, [activeRun, ensureLocationPermissions, persistActiveRun, startLocationUpdates]);
