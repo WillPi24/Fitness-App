@@ -169,6 +169,7 @@ export function RunScreen() {
   const [outdoorActivity, setOutdoorActivity] = useState('Run');
   const [isEditingIndoorDistance, setIsEditingIndoorDistance] = useState(false);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const [is3D, setIs3D] = useState(false);
 
   const outdoorOptions = useMemo(
     () => [
@@ -532,43 +533,61 @@ export function RunScreen() {
                 {activeRun.type !== 'indoor' ? (
                   <Card style={styles.mapCard}>
                     {activeRun?.type === 'outdoor' && routeSegments.length > 0 && lastPoint && MapLibreGL ? (
-                      <MapLibreGL.MapView
-                        style={styles.map}
-                        mapStyle="https://tiles.openfreemap.org/styles/liberty"
-                        attributionEnabled={true}
-                        logoEnabled={false}
-                      >
-                        <MapLibreGL.Camera
-                          centerCoordinate={[lastPoint.longitude, lastPoint.latitude]}
-                          zoomLevel={15}
-                          followUserLocation
-                        />
-                        <MapLibreGL.UserLocation visible />
-                        {routeSegments.map((segment, i) => (
-                          <MapLibreGL.ShapeSource
-                            key={`route-seg-${i}`}
-                            id={`route-seg-${i}`}
-                            shape={{
-                              type: 'Feature',
-                              properties: {},
-                              geometry: {
-                                type: 'LineString',
-                                coordinates: segment,
-                              },
-                            }}
-                          >
-                            <MapLibreGL.LineLayer
-                              id={`route-line-${i}`}
-                              style={{
-                                lineColor: colors.accent,
-                                lineWidth: 4,
-                                lineJoin: 'round',
-                                lineCap: 'round',
+                      <>
+                        <MapLibreGL.MapView
+                          style={styles.map}
+                          mapStyle="https://tiles.openfreemap.org/styles/liberty"
+                          attributionEnabled={true}
+                          logoEnabled={false}
+                        >
+                          <MapLibreGL.Camera
+                            centerCoordinate={[lastPoint.longitude, lastPoint.latitude]}
+                            zoomLevel={15}
+                            pitch={is3D ? 50 : 0}
+                            followUserLocation
+                          />
+                          {is3D && MapLibreGL.RasterDemSource ? (
+                            <>
+                              <MapLibreGL.RasterDemSource
+                                id="terrain-dem"
+                                tileUrlTemplates={['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png']}
+                                tileSize={256}
+                              />
+                              {MapLibreGL.Terrain ? (
+                                <MapLibreGL.Terrain sourceID="terrain-dem" exaggeration={1.5} />
+                              ) : null}
+                            </>
+                          ) : null}
+                          <MapLibreGL.UserLocation visible />
+                          {routeSegments.map((segment, i) => (
+                            <MapLibreGL.ShapeSource
+                              key={`route-seg-${i}`}
+                              id={`route-seg-${i}`}
+                              shape={{
+                                type: 'Feature',
+                                properties: {},
+                                geometry: {
+                                  type: 'LineString',
+                                  coordinates: segment,
+                                },
                               }}
-                            />
-                          </MapLibreGL.ShapeSource>
-                        ))}
-                      </MapLibreGL.MapView>
+                            >
+                              <MapLibreGL.LineLayer
+                                id={`route-line-${i}`}
+                                style={{
+                                  lineColor: colors.accent,
+                                  lineWidth: 4,
+                                  lineJoin: 'round',
+                                  lineCap: 'round',
+                                }}
+                              />
+                            </MapLibreGL.ShapeSource>
+                          ))}
+                        </MapLibreGL.MapView>
+                        <Pressable style={styles.mapToggle3D} onPress={() => setIs3D(!is3D)}>
+                          <Text style={styles.mapToggle3DText}>{is3D ? '2D' : '3D'}</Text>
+                        </Pressable>
+                      </>
                     ) : (
                       <View style={styles.mapPlaceholder}>
                         <Text style={styles.mapPlaceholderTitle}>No GPS path yet</Text>
@@ -705,8 +724,21 @@ export function RunScreen() {
                                 paddingLeft: 30,
                                 paddingRight: 30,
                               }}
+                              pitch={is3D ? 50 : 0}
                               animationDuration={0}
                             />
+                            {is3D && MapLibreGL.RasterDemSource ? (
+                              <>
+                                <MapLibreGL.RasterDemSource
+                                  id={`terrain-dem-${run.id}`}
+                                  tileUrlTemplates={['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png']}
+                                  tileSize={256}
+                                />
+                                {MapLibreGL.Terrain ? (
+                                  <MapLibreGL.Terrain sourceID={`terrain-dem-${run.id}`} exaggeration={1.5} />
+                                ) : null}
+                              </>
+                            ) : null}
                             {runSegments.map((segment, i) => (
                               <MapLibreGL.ShapeSource
                                 key={`history-seg-${run.id}-${i}`}
@@ -732,6 +764,9 @@ export function RunScreen() {
                               </MapLibreGL.ShapeSource>
                             ))}
                           </MapLibreGL.MapView>
+                          <Pressable style={styles.mapToggle3D} onPress={() => setIs3D(!is3D)}>
+                            <Text style={styles.mapToggle3DText}>{is3D ? '2D' : '3D'}</Text>
+                          </Pressable>
                         </View>
                       ) : null}
                     </View>
@@ -932,6 +967,21 @@ const styles = StyleSheet.create({
   map: {
     width: '100%',
     height: 220,
+  },
+  mapToggle3D: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  mapToggle3DText: {
+    ...typography.label,
+    color: colors.accent,
   },
   mapPlaceholder: {
     height: 220,
