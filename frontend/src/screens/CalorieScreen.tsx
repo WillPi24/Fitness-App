@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { CalendarList } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
 
 import { Card } from '../components/Card';
 import { ErrorBanner } from '../components/ErrorBanner';
@@ -79,6 +80,21 @@ function monthsBetween(start: Date, end: Date) {
 
 function createTemporaryMealId() {
   return `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+}
+
+function polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number) {
+  const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180;
+  return {
+    x: centerX + radius * Math.cos(angleInRadians),
+    y: centerY + radius * Math.sin(angleInRadians),
+  };
+}
+
+function createPieSlicePath(centerX: number, centerY: number, radius: number, startAngle: number, endAngle: number) {
+  const start = polarToCartesian(centerX, centerY, radius, startAngle);
+  const end = polarToCartesian(centerX, centerY, radius, endAngle);
+  const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0;
+  return `M ${centerX} ${centerY} L ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y} Z`;
 }
 
 export function CalorieScreen() {
@@ -289,6 +305,33 @@ export function CalorieScreen() {
   }, [dayData]);
 
   const calorieProgress = Math.min((totals.calories / dailyGoal) * 100, 100);
+
+  const macroBreakdown = useMemo(() => {
+    const macroCalories = [
+      { key: 'protein', label: 'Protein', value: totals.protein * 4, color: colors.accent },
+      { key: 'carbs', label: 'Carbs', value: totals.carbs * 4, color: colors.success },
+      { key: 'fat', label: 'Fat', value: totals.fat * 9, color: '#E9C46A' },
+    ];
+
+    const totalMacroCalories = macroCalories.reduce((sum, macro) => sum + macro.value, 0);
+    let currentAngle = -90;
+
+    return {
+      totalMacroCalories,
+      slices: macroCalories.map((macro) => {
+        const percentage = totalMacroCalories > 0 ? (macro.value / totalMacroCalories) * 100 : 0;
+        const sweepAngle = totalMacroCalories > 0 ? (macro.value / totalMacroCalories) * 360 : 0;
+        const slice = {
+          ...macro,
+          percentage,
+          startAngle: currentAngle,
+          endAngle: currentAngle + sweepAngle,
+        };
+        currentAngle += sweepAngle;
+        return slice;
+      }),
+    };
+  }, [totals.carbs, totals.fat, totals.protein]);
 
   const micronutrientProgress = useMemo(() => {
     return MICRONUTRIENT_CONFIG.map((config) => {
@@ -2146,33 +2189,93 @@ export function CalorieScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.calorieSection}>
-            <View style={styles.calorieHeader}>
-              <Text style={styles.calorieValue}>{totals.calories}</Text>
-              <Text style={styles.calorieGoal}>/ {dailyGoal} kcal</Text>
+          <View style={styles.summaryMetricsRow}>
+            <View style={styles.calorieSection}>
+              <View style={styles.calorieHeader}>
+                <Text style={styles.calorieValue}>{totals.calories}</Text>
+                <Text style={styles.calorieGoal}>/ {dailyGoal} kcal</Text>
+              </View>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${calorieProgress}%` }]} />
+              </View>
+              <Text style={styles.calorieRemaining}>
+                {dailyGoal - totals.calories > 0
+                  ? `${dailyGoal - totals.calories} kcal remaining`
+                  : 'Goal reached!'}
+              </Text>
             </View>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${calorieProgress}%` }]} />
+
+            <View style={styles.macroChartSection}>
+              <Svg width={116} height={116} viewBox="0 0 100 100">
+                {macroBreakdown.totalMacroCalories > 0 ? (
+                  macroBreakdown.slices.map((slice) =>
+                    slice.percentage >= 100 ? (
+                      <Circle key={slice.key} cx="50" cy="50" r="44" fill={slice.color} />
+                    ) : slice.percentage > 0 ? (
+                      <Path
+                        key={slice.key}
+                        d={createPieSlicePath(50, 50, 44, slice.startAngle, slice.endAngle)}
+                        fill={slice.color}
+                        stroke="#4A4F55"
+                        strokeWidth="1.4"
+                        strokeLinejoin="round"
+                      />
+                    ) : null
+                  )
+                ) : (
+                  <>
+                    <Circle cx="50" cy="50" r="44" fill={colors.accentSoft} />
+                    <SvgText
+                      x="50"
+                      y="42"
+                      fontSize="11.5"
+                      fontFamily="SpaceGrotesk_500Medium"
+                      fill={colors.muted}
+                      textAnchor="middle"
+                    >
+                      No meals
+                    </SvgText>
+                    <SvgText
+                      x="50"
+                      y="61"
+                      fontSize="11.5"
+                      fontFamily="SpaceGrotesk_500Medium"
+                      fill={colors.muted}
+                      textAnchor="middle"
+                    >
+                      logged
+                    </SvgText>
+                  </>
+                )}
+                <Circle cx="50" cy="50" r="44" fill="none" stroke="#4A4F55" strokeWidth="2.5" />
+              </Svg>
             </View>
-            <Text style={styles.calorieRemaining}>
-              {dailyGoal - totals.calories > 0
-                ? `${dailyGoal - totals.calories} kcal remaining`
-                : 'Goal reached!'}
-            </Text>
           </View>
 
           <View style={styles.macroRow}>
             <View style={styles.macroItem}>
               <Text style={styles.macroValue}>{totals.protein}g</Text>
               <Text style={styles.macroLabel}>Protein</Text>
+              <View style={styles.macroShare}>
+                <View style={[styles.macroShareDot, { backgroundColor: macroBreakdown.slices[0].color }]} />
+                <Text style={styles.macroShareText}>{Math.round(macroBreakdown.slices[0].percentage)}%</Text>
+              </View>
             </View>
             <View style={styles.macroItem}>
               <Text style={styles.macroValue}>{totals.carbs}g</Text>
               <Text style={styles.macroLabel}>Carbs</Text>
+              <View style={styles.macroShare}>
+                <View style={[styles.macroShareDot, { backgroundColor: macroBreakdown.slices[1].color }]} />
+                <Text style={styles.macroShareText}>{Math.round(macroBreakdown.slices[1].percentage)}%</Text>
+              </View>
             </View>
             <View style={styles.macroItem}>
               <Text style={styles.macroValue}>{totals.fat}g</Text>
               <Text style={styles.macroLabel}>Fat</Text>
+              <View style={styles.macroShare}>
+                <View style={[styles.macroShareDot, { backgroundColor: macroBreakdown.slices[2].color }]} />
+                <Text style={styles.macroShareText}>{Math.round(macroBreakdown.slices[2].percentage)}%</Text>
+              </View>
             </View>
           </View>
 
@@ -2427,7 +2530,15 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   calorieSection: {
+    flex: 1,
+    maxWidth: '52%',
     gap: spacing.sm,
+  },
+  summaryMetricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.md,
   },
   calorieHeader: {
     flexDirection: 'row',
@@ -2443,6 +2554,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   progressBar: {
+    width: '100%',
     height: 8,
     backgroundColor: colors.accentSoft,
     borderRadius: 4,
@@ -2455,6 +2567,27 @@ const styles = StyleSheet.create({
   },
   calorieRemaining: {
     ...typography.body,
+    color: colors.muted,
+  },
+  macroChartSection: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 116,
+  },
+  macroShare: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  macroShareDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+  },
+  macroShareText: {
+    ...typography.body,
+    fontSize: 12,
+    lineHeight: 16,
     color: colors.muted,
   },
   macroRow: {
