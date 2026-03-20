@@ -169,7 +169,7 @@ export function RunScreen() {
   const [outdoorActivity, setOutdoorActivity] = useState('Run');
   const [isEditingIndoorDistance, setIsEditingIndoorDistance] = useState(false);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
-  const [is3D, setIs3D] = useState(false);
+  const [isStartingActivity, setIsStartingActivity] = useState(false);
 
   const outdoorOptions = useMemo(
     () => [
@@ -286,10 +286,18 @@ export function RunScreen() {
   }, [activeRun]);
 
   const handleStart = async () => {
+    if (isStartingActivity) {
+      return;
+    }
+    setIsStartingActivity(true);
     const selectedActivity = runType === 'outdoor' ? outdoorActivity : indoorActivity;
-    const ok = await startRun(runType, selectedActivity);
-    if (ok && runType === 'indoor') {
-      setIndoorDistance('');
+    try {
+      const ok = await startRun(runType, selectedActivity);
+      if (ok && runType === 'indoor') {
+        setIndoorDistance('');
+      }
+    } finally {
+      setIsStartingActivity(false);
     }
   };
 
@@ -474,7 +482,11 @@ export function RunScreen() {
                       </Text>
                     </Pressable>
                   </View>
-                  <Pressable style={styles.primaryButton} onPress={handleStart}>
+                  <Pressable
+                    style={[styles.primaryButton, isStartingActivity && styles.primaryButtonDisabled]}
+                    onPress={handleStart}
+                    disabled={isStartingActivity}
+                  >
                     <Text style={styles.primaryButtonText}>Start activity</Text>
                   </Pressable>
                 </Card>
@@ -533,61 +545,50 @@ export function RunScreen() {
                 {activeRun.type !== 'indoor' ? (
                   <Card style={styles.mapCard}>
                     {activeRun?.type === 'outdoor' && routeSegments.length > 0 && lastPoint && MapLibreGL ? (
-                      <>
-                        <MapLibreGL.MapView
-                          style={styles.map}
-                          mapStyle="https://tiles.openfreemap.org/styles/liberty"
-                          attributionEnabled={true}
-                          logoEnabled={false}
-                        >
-                          <MapLibreGL.Camera
-                            centerCoordinate={[lastPoint.longitude, lastPoint.latitude]}
-                            zoomLevel={15}
-                            pitch={is3D ? 50 : 0}
-                            followUserLocation
-                          />
-                          {is3D && MapLibreGL.RasterDemSource ? (
-                            <>
-                              <MapLibreGL.RasterDemSource
-                                id="terrain-dem"
-                                tileUrlTemplates={['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png']}
-                                tileSize={256}
-                              />
-                              {MapLibreGL.Terrain ? (
-                                <MapLibreGL.Terrain sourceID="terrain-dem" exaggeration={1.5} />
-                              ) : null}
-                            </>
-                          ) : null}
-                          <MapLibreGL.UserLocation visible />
-                          {routeSegments.map((segment, i) => (
-                            <MapLibreGL.ShapeSource
-                              key={`route-seg-${i}`}
-                              id={`route-seg-${i}`}
-                              shape={{
-                                type: 'Feature',
-                                properties: {},
-                                geometry: {
-                                  type: 'LineString',
-                                  coordinates: segment,
-                                },
+                      // TODO: Revisit Mapbox-backed terrain if we want true 3D maps in future.
+                      <MapLibreGL.MapView
+                        style={styles.map}
+                        mapStyle="https://tiles.openfreemap.org/styles/liberty"
+                        attributionEnabled={true}
+                        logoEnabled={false}
+                      >
+                        <MapLibreGL.Camera
+                          defaultSettings={{
+                            centerCoordinate: [lastPoint.longitude, lastPoint.latitude],
+                            zoomLevel: 15,
+                            pitch: 0,
+                            animationDuration: 0,
+                          }}
+                          followUserLocation
+                          followZoomLevel={15}
+                          followPitch={0}
+                        />
+                        <MapLibreGL.UserLocation visible />
+                        {routeSegments.map((segment, i) => (
+                          <MapLibreGL.ShapeSource
+                            key={`route-seg-${i}`}
+                            id={`route-seg-${i}`}
+                            shape={{
+                              type: 'Feature',
+                              properties: {},
+                              geometry: {
+                                type: 'LineString',
+                                coordinates: segment,
+                              },
+                            }}
+                          >
+                            <MapLibreGL.LineLayer
+                              id={`route-line-${i}`}
+                              style={{
+                                lineColor: colors.accent,
+                                lineWidth: 4,
+                                lineJoin: 'round',
+                                lineCap: 'round',
                               }}
-                            >
-                              <MapLibreGL.LineLayer
-                                id={`route-line-${i}`}
-                                style={{
-                                  lineColor: colors.accent,
-                                  lineWidth: 4,
-                                  lineJoin: 'round',
-                                  lineCap: 'round',
-                                }}
-                              />
-                            </MapLibreGL.ShapeSource>
-                          ))}
-                        </MapLibreGL.MapView>
-                        <Pressable style={styles.mapToggle3D} onPress={() => setIs3D(!is3D)}>
-                          <Text style={styles.mapToggle3DText}>{is3D ? '2D' : '3D'}</Text>
-                        </Pressable>
-                      </>
+                            />
+                          </MapLibreGL.ShapeSource>
+                        ))}
+                      </MapLibreGL.MapView>
                     ) : (
                       <View style={styles.mapPlaceholder}>
                         <Text style={styles.mapPlaceholderTitle}>No GPS path yet</Text>
@@ -724,21 +725,8 @@ export function RunScreen() {
                                 paddingLeft: 30,
                                 paddingRight: 30,
                               }}
-                              pitch={is3D ? 50 : 0}
                               animationDuration={0}
                             />
-                            {is3D && MapLibreGL.RasterDemSource ? (
-                              <>
-                                <MapLibreGL.RasterDemSource
-                                  id={`terrain-dem-${run.id}`}
-                                  tileUrlTemplates={['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png']}
-                                  tileSize={256}
-                                />
-                                {MapLibreGL.Terrain ? (
-                                  <MapLibreGL.Terrain sourceID={`terrain-dem-${run.id}`} exaggeration={1.5} />
-                                ) : null}
-                              </>
-                            ) : null}
                             {runSegments.map((segment, i) => (
                               <MapLibreGL.ShapeSource
                                 key={`history-seg-${run.id}-${i}`}
@@ -764,9 +752,6 @@ export function RunScreen() {
                               </MapLibreGL.ShapeSource>
                             ))}
                           </MapLibreGL.MapView>
-                          <Pressable style={styles.mapToggle3D} onPress={() => setIs3D(!is3D)}>
-                            <Text style={styles.mapToggle3DText}>{is3D ? '2D' : '3D'}</Text>
-                          </Pressable>
                         </View>
                       ) : null}
                     </View>
@@ -777,6 +762,15 @@ export function RunScreen() {
           </>
         )}
       </ScrollView>
+
+      {isStartingActivity ? (
+        <View style={styles.startingOverlay}>
+          <View style={styles.startingCard}>
+            <ActivityIndicator color={colors.accent} />
+            <Text style={styles.startingText}>Starting activity...</Text>
+          </View>
+        </View>
+      ) : null}
 
       <Modal
         visible={showOutdoorPicker}
@@ -968,21 +962,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 220,
   },
-  mapToggle3D: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  mapToggle3DText: {
-    ...typography.label,
-    color: colors.accent,
-  },
   mapPlaceholder: {
     height: 220,
     alignItems: 'center',
@@ -1089,9 +1068,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: spacing.md,
   },
+  primaryButtonDisabled: {
+    opacity: 0.55,
+  },
   primaryButtonText: {
     ...typography.body,
     color: '#fff',
+  },
+  startingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(14, 16, 20, 0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  startingCard: {
+    minWidth: 180,
+    borderRadius: 16,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  startingText: {
+    ...typography.body,
+    color: colors.text,
+    textAlign: 'center',
   },
   secondaryButton: {
     backgroundColor: colors.accentSoft,
