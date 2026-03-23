@@ -48,7 +48,7 @@ type WorkoutSectionKey =
   | 'strength'
   | 'muscles';
 
-type CardioSectionKey = 'cardioSnapshot' | 'cardioPace' | 'cardioFrequency';
+type CardioSectionKey = 'cardioSnapshot' | 'cardioDistance' | 'cardioPace' | 'cardioFrequency';
 
 type SectionKey = WorkoutSectionKey | CardioSectionKey;
 
@@ -357,6 +357,7 @@ export function ProgressScreen() {
     strength: false,
     muscles: false,
     cardioSnapshot: true,
+    cardioDistance: false,
     cardioPace: false,
     cardioFrequency: false,
   });
@@ -418,6 +419,11 @@ export function ProgressScreen() {
         previousMonth: { workouts: 0, sets: 0, volume: 0 },
         avgWorkoutsPerMonth: 0,
         avgWorkoutDurationMin: 0,
+        prsThisMonth: 0,
+        prsPreviousMonth: 0,
+        avgDurationThisMonth: 0,
+        avgDurationPreviousMonth: 0,
+        avgStrengthChange: 0,
         volumeTrend: [0],
         setTrend: [0],
         workoutTrend: [0],
@@ -540,6 +546,61 @@ export function ProgressScreen() {
       volume: Math.round(monthlyVolume[previousMonthIndex]),
     };
 
+    // PRs this month
+    const currentMonthKey = monthKey(monthStarts[currentMonthIndex]);
+    const previousMonthKey = currentMonthIndex !== previousMonthIndex
+      ? monthKey(monthStarts[previousMonthIndex])
+      : null;
+    let prsThisMonth = 0;
+    let prsPreviousMonth = 0;
+    workouts.forEach((workout) => {
+      const mk = monthKey(new Date(workout.startedAt));
+      if (mk === currentMonthKey) {
+        prsThisMonth += workout.personalRecords.length;
+      } else if (previousMonthKey && mk === previousMonthKey) {
+        prsPreviousMonth += workout.personalRecords.length;
+      }
+    });
+
+    // Avg workout duration this month
+    let currentMonthDurationMs = 0;
+    let currentMonthWorkoutCount = 0;
+    let previousMonthDurationMs = 0;
+    let previousMonthWorkoutCount = 0;
+    workouts.forEach((workout) => {
+      const mk = monthKey(new Date(workout.startedAt));
+      const dur = workout.endedAt - workout.startedAt;
+      if (dur <= 0) return;
+      if (mk === currentMonthKey) {
+        currentMonthDurationMs += dur;
+        currentMonthWorkoutCount += 1;
+      } else if (previousMonthKey && mk === previousMonthKey) {
+        previousMonthDurationMs += dur;
+        previousMonthWorkoutCount += 1;
+      }
+    });
+    const avgDurationThisMonth = currentMonthWorkoutCount > 0
+      ? Math.round(currentMonthDurationMs / currentMonthWorkoutCount / 60000)
+      : 0;
+    const avgDurationPreviousMonth = previousMonthWorkoutCount > 0
+      ? Math.round(previousMonthDurationMs / previousMonthWorkoutCount / 60000)
+      : 0;
+
+    // Strength change: avg e1RM % change across exercises present in both months
+    let strengthChangePercent = 0;
+    let strengthExerciseCount = 0;
+    for (const [, points] of exerciseMonthBest) {
+      const currE1RM = points[currentMonthIndex];
+      const prevE1RM = points[previousMonthIndex];
+      if (currE1RM !== null && prevE1RM !== null && prevE1RM > 0 && currentMonthIndex !== previousMonthIndex) {
+        strengthChangePercent += ((currE1RM - prevE1RM) / prevE1RM) * 100;
+        strengthExerciseCount += 1;
+      }
+    }
+    const avgStrengthChange = strengthExerciseCount > 0
+      ? Math.round((strengthChangePercent / strengthExerciseCount) * 10) / 10
+      : 0;
+
     const allLiftTrends = Array.from(exerciseMonthBest.entries())
       .map(([exercise, points]): LiftTrend | null => {
         const values = points.filter((value): value is number => value !== null);
@@ -609,6 +670,11 @@ export function ProgressScreen() {
         workouts.length > 0
           ? Math.round(totalDurationMs / workouts.length / 60000)
           : 0,
+      prsThisMonth,
+      prsPreviousMonth,
+      avgDurationThisMonth,
+      avgDurationPreviousMonth,
+      avgStrengthChange,
       volumeTrend: monthlyVolume.map((value) => Math.round(value)),
       setTrend: monthlySets,
       workoutTrend: monthlyWorkouts,
@@ -667,6 +733,9 @@ export function ProgressScreen() {
     let totalDistanceM = 0;
     let totalDurationMs = 0;
 
+    // Best (lowest) pace per month — one value per session, not aggregated
+    const monthlyBestPace: Array<number | null> = new Array(cardioMonthStarts.length).fill(null);
+
     runs.forEach((run) => {
       const idx = cardioMonthIndexByKey.get(monthKey(new Date(run.startedAt)));
       if (idx === undefined) {
@@ -677,6 +746,14 @@ export function ProgressScreen() {
       monthlyRunCount[idx] += 1;
       totalDistanceM += run.distanceMeters;
       totalDurationMs += run.durationMs;
+
+      if (run.distanceMeters > 0 && run.durationMs > 0) {
+        const paceMinPerKm = (run.durationMs / 60000) / (run.distanceMeters / 1000);
+        const current = monthlyBestPace[idx];
+        if (current === null || paceMinPerKm < current) {
+          monthlyBestPace[idx] = parseFloat(paceMinPerKm.toFixed(2));
+        }
+      }
     });
 
     const ci = cardioMonthStarts.length - 1;
@@ -710,12 +787,15 @@ export function ProgressScreen() {
       currentMonth: {
         runs: monthlyRunCount[ci],
         distanceKm: parseFloat((monthlyDistanceM[ci] / 1000).toFixed(1)),
+        bestPace: monthlyBestPace[ci],
       },
       previousMonth: {
         runs: monthlyRunCount[pi],
         distanceKm: parseFloat((monthlyDistanceM[pi] / 1000).toFixed(1)),
+        bestPace: monthlyBestPace[pi],
       },
       paceTrend: monthlyPace,
+      distanceTrend: monthlyDistanceM.map((m: number) => parseFloat((m / 1000).toFixed(1))),
       runCountTrend: monthlyRunCount,
       avgRunsPerMonth,
     };
@@ -808,7 +888,7 @@ export function ProgressScreen() {
               {/* Snapshot (auto-open) */}
               <CollapsibleSection
                 title="Snapshot"
-                summary={`This month: ${progress.currentMonth.workouts} workouts, ${progress.currentMonth.sets} sets`}
+                summary={`${progress.prsThisMonth} PRs this month, ${progress.avgStrengthChange !== 0 ? `${formatSigned(progress.avgStrengthChange)}% strength` : 'no strength data yet'}`}
                 expanded={expandedSections.snapshot}
                 onToggle={() => toggleSection('snapshot')}
               >
@@ -828,28 +908,29 @@ export function ProgressScreen() {
                 </View>
                 <View style={styles.snapshotGrid}>
                   <View style={styles.snapshotItem}>
-                    <Text style={styles.snapshotValue}>{progress.currentMonth.workouts}</Text>
-                    <Text style={styles.snapshotLabel}>Workouts this month</Text>
+                    <Text style={styles.snapshotValue}>{progress.avgDurationThisMonth ? `${progress.avgDurationThisMonth}m` : '—'}</Text>
+                    <Text style={styles.snapshotLabel}>Avg duration this month</Text>
+                    {progress.avgDurationPreviousMonth > 0 ? (
+                      <Text style={styles.snapshotDelta}>
+                        {formatSigned(progress.avgDurationThisMonth - progress.avgDurationPreviousMonth)}m vs last month
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={styles.snapshotItem}>
+                    <Text style={styles.snapshotValue}>{progress.prsThisMonth}</Text>
+                    <Text style={styles.snapshotLabel}>PRs this month</Text>
                     <Text style={styles.snapshotDelta}>
-                      {formatSigned(
-                        progress.currentMonth.workouts - progress.previousMonth.workouts,
-                      )}{' '}
-                      vs last month
+                      {formatSigned(progress.prsThisMonth - progress.prsPreviousMonth)} vs last month
                     </Text>
                   </View>
                   <View style={styles.snapshotItem}>
-                    <Text style={styles.snapshotValue}>{progress.currentMonth.sets}</Text>
-                    <Text style={styles.snapshotLabel}>Sets this month</Text>
-                    <Text style={styles.snapshotDelta}>
-                      {formatSigned(progress.currentMonth.sets - progress.previousMonth.sets)} vs last month
-                    </Text>
-                  </View>
-                  <View style={styles.snapshotItem}>
-                    <Text style={styles.snapshotValue}>{formatCompactNumber(toDisplayWeight(progress.currentMonth.volume, weightUnit))}</Text>
-                    <Text style={styles.snapshotLabel}>Volume this month ({weightUnit})</Text>
-                    <Text style={styles.snapshotDelta}>
-                      {formatSigned(toDisplayWeight(progress.currentMonth.volume - progress.previousMonth.volume, weightUnit))} vs last month
-                    </Text>
+                    <Text style={styles.snapshotValue}>{progress.avgStrengthChange !== 0 ? `${formatSigned(progress.avgStrengthChange)}%` : '—'}</Text>
+                    <Text style={styles.snapshotLabel}>Strength this month</Text>
+                    {progress.avgStrengthChange !== 0 ? (
+                      <Text style={styles.snapshotDelta}>
+                        Avg e1RM change vs last month
+                      </Text>
+                    ) : null}
                   </View>
                 </View>
                 <Text style={styles.helperText}>
@@ -857,64 +938,6 @@ export function ProgressScreen() {
                   {formatCompactNumber(toDisplayWeight(progress.lifetime.avgVolumePerWorkout, weightUnit))}{weightUnit}. Avg duration:{' '}
                   {progress.avgWorkoutDurationMin}min.
                 </Text>
-              </CollapsibleSection>
-
-              {/* Volume */}
-              <CollapsibleSection
-                title="Volume Over Lifetime"
-                summary={`${formatCompactNumber(toDisplayWeight(progress.lifetime.volume, weightUnit))}${weightUnit} total`}
-                expanded={expandedSections.volume}
-                onToggle={() => toggleSection('volume')}
-              >
-                <PressableGraph
-                  title="Volume Over Lifetime"
-                  data={progress.volumeTrend.map(v => v !== null ? toDisplayWeight(v, weightUnit) : null)}
-                  labels={progress.monthLabels}
-                  valueSuffix={weightUnit}
-                  startLabel={progress.startLabel}
-                  endLabel={progress.endLabel}
-                  onExpand={setExpandedGraph}
-                  onInteractionStart={disableSwipe}
-                  onInteractionEnd={enableSwipe}
-                />
-              </CollapsibleSection>
-
-              {/* Sets */}
-              <CollapsibleSection
-                title="Sets Over Lifetime"
-                summary={`${formatCompactNumber(progress.lifetime.sets)} sets total`}
-                expanded={expandedSections.sets}
-                onToggle={() => toggleSection('sets')}
-              >
-                <PressableGraph
-                  title="Sets Over Lifetime"
-                  data={progress.setTrend}
-                  labels={progress.monthLabels}
-                  startLabel={progress.startLabel}
-                  endLabel={progress.endLabel}
-                  onExpand={setExpandedGraph}
-                  onInteractionStart={disableSwipe}
-                  onInteractionEnd={enableSwipe}
-                />
-              </CollapsibleSection>
-
-              {/* Frequency */}
-              <CollapsibleSection
-                title="Workout Frequency Over Lifetime"
-                summary={`${progress.avgWorkoutsPerMonth.toFixed(1)} workouts/month avg`}
-                expanded={expandedSections.workouts}
-                onToggle={() => toggleSection('workouts')}
-              >
-                <PressableGraph
-                  title="Workout Frequency Over Lifetime"
-                  data={progress.workoutTrend}
-                  labels={progress.monthLabels}
-                  startLabel={progress.startLabel}
-                  endLabel={progress.endLabel}
-                  onExpand={setExpandedGraph}
-                  onInteractionStart={disableSwipe}
-                  onInteractionEnd={enableSwipe}
-                />
               </CollapsibleSection>
 
               {/* Strength */}
@@ -997,6 +1020,45 @@ export function ProgressScreen() {
                 )}
               </CollapsibleSection>
 
+              {/* Volume */}
+              <CollapsibleSection
+                title="Volume Over Lifetime"
+                summary={`${formatCompactNumber(toDisplayWeight(progress.lifetime.volume, weightUnit))}${weightUnit} total`}
+                expanded={expandedSections.volume}
+                onToggle={() => toggleSection('volume')}
+              >
+                <PressableGraph
+                  title="Volume Over Lifetime"
+                  data={progress.volumeTrend.map(v => v !== null ? toDisplayWeight(v, weightUnit) : null)}
+                  labels={progress.monthLabels}
+                  valueSuffix={weightUnit}
+                  startLabel={progress.startLabel}
+                  endLabel={progress.endLabel}
+                  onExpand={setExpandedGraph}
+                  onInteractionStart={disableSwipe}
+                  onInteractionEnd={enableSwipe}
+                />
+              </CollapsibleSection>
+
+              {/* Sets */}
+              <CollapsibleSection
+                title="Sets Over Lifetime"
+                summary={`${formatCompactNumber(progress.lifetime.sets)} sets total`}
+                expanded={expandedSections.sets}
+                onToggle={() => toggleSection('sets')}
+              >
+                <PressableGraph
+                  title="Sets Over Lifetime"
+                  data={progress.setTrend}
+                  labels={progress.monthLabels}
+                  startLabel={progress.startLabel}
+                  endLabel={progress.endLabel}
+                  onExpand={setExpandedGraph}
+                  onInteractionStart={disableSwipe}
+                  onInteractionEnd={enableSwipe}
+                />
+              </CollapsibleSection>
+
               {/* Muscle groups */}
               <CollapsibleSection
                 title="Muscle-Group Sets Over Lifetime"
@@ -1032,6 +1094,25 @@ export function ProgressScreen() {
                     </View>
                   ))
                 )}
+              </CollapsibleSection>
+
+              {/* Frequency */}
+              <CollapsibleSection
+                title="Workout Frequency Over Lifetime"
+                summary={`${progress.avgWorkoutsPerMonth.toFixed(1)} workouts/month avg`}
+                expanded={expandedSections.workouts}
+                onToggle={() => toggleSection('workouts')}
+              >
+                <PressableGraph
+                  title="Workout Frequency Over Lifetime"
+                  data={progress.workoutTrend}
+                  labels={progress.monthLabels}
+                  startLabel={progress.startLabel}
+                  endLabel={progress.endLabel}
+                  onExpand={setExpandedGraph}
+                  onInteractionStart={disableSwipe}
+                  onInteractionEnd={enableSwipe}
+                />
               </CollapsibleSection>
             </>
           )
@@ -1087,7 +1168,45 @@ export function ProgressScreen() {
                       vs last month
                     </Text>
                   </View>
+                  <View style={styles.snapshotItem}>
+                    <Text style={styles.snapshotValue}>
+                      {cardioProgress.currentMonth.bestPace !== null
+                        ? `${cardioProgress.currentMonth.bestPace}`
+                        : '—'}
+                    </Text>
+                    <Text style={styles.snapshotLabel}>Best pace (min/km)</Text>
+                    {cardioProgress.currentMonth.bestPace !== null && cardioProgress.previousMonth.bestPace !== null ? (
+                      <Text style={styles.snapshotDelta}>
+                        {formatSigned(
+                          parseFloat(
+                            (cardioProgress.currentMonth.bestPace - cardioProgress.previousMonth.bestPace).toFixed(2),
+                          ),
+                        )}{' '}
+                        vs last month
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
+              </CollapsibleSection>
+
+              {/* Distance Over Time */}
+              <CollapsibleSection
+                title="Distance Over Time"
+                summary={`${cardioProgress.totalDistanceKm}km total`}
+                expanded={expandedSections.cardioDistance}
+                onToggle={() => toggleSection('cardioDistance')}
+              >
+                <PressableGraph
+                  title="Distance Over Time"
+                  data={cardioProgress.distanceTrend}
+                  labels={cardioProgress.monthLabels}
+                  valueSuffix="km"
+                  startLabel={cardioProgress.startLabel}
+                  endLabel={cardioProgress.endLabel}
+                  onExpand={setExpandedGraph}
+                  onInteractionStart={disableSwipe}
+                  onInteractionEnd={enableSwipe}
+                />
               </CollapsibleSection>
 
               {/* Pace Over Time */}
