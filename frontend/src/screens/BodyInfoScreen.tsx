@@ -114,7 +114,7 @@ export function BodyInfoScreen({ onBack, onComplete }: BodyInfoScreenProps) {
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <Pressable style={styles.primaryButton} onPress={handleComplete}>
-              <Text style={styles.primaryButtonText}>Get Started</Text>
+              <Text style={styles.primaryButtonText}>Continue</Text>
             </Pressable>
           </View>
         </ScrollView>

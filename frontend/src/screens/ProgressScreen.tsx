@@ -347,7 +347,9 @@ export function ProgressScreen() {
   const weightUnit = user?.weightUnit ?? 'kg';
   const insets = useSafeAreaInsets();
 
-  const [activeTab, setActiveTab] = useState<ProgressTab>('workouts');
+  const [activeTab, setActiveTab] = useState<ProgressTab>(
+    user?.focus === 'cardio' ? 'cardio' : 'workouts',
+  );
 
   const [expandedSections, setExpandedSections] = useState<Record<SectionKey, boolean>>({
     snapshot: true,

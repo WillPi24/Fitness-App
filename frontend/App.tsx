@@ -11,6 +11,7 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { AccountScreen } from './src/screens/AccountScreen';
 import { BodyInfoScreen } from './src/screens/BodyInfoScreen';
 import { CalorieScreen } from './src/screens/CalorieScreen';
+import { FocusScreen } from './src/screens/FocusScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { LogScreen } from './src/screens/LogScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
@@ -34,7 +35,7 @@ type RootTabParamList = {
 
 const Tab = createMaterialTopTabNavigator<RootTabParamList>();
 
-type AuthStep = 'welcome' | 'signup' | 'bodyinfo' | 'login';
+type AuthStep = 'welcome' | 'signup' | 'bodyinfo' | 'focus' | 'login';
 
 function AuthFlow({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<AuthStep>('welcome');
@@ -58,6 +59,13 @@ function AuthFlow({ onComplete }: { onComplete: () => void }) {
       return (
         <BodyInfoScreen
           onBack={() => setStep('signup')}
+          onComplete={() => setStep('focus')}
+        />
+      );
+    case 'focus':
+      return (
+        <FocusScreen
+          onBack={() => setStep('bodyinfo')}
           onComplete={onComplete}
         />
       );
@@ -128,7 +136,7 @@ function AppContent() {
     );
   }
 
-  const isSignedIn = user && user.bodyweightKg > 0;
+  const isSignedIn = user && user.bodyweightKg > 0 && user.focus;
 
   if (!isSignedIn) {
     return (

@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 
 export type UserSex = 'male' | 'female';
 export type WeightUnit = 'kg' | 'lbs';
+export type TrainingFocus = 'strength' | 'cardio' | 'bodybuilding' | 'general';
 
 export type UserProfile = {
   name: string;
@@ -11,6 +12,8 @@ export type UserProfile = {
   sex: UserSex;
   bodyweightKg: number;
   weightUnit: WeightUnit;
+  focus?: TrainingFocus;
+  enabledFeatures?: string[];
   createdAt: number;
 };
 
@@ -35,6 +38,9 @@ type UserContextValue = {
   setBodyInfo: (sex: UserSex, bodyweightKg: number, weightUnit: WeightUnit) => void;
   login: (email: string, password: string) => boolean;
   signOut: () => void;
+  setFocus: (focus: TrainingFocus) => void;
+  setEnabledFeatures: (features: string[]) => void;
+  toggleFeature: (featureId: string) => void;
   updateProfile: (updates: Partial<Pick<UserProfile, 'name' | 'sex' | 'bodyweightKg' | 'weightUnit'>>) => void;
 };
 
@@ -154,6 +160,31 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const setFocus = useCallback((focus: TrainingFocus) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      return { ...prev, focus };
+    });
+  }, []);
+
+  const setEnabledFeatures = useCallback((features: string[]) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      return { ...prev, enabledFeatures: features };
+    });
+  }, []);
+
+  const toggleFeature = useCallback((featureId: string) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const current = prev.enabledFeatures ?? [];
+      const next = current.includes(featureId)
+        ? current.filter((id) => id !== featureId)
+        : [...current, featureId];
+      return { ...prev, enabledFeatures: next };
+    });
+  }, []);
+
   const updateProfile = useCallback((updates: Partial<Pick<UserProfile, 'name' | 'sex' | 'bodyweightKg' | 'weightUnit'>>) => {
     setUser((prev) => {
       if (!prev) return prev;
@@ -171,9 +202,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setBodyInfo,
       login,
       signOut,
+      setFocus,
+      setEnabledFeatures,
+      toggleFeature,
       updateProfile,
     }),
-    [user, isLoading, error, signUp, setBodyInfo, login, signOut, updateProfile]
+    [user, isLoading, error, signUp, setBodyInfo, login, signOut, setFocus, setEnabledFeatures, toggleFeature, updateProfile]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
@@ -185,4 +219,9 @@ export function useUserStore() {
     throw new Error('useUserStore must be used within a UserProvider');
   }
   return context;
+}
+
+export function useFeatureEnabled(featureId: string): boolean {
+  const { user } = useUserStore();
+  return user?.enabledFeatures?.includes(featureId) ?? false;
 }

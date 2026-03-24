@@ -4,9 +4,10 @@ import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pre
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../components/Card';
+import { MoreToolsScreen } from './MoreToolsScreen';
 import { useCalorieStore, CalorieDay } from '../store/calorieStore';
 import { useRunStore } from '../store/runStore';
-import { UserSex, WeightUnit, toDisplayWeight, fromDisplayWeight, useUserStore } from '../store/userStore';
+import { TrainingFocus, UserSex, WeightUnit, toDisplayWeight, fromDisplayWeight, useUserStore } from '../store/userStore';
 import { useWorkoutStore } from '../store/workoutStore';
 import { colors, spacing, typography } from '../theme';
 import { exportToJSON, exportWorkoutsToCSV, exportRunsToCSV, exportCaloriesToCSV } from '../services/exportData';
@@ -46,7 +47,7 @@ type ImportOptions = {
 
 export function AccountScreen() {
   const insets = useSafeAreaInsets();
-  const { user, updateProfile, signOut } = useUserStore();
+  const { user, updateProfile, setFocus, signOut } = useUserStore();
   const { workouts, importWorkouts } = useWorkoutStore();
   const { runs, importRuns } = useRunStore();
   const { calorieDays, importCalorieDays } = useCalorieStore();
@@ -57,6 +58,8 @@ export function AccountScreen() {
   const [editWeightUnit, setEditWeightUnit] = useState<WeightUnit>('kg');
   const [editName, setEditName] = useState('');
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [focusPickerOpen, setFocusPickerOpen] = useState(false);
+  const [moreToolsOpen, setMoreToolsOpen] = useState(false);
 
   // Data management state
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -394,10 +397,27 @@ export function AccountScreen() {
             <Text style={styles.infoLabel}>Unit</Text>
             <Text style={styles.infoValue}>{user.weightUnit === 'lbs' ? 'Imperial (lbs)' : 'Metric (kg)'}</Text>
           </View>
-          <View style={[styles.infoRow, styles.infoRowLast]}>
+          <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Bodyweight</Text>
             <Text style={styles.infoValue}>{user.bodyweightKg > 0 ? `${toDisplayWeight(user.bodyweightKg, user.weightUnit)} ${user.weightUnit}` : 'Not set'}</Text>
           </View>
+          <Pressable style={[styles.infoRow, styles.infoRowLast]} onPress={() => setFocusPickerOpen(true)}>
+            <Text style={styles.infoLabel}>Training Focus</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={styles.infoValue}>
+                {user.focus === 'strength' ? 'Strength' : user.focus === 'cardio' ? 'Cardio' : user.focus === 'bodybuilding' ? 'Bodybuilding' : user.focus === 'general' ? 'General Fitness' : 'Not set'}
+              </Text>
+              <Feather name="chevron-right" size={16} color={colors.muted} />
+            </View>
+          </Pressable>
+        </Card>
+
+        <Card>
+          <Pressable style={[styles.dataRow, { borderBottomWidth: 0, paddingVertical: 2 }]} onPress={() => setMoreToolsOpen(true)}>
+            <Feather name="sliders" size={20} color={colors.accent} />
+            <Text style={[styles.sectionTitle, { flex: 1 }]}>More Tools</Text>
+            <Feather name="chevron-right" size={20} color={colors.muted} />
+          </Pressable>
         </Card>
 
         <Card>
@@ -709,6 +729,39 @@ export function AccountScreen() {
           </Card>
         </View>
       </Modal>
+
+      <Modal visible={moreToolsOpen} animationType="slide" onRequestClose={() => setMoreToolsOpen(false)}>
+        <MoreToolsScreen onBack={() => setMoreToolsOpen(false)} />
+      </Modal>
+
+      <Modal visible={focusPickerOpen} transparent animationType="fade" onRequestClose={() => setFocusPickerOpen(false)}>
+        <View style={styles.confirmBackdrop}>
+          <Card style={styles.confirmModal}>
+            <Text style={styles.modalTitle}>Training Focus</Text>
+            <Text style={styles.confirmText}>This personalises your experience. All features remain available.</Text>
+            {(['general', 'strength', 'bodybuilding', 'cardio'] as TrainingFocus[]).map((option) => {
+              const label = option === 'strength' ? 'Strength' : option === 'cardio' ? 'Cardio' : option === 'bodybuilding' ? 'Bodybuilding' : 'General Fitness';
+              const isActive = user.focus === option;
+              return (
+                <Pressable
+                  key={option}
+                  style={[styles.focusOption, isActive && styles.focusOptionActive]}
+                  onPress={() => {
+                    setFocus(option);
+                    setFocusPickerOpen(false);
+                  }}
+                >
+                  <Text style={[styles.focusOptionText, isActive && styles.focusOptionTextActive]}>{label}</Text>
+                  {isActive ? <Feather name="check" size={18} color={colors.accent} /> : null}
+                </Pressable>
+              );
+            })}
+            <Pressable style={styles.confirmCancel} onPress={() => setFocusPickerOpen(false)}>
+              <Text style={styles.confirmCancelText}>Cancel</Text>
+            </Pressable>
+          </Card>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -972,5 +1025,27 @@ const styles = StyleSheet.create({
   confirmDangerText: {
     ...typography.body,
     color: '#fff',
+  },
+  focusOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+  },
+  focusOptionActive: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  focusOptionText: {
+    ...typography.body,
+    color: colors.text,
+  },
+  focusOptionTextActive: {
+    color: colors.accent,
   },
 });
