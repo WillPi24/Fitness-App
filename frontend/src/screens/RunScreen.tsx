@@ -26,7 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../components/Card';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { ActiveRun, RunPoint, useRunStore } from '../store/runStore';
+import { ActiveRun, RunPoint, RunSession, useRunStore } from '../store/runStore';
 import { colors, spacing, typography } from '../theme';
 
 function splitRouteSegments(route: RunPoint[], segmentBreaks?: number[]): [number, number][][] {
@@ -169,6 +169,17 @@ export function RunScreen() {
   const [outdoorActivity, setOutdoorActivity] = useState('Run');
   const [isEditingIndoorDistance, setIsEditingIndoorDistance] = useState(false);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const [fullMapRunId, setFullMapRunId] = useState<string | null>(null);
+  const [completedSummary, setCompletedSummary] = useState<{
+    activity: string;
+    type: 'outdoor' | 'indoor';
+    date: string;
+    durationMs: number;
+    distanceMeters: number;
+    startedAt: number;
+    route: RunPoint[];
+    segmentBreaks?: number[];
+  } | null>(null);
   const [isStartingActivity, setIsStartingActivity] = useState(false);
 
   const outdoorOptions = useMemo(
@@ -310,8 +321,21 @@ export function RunScreen() {
   };
 
   const handleConfirm = async () => {
-    if (confirmAction === 'finish') {
+    if (confirmAction === 'finish' && activeRun) {
+      const snapshot = {
+        activity: activeRun.activity ?? (activeRun.type === 'outdoor' ? 'Run' : 'Treadmill'),
+        type: activeRun.type,
+        date: activeRun.date,
+        durationMs: elapsedMs,
+        distanceMeters: activeRun.type === 'indoor'
+          ? (activeRun.manualDistanceMeters ?? 0)
+          : activeRun.distanceMeters,
+        startedAt: activeRun.startedAt,
+        route: activeRun.route,
+        segmentBreaks: activeRun.segmentBreaks,
+      };
       await finishRun();
+      setCompletedSummary(snapshot);
     } else if (confirmAction === 'discard') {
       await discardRun();
     }
@@ -705,7 +729,10 @@ export function RunScreen() {
                         </View>
                       </Pressable>
                       {isExpanded && hasRoute && MapLibreGL && runBounds ? (
-                        <View style={styles.historyMapContainer}>
+                        <Pressable
+                          style={styles.historyMapContainer}
+                          onPress={() => setFullMapRunId(run.id)}
+                        >
                           <MapLibreGL.MapView
                             style={styles.historyMap}
                             mapStyle="https://tiles.openfreemap.org/styles/liberty"
@@ -752,7 +779,8 @@ export function RunScreen() {
                               </MapLibreGL.ShapeSource>
                             ))}
                           </MapLibreGL.MapView>
-                        </View>
+                          <Text style={styles.historyMapHint}>Tap to expand</Text>
+                        </Pressable>
                       ) : null}
                     </View>
                   );
@@ -865,6 +893,201 @@ export function RunScreen() {
             </View>
           </Card>
         </View>
+      </Modal>
+
+      <Modal
+        visible={completedSummary !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCompletedSummary(null)}
+      >
+        {completedSummary ? (() => {
+          const s = completedSummary;
+          const hasRoute = s.type === 'outdoor' && s.route.length > 1;
+          const summarySegments = hasRoute ? splitRouteSegments(s.route, s.segmentBreaks) : [];
+          const summaryBounds = hasRoute
+            ? s.route.reduce(
+                (acc, p) => ({
+                  minLng: Math.min(acc.minLng, p.longitude),
+                  maxLng: Math.max(acc.maxLng, p.longitude),
+                  minLat: Math.min(acc.minLat, p.latitude),
+                  maxLat: Math.max(acc.maxLat, p.latitude),
+                }),
+                { minLng: Infinity, maxLng: -Infinity, minLat: Infinity, maxLat: -Infinity },
+              )
+            : null;
+          return (
+            <View style={styles.summaryBackdrop}>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryTitle}>Activity Complete</Text>
+                <Text style={styles.summaryActivity}>
+                  {s.type === 'outdoor' ? 'Outdoor' : 'Indoor'} {s.activity}
+                </Text>
+                <Text style={styles.summaryDate}>
+                  {formatShortDate(parseISODate(s.date))} at {formatTime(s.startedAt)}
+                </Text>
+
+                <View style={styles.summaryStatsRow}>
+                  <View style={styles.summaryStat}>
+                    <Text style={styles.summaryStatValue}>{formatDistanceKm(s.distanceMeters)}</Text>
+                    <Text style={styles.summaryStatLabel}>Distance</Text>
+                  </View>
+                  <View style={styles.summaryStat}>
+                    <Text style={styles.summaryStatValue}>{formatDuration(s.durationMs)}</Text>
+                    <Text style={styles.summaryStatLabel}>Duration</Text>
+                  </View>
+                  <View style={styles.summaryStat}>
+                    <Text style={styles.summaryStatValue}>{formatPace(s.durationMs, s.distanceMeters)}</Text>
+                    <Text style={styles.summaryStatLabel}>Pace</Text>
+                  </View>
+                </View>
+
+                {hasRoute && MapLibreGL && summaryBounds ? (
+                  <View style={styles.summaryMapContainer}>
+                    <MapLibreGL.MapView
+                      style={styles.summaryMap}
+                      mapStyle="https://tiles.openfreemap.org/styles/liberty"
+                      attributionEnabled={false}
+                      logoEnabled={false}
+                      scrollEnabled={false}
+                      pitchEnabled={false}
+                      rotateEnabled={false}
+                      zoomEnabled={false}
+                    >
+                      <MapLibreGL.Camera
+                        bounds={{
+                          ne: [summaryBounds.maxLng, summaryBounds.maxLat],
+                          sw: [summaryBounds.minLng, summaryBounds.minLat],
+                          paddingTop: 30,
+                          paddingBottom: 30,
+                          paddingLeft: 30,
+                          paddingRight: 30,
+                        }}
+                        animationDuration={0}
+                      />
+                      {summarySegments.map((segment, i) => (
+                        <MapLibreGL.ShapeSource
+                          key={`summary-seg-${i}`}
+                          id={`summary-seg-${i}`}
+                          shape={{
+                            type: 'Feature',
+                            properties: {},
+                            geometry: {
+                              type: 'LineString',
+                              coordinates: segment,
+                            },
+                          }}
+                        >
+                          <MapLibreGL.LineLayer
+                            id={`summary-line-${i}`}
+                            style={{
+                              lineColor: colors.accent,
+                              lineWidth: 3,
+                              lineJoin: 'round',
+                              lineCap: 'round',
+                            }}
+                          />
+                        </MapLibreGL.ShapeSource>
+                      ))}
+                    </MapLibreGL.MapView>
+                  </View>
+                ) : null}
+
+                <Pressable style={styles.summaryDoneButton} onPress={() => setCompletedSummary(null)}>
+                  <Text style={styles.summaryDoneText}>Done</Text>
+                </Pressable>
+              </View>
+            </View>
+          );
+        })() : null}
+      </Modal>
+
+      <Modal
+        visible={fullMapRunId !== null}
+        animationType="slide"
+        onRequestClose={() => setFullMapRunId(null)}
+      >
+        {(() => {
+          const run = fullMapRunId ? runs.find((r) => r.id === fullMapRunId) : null;
+          if (!run || !MapLibreGL || run.route.length < 2) return null;
+          const segments = splitRouteSegments(run.route, run.segmentBreaks);
+          const bounds = run.route.reduce(
+            (acc, p) => ({
+              minLng: Math.min(acc.minLng, p.longitude),
+              maxLng: Math.max(acc.maxLng, p.longitude),
+              minLat: Math.min(acc.minLat, p.latitude),
+              maxLat: Math.max(acc.maxLat, p.latitude),
+            }),
+            { minLng: Infinity, maxLng: -Infinity, minLat: Infinity, maxLat: -Infinity },
+          );
+          const runActivity = run.activity ?? 'Run';
+          return (
+            <View style={styles.fullMapContainer}>
+              <MapLibreGL.MapView
+                style={styles.fullMap}
+                mapStyle="https://tiles.openfreemap.org/styles/liberty"
+                attributionEnabled={true}
+                logoEnabled={false}
+              >
+                <MapLibreGL.Camera
+                  bounds={{
+                    ne: [bounds.maxLng, bounds.maxLat],
+                    sw: [bounds.minLng, bounds.minLat],
+                    paddingTop: 80,
+                    paddingBottom: 120,
+                    paddingLeft: 40,
+                    paddingRight: 40,
+                  }}
+                  animationDuration={0}
+                />
+                {segments.map((segment, i) => (
+                  <MapLibreGL.ShapeSource
+                    key={`full-seg-${i}`}
+                    id={`full-seg-${i}`}
+                    shape={{
+                      type: 'Feature',
+                      properties: {},
+                      geometry: {
+                        type: 'LineString',
+                        coordinates: segment,
+                      },
+                    }}
+                  >
+                    <MapLibreGL.LineLayer
+                      id={`full-line-${i}`}
+                      style={{
+                        lineColor: colors.accent,
+                        lineWidth: 4,
+                        lineJoin: 'round',
+                        lineCap: 'round',
+                      }}
+                    />
+                  </MapLibreGL.ShapeSource>
+                ))}
+              </MapLibreGL.MapView>
+              <View style={[styles.fullMapHeader, { paddingTop: insets.top + spacing.sm }]}>
+                <Pressable style={styles.fullMapClose} onPress={() => setFullMapRunId(null)}>
+                  <Feather name="x" size={22} color={colors.text} />
+                </Pressable>
+                <Text style={styles.fullMapTitle}>{runActivity} — {formatShortDate(parseISODate(run.date))}</Text>
+              </View>
+              <View style={[styles.fullMapStats, { paddingBottom: insets.bottom + spacing.md }]}>
+                <View style={styles.fullMapStat}>
+                  <Text style={styles.fullMapStatValue}>{formatDistanceKm(run.distanceMeters)}</Text>
+                  <Text style={styles.fullMapStatLabel}>Distance</Text>
+                </View>
+                <View style={styles.fullMapStat}>
+                  <Text style={styles.fullMapStatValue}>{formatDuration(run.durationMs)}</Text>
+                  <Text style={styles.fullMapStatLabel}>Duration</Text>
+                </View>
+                <View style={styles.fullMapStat}>
+                  <Text style={styles.fullMapStatValue}>{formatPace(run.durationMs, run.distanceMeters)}</Text>
+                  <Text style={styles.fullMapStatLabel}>Pace</Text>
+                </View>
+              </View>
+            </View>
+          );
+        })()}
       </Modal>
     </KeyboardAvoidingView>
   );
@@ -1186,6 +1409,160 @@ const styles = StyleSheet.create({
   historyMap: {
     width: '100%',
     height: 180,
+  },
+  historyMapHint: {
+    ...typography.body,
+    color: colors.muted,
+    fontSize: 12,
+    textAlign: 'center',
+    paddingVertical: 4,
+    backgroundColor: colors.surface,
+  },
+  summaryBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(27, 31, 36, 0.6)',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  summaryCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: spacing.lg,
+    gap: spacing.md,
+    maxHeight: '90%',
+  },
+  summaryTitle: {
+    ...typography.title,
+    color: colors.text,
+    textAlign: 'center',
+    fontSize: 22,
+  },
+  summaryActivity: {
+    ...typography.headline,
+    color: colors.accent,
+    textAlign: 'center',
+  },
+  summaryDate: {
+    ...typography.body,
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  summaryStatsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  summaryStat: {
+    flex: 1,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    backgroundColor: colors.background,
+    padding: spacing.sm,
+    gap: 2,
+  },
+  summaryStatValue: {
+    ...typography.headline,
+    color: colors.text,
+  },
+  summaryStatLabel: {
+    ...typography.label,
+    color: colors.muted,
+  },
+  summaryMapContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  summaryMap: {
+    width: '100%',
+    height: 200,
+  },
+  summaryDoneButton: {
+    backgroundColor: colors.accent,
+    borderRadius: 12,
+    alignItems: 'center',
+    paddingVertical: spacing.sm + 2,
+  },
+  summaryDoneText: {
+    ...typography.label,
+    color: '#FFFFFF',
+    fontSize: 15,
+  },
+  fullMapContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  fullMap: {
+    flex: 1,
+  },
+  fullMapHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  fullMapClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  fullMapTitle: {
+    ...typography.headline,
+    color: colors.text,
+    fontSize: 16,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  fullMapStats: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  fullMapStat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  fullMapStatValue: {
+    ...typography.headline,
+    color: colors.text,
+  },
+  fullMapStatLabel: {
+    ...typography.label,
+    color: colors.muted,
   },
   calendarBackdrop: {
     flex: 1,
