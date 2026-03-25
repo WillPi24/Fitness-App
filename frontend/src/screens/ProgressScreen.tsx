@@ -13,13 +13,17 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AttemptSelector } from '../components/AttemptSelector';
 import { Card } from '../components/Card';
+import { CollapsibleSection } from '../components/CollapsibleSection';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ExerciseDetailModal } from '../components/ExerciseDetailModal';
 import { LineGraph } from '../components/LineGraph';
+import { MeetSimulator } from '../components/MeetSimulator';
+import { RacePredictor } from '../components/RacePredictor';
 import { EXERCISE_OPTIONS } from '../data/exercises';
 import { useRunStore } from '../store/runStore';
-import { useUserStore, toDisplayWeight } from '../store/userStore';
+import { useUserStore, useFeatureEnabled, toDisplayWeight } from '../store/userStore';
 import { estimateOneRepMax, useWorkoutStore } from '../store/workoutStore';
 import { colors, spacing, typography } from '../theme';
 
@@ -46,9 +50,11 @@ type WorkoutSectionKey =
   | 'sets'
   | 'workouts'
   | 'strength'
-  | 'muscles';
+  | 'muscles'
+  | 'meetSim'
+  | 'attemptSelector';
 
-type CardioSectionKey = 'cardioSnapshot' | 'cardioDistance' | 'cardioPace' | 'cardioFrequency';
+type CardioSectionKey = 'cardioSnapshot' | 'cardioDistance' | 'cardioPace' | 'cardioFrequency' | 'racePredictor';
 
 type SectionKey = WorkoutSectionKey | CardioSectionKey;
 
@@ -212,40 +218,7 @@ function inferBodyPartFromExerciseName(name: string): CanonicalBodyPart {
   return 'Other';
 }
 
-/* ─── Collapsible section ─── */
-
-type CollapsibleSectionProps = {
-  title: string;
-  summary: string;
-  expanded: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-};
-
-function CollapsibleSection({
-  title,
-  summary,
-  expanded,
-  onToggle,
-  children,
-}: CollapsibleSectionProps) {
-  return (
-    <Card>
-      <Pressable style={styles.sectionHeader} onPress={onToggle}>
-        <View style={styles.sectionHeaderText}>
-          <Text style={styles.sectionTitle}>{title}</Text>
-          <Text style={styles.sectionSummary}>{summary}</Text>
-        </View>
-        <Feather
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={20}
-          color={colors.muted}
-        />
-      </Pressable>
-      {expanded ? <View style={styles.sectionBody}>{children}</View> : null}
-    </Card>
-  );
-}
+/* CollapsibleSection imported from ../components/CollapsibleSection */
 
 /* ─── Pressable graph wrapper ─── */
 
@@ -345,6 +318,7 @@ export function ProgressScreen() {
   const { runs, seedDemoRuns, clearDemoRuns } = useRunStore();
   const { user } = useUserStore();
   const weightUnit = user?.weightUnit ?? 'kg';
+  const bodyweightKg = user?.bodyweightKg ?? 0;
   const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<ProgressTab>(
@@ -358,10 +332,13 @@ export function ProgressScreen() {
     workouts: false,
     strength: false,
     muscles: false,
+    meetSim: false,
+    attemptSelector: false,
     cardioSnapshot: true,
     cardioDistance: false,
     cardioPace: false,
     cardioFrequency: false,
+    racePredictor: false,
   });
 
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
@@ -1116,6 +1093,26 @@ export function ProgressScreen() {
                   onInteractionEnd={enableSwipe}
                 />
               </CollapsibleSection>
+
+              {useFeatureEnabled('meetSim') ? (
+                <MeetSimulator
+                  workouts={workouts}
+                  bodyweightKg={bodyweightKg}
+                  sex={user?.sex ?? 'male'}
+                  weightUnit={weightUnit}
+                  expanded={expandedSections.meetSim}
+                  onToggle={() => toggleSection('meetSim')}
+                />
+              ) : null}
+
+              {useFeatureEnabled('attemptSelector') ? (
+                <AttemptSelector
+                  workouts={workouts}
+                  weightUnit={weightUnit}
+                  expanded={expandedSections.attemptSelector}
+                  onToggle={() => toggleSection('attemptSelector')}
+                />
+              ) : null}
             </>
           )
         ) : (
@@ -1249,6 +1246,14 @@ export function ProgressScreen() {
                   onInteractionEnd={enableSwipe}
                 />
               </CollapsibleSection>
+
+              {useFeatureEnabled('racePredictor') ? (
+                <RacePredictor
+                  runs={runs}
+                  expanded={expandedSections.racePredictor}
+                  onToggle={() => toggleSection('racePredictor')}
+                />
+              ) : null}
             </>
           )
         )}
@@ -1311,30 +1316,6 @@ const styles = StyleSheet.create({
   },
   segmentButtonTextActive: {
     color: '#FFFFFF',
-  },
-
-  /* Sections */
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  sectionHeaderText: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  sectionTitle: {
-    ...typography.headline,
-    color: colors.text,
-  },
-  sectionSummary: {
-    ...typography.body,
-    color: colors.muted,
-  },
-  sectionBody: {
-    marginTop: spacing.md,
-    gap: spacing.md,
   },
 
   /* Snapshot */

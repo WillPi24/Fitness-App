@@ -27,6 +27,11 @@ type GPSKalmanState = {
   timestamp: number;
 };
 
+export type RunSplit = {
+  km: number;
+  timeMs: number;
+};
+
 export type RunSession = {
   id: string;
   date: string;
@@ -39,6 +44,7 @@ export type RunSession = {
   route: RunPoint[];
   segmentBreaks?: number[];
   manualDistanceMeters?: number;
+  splits?: RunSplit[];
 };
 
 export type ActiveRun = {
@@ -57,6 +63,7 @@ export type ActiveRun = {
   manualDistanceMeters?: number;
   lastUpdatedAt: number;
   kalmanState?: GPSKalmanState;
+  splits?: RunSplit[];
 };
 
 type RunContextValue = {
@@ -340,6 +347,8 @@ function appendLocations(activeRun: ActiveRun, locations: Location.LocationObjec
   const route = [...activeRun.route];
   let lastPoint = activeRun.lastPoint ?? route[route.length - 1];
   let kalmanState = activeRun.kalmanState ?? null;
+  const splits: RunSplit[] = activeRun.splits ? [...activeRun.splits] : [];
+  let nextKm = splits.length > 0 ? splits[splits.length - 1].km + 1 : 1;
 
   locations.forEach((location) => {
     if (!location?.coords) {
@@ -376,10 +385,23 @@ function appendLocations(activeRun: ActiveRun, locations: Location.LocationObjec
       kalmanState = result.nextState;
     }
 
+    const prevDistance = distanceMeters;
     if (lastPoint) {
       distanceMeters += haversineDistanceMeters(lastPoint, point);
     }
     route.push(point);
+
+    // Check for km boundary crossings
+    while (distanceMeters >= nextKm * 1000) {
+      const segDist = distanceMeters - prevDistance;
+      const overshoot = distanceMeters - nextKm * 1000;
+      const ratio = segDist > 0 ? (segDist - overshoot) / segDist : 1;
+      const dt = lastPoint ? point.timestamp - lastPoint.timestamp : 0;
+      const crossTime = (lastPoint ? lastPoint.timestamp : point.timestamp) + dt * ratio;
+      splits.push({ km: nextKm, timeMs: crossTime - activeRun.startedAt });
+      nextKm++;
+    }
+
     lastPoint = point;
   });
 
@@ -392,6 +414,7 @@ function appendLocations(activeRun: ActiveRun, locations: Location.LocationObjec
     route,
     lastPoint,
     distanceMeters,
+    splits,
     kalmanState: kalmanState ?? undefined,
     lastUpdatedAt: Date.now(),
   };
@@ -757,6 +780,7 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
       route: activeRun.route,
       segmentBreaks: activeRun.segmentBreaks,
       manualDistanceMeters: activeRun.manualDistanceMeters,
+      splits: activeRun.splits,
     };
 
     setRuns((prev) => [completed, ...prev].sort((a, b) => b.startedAt - a.startedAt));

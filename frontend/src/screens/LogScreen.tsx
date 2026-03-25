@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../components/Card';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { OneRepMaxCalc } from '../components/OneRepMaxCalc';
 import { WeeklyMuscleMap } from '../components/WeeklyMuscleMap';
 import type { CanonicalBodyPart } from '../components/WeeklyMuscleMap';
 import { EXERCISE_OPTIONS } from '../data/exercises';
@@ -27,7 +28,7 @@ import {
   WorkoutCompletionPreview,
   useWorkoutStore,
 } from '../store/workoutStore';
-import { useUserStore, toDisplayWeight, fromDisplayWeight } from '../store/userStore';
+import { useUserStore, useFeatureEnabled, toDisplayWeight, fromDisplayWeight } from '../store/userStore';
 import { colors, spacing, typography } from '../theme';
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -1335,6 +1336,10 @@ export function LogScreen() {
             </>
           )}
         </View>
+
+        {useFeatureEnabled('oneRepMaxCalc') ? (
+          <OneRepMaxCalc weightUnit={weightUnit} />
+        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );

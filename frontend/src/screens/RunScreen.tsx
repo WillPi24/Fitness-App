@@ -26,7 +26,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../components/Card';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { PaceKeeperControls } from '../components/PaceKeeperControls';
+import { SplitTimesDisplay } from '../components/SplitTimesDisplay';
 import { ActiveRun, RunPoint, RunSession, useRunStore } from '../store/runStore';
+import { useFeatureEnabled } from '../store/userStore';
 import { colors, spacing, typography } from '../theme';
 
 function splitRouteSegments(route: RunPoint[], segmentBreaks?: number[]): [number, number][][] {
@@ -179,6 +182,7 @@ export function RunScreen() {
     startedAt: number;
     route: RunPoint[];
     segmentBreaks?: number[];
+    splits?: Array<{ km: number; timeMs: number }>;
   } | null>(null);
   const [isStartingActivity, setIsStartingActivity] = useState(false);
 
@@ -333,6 +337,7 @@ export function RunScreen() {
         startedAt: activeRun.startedAt,
         route: activeRun.route,
         segmentBreaks: activeRun.segmentBreaks,
+        splits: activeRun.splits,
       };
       await finishRun();
       setCompletedSummary(snapshot);
@@ -515,6 +520,10 @@ export function RunScreen() {
                   </Pressable>
                 </Card>
 
+                {runType === 'outdoor' && useFeatureEnabled('paceKeeper') ? (
+                  <PaceKeeperControls runs={runs} activeRun={activeRun} elapsedMs={elapsedMs} />
+                ) : null}
+
                 <Card style={styles.statsCard}>
                   <View style={styles.statRow}>
                     <View>
@@ -565,6 +574,16 @@ export function RunScreen() {
                       : 'Enter your distance below.'}
                   </Text>
                 </Card>
+
+                {activeRun.type === 'outdoor' && useFeatureEnabled('paceKeeper') ? (
+                  <PaceKeeperControls runs={runs} activeRun={activeRun} elapsedMs={elapsedMs} />
+                ) : null}
+
+                {useFeatureEnabled('splitTimes') && activeRun.splits && activeRun.splits.length > 0 ? (
+                  <Card>
+                    <SplitTimesDisplay splits={activeRun.splits} isLive />
+                  </Card>
+                ) : null}
 
                 {activeRun.type !== 'indoor' ? (
                   <Card style={styles.mapCard}>
@@ -991,6 +1010,10 @@ export function RunScreen() {
                       ))}
                     </MapLibreGL.MapView>
                   </View>
+                ) : null}
+
+                {s.splits && s.splits.length > 0 ? (
+                  <SplitTimesDisplay splits={s.splits} />
                 ) : null}
 
                 <Pressable style={styles.summaryDoneButton} onPress={() => setCompletedSummary(null)}>

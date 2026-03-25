@@ -3,11 +3,14 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BodyMeasurements } from '../components/BodyMeasurements';
+import { BodyweightTracker } from '../components/BodyweightTracker';
 import { Card } from '../components/Card';
+import { ProgressPhotos } from '../components/ProgressPhotos';
 import { MoreToolsScreen } from './MoreToolsScreen';
 import { useCalorieStore, CalorieDay } from '../store/calorieStore';
 import { useRunStore } from '../store/runStore';
-import { TrainingFocus, UserSex, WeightUnit, toDisplayWeight, fromDisplayWeight, useUserStore } from '../store/userStore';
+import { TrainingFocus, UserSex, WeightUnit, toDisplayWeight, fromDisplayWeight, useUserStore, useFeatureEnabled } from '../store/userStore';
 import { useWorkoutStore } from '../store/workoutStore';
 import { colors, spacing, typography } from '../theme';
 import { exportToJSON, exportWorkoutsToCSV, exportRunsToCSV, exportCaloriesToCSV } from '../services/exportData';
@@ -419,6 +422,18 @@ export function AccountScreen() {
             <Feather name="chevron-right" size={20} color={colors.muted} />
           </Pressable>
         </Card>
+
+        {useFeatureEnabled('bodyweightTracker') ? (
+          <BodyweightTracker weightUnit={user.weightUnit} />
+        ) : null}
+
+        {useFeatureEnabled('bodyMeasurements') ? (
+          <BodyMeasurements weightUnit={user.weightUnit} />
+        ) : null}
+
+        {useFeatureEnabled('progressPhotos') ? (
+          <ProgressPhotos />
+        ) : null}
 
         <Card>
           <Text style={[styles.sectionTitle, { marginBottom: spacing.xs }]}>Data Management</Text>
