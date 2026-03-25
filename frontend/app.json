@@ -20,7 +20,7 @@
         "NSLocationAlwaysUsageDescription": "Allow Helm to track your run route even when the screen is locked.",
         "UIBackgroundModes": [
           "location",
-          "location"
+          "fetch"
         ]
       },
       "bundleIdentifier": "com.anonymous.FitnessApp"
@@ -57,7 +57,16 @@
           "cameraPermission": "Allow Helm to scan food barcodes for calorie tracking."
         }
       ],
-      "expo-location"
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Helm to track your run route even when the screen is locked.",
+          "locationAlwaysPermission": "Allow Helm to track your run route even when the screen is locked.",
+          "locationWhenInUsePermission": "Allow Helm to access your location to track outdoor runs.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ]
     ]
   }
 }

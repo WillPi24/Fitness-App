@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { snapRouteToRoads } from '../services/routeSnapping';
 
 export type RunPoint = {
   latitude: number;
@@ -502,10 +503,8 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
 
     await Location.startLocationUpdatesAsync(RUN_LOCATION_TASK, {
       accuracy: Location.Accuracy.BestForNavigation,
-      timeInterval: 3000,
-      distanceInterval: 3,
-      deferredUpdatesInterval: 3000,
-      deferredUpdatesDistance: 3,
+      timeInterval: 1000,
+      distanceInterval: 1,
       pausesUpdatesAutomatically: false,
       activityType: Location.ActivityType.Fitness,
       showsBackgroundLocationIndicator: true,
@@ -785,6 +784,19 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
 
     setRuns((prev) => [completed, ...prev].sort((a, b) => b.startedAt - a.startedAt));
     await persistActiveRun(null);
+
+    // Snap route to roads in the background (non-blocking)
+    if (completed.type === 'outdoor' && completed.route.length >= 2) {
+      snapRouteToRoads(completed.route).then((snapped) => {
+        if (snapped && snapped.length >= 2) {
+          setRuns((prev) =>
+            prev.map((r) =>
+              r.id === completed.id ? { ...r, route: snapped } : r,
+            ),
+          );
+        }
+      }).catch(() => {});
+    }
   }, [activeRun, persistActiveRun, stopLocationUpdates]);
 
   const discardRun = useCallback(async () => {
