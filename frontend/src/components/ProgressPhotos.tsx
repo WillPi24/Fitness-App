@@ -1,21 +1,25 @@
 import { Feather } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Dimensions,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
 import {
-  POSE_TAGS,
-  type PoseTag,
+  DEFAULT_POSES,
   type ProgressPhoto,
   savePhotoFile,
   useProgressPhotoStore,
@@ -26,12 +30,24 @@ import { Card } from './Card';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export function ProgressPhotos() {
-  const { photos, addPhoto, deletePhoto } = useProgressPhotoStore();
+  const { photos, addPhoto, deletePhoto, customPoses, addCustomPose, removeCustomPose, allPoses } = useProgressPhotoStore();
   const [captureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
-  const [selectedPose, setSelectedPose] = useState<PoseTag>('Front Relaxed');
+  const [selectedPose, setSelectedPose] = useState(DEFAULT_POSES[0] as string);
+  const [customPoseInput, setCustomPoseInput] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [selectedPoseFilter, setSelectedPoseFilter] = useState<string | null>(null);
+
+  const filteredPhotos = useMemo(
+    () => selectedPoseFilter
+      ? [...photos].filter((p) => p.pose === selectedPoseFilter).sort((a, b) => b.timestamp - a.timestamp)
+      : [],
+    [photos, selectedPoseFilter],
+  );
 
   // Comparison state
   const [compareMode, setCompareMode] = useState(false);
@@ -44,10 +60,15 @@ export function ProgressPhotos() {
 
   const handleTakePhoto = async () => {
     if (!cameraRef.current) return;
-    const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
-    if (photo?.uri) {
-      const savedUri = await savePhotoFile(photo.uri);
-      setCapturedUri(savedUri);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+      if (photo?.uri) {
+        const savedUri = await savePhotoFile(photo.uri);
+        setCapturedUri(savedUri);
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      Alert.alert('Camera error', msg);
     }
   };
 
@@ -107,80 +128,182 @@ export function ProgressPhotos() {
 
   return (
     <Card>
-      <View style={styles.header}>
-        <Text style={styles.title}>Progress Photos</Text>
-        <View style={styles.headerActions}>
-          {photos.length >= 2 ? (
-            <Pressable style={styles.actionButton} onPress={compareMode ? () => setCompareMode(false) : startCompare}>
-              <Text style={styles.actionText}>{compareMode ? 'Cancel' : 'Compare'}</Text>
-            </Pressable>
-          ) : null}
-          <Pressable style={styles.addButton} onPress={handleOpenCapture}>
-            <Feather name="camera" size={18} color={colors.accent} />
+      <View style={styles.cardRow}>
+        <View style={styles.cardTextCol}>
+          <Text style={styles.title}>Progress Photos</Text>
+          <Pressable style={styles.viewButton} onPress={() => setGalleryOpen(true)}>
+            <Text style={styles.viewButtonText}>View Photos</Text>
+            <Feather name="chevron-right" size={16} color={colors.accent} />
           </Pressable>
         </View>
+        <Pressable style={styles.addButton} onPress={handleOpenCapture}>
+          <Feather name="camera" size={26} color={colors.accent} />
+        </Pressable>
       </View>
 
-      {compareMode ? (
-        <Text style={styles.compareHint}>
-          Select 2 photos to compare ({comparePhotos.length}/2)
-          {comparePhotos.length === 2 ? (
-            <Text onPress={viewComparison} style={{ color: colors.accent }}> — View</Text>
-          ) : null}
-        </Text>
-      ) : null}
+      {/* Gallery Modal */}
+      <Modal visible={galleryOpen} animationType="slide" onRequestClose={() => { setGalleryOpen(false); setSelectedPoseFilter(null); setCompareMode(false); }}>
+        <View style={styles.galleryContainer}>
+          <View style={styles.galleryHeader}>
+            <Pressable onPress={() => {
+              if (selectedPoseFilter) {
+                setSelectedPoseFilter(null);
+                setCompareMode(false);
+              } else {
+                setGalleryOpen(false);
+                setCompareMode(false);
+              }
+            }}>
+              <Feather name="arrow-left" size={24} color={colors.text} />
+            </Pressable>
+            <Text style={styles.galleryTitle}>{selectedPoseFilter ?? 'Progress Photos'}</Text>
+            <View style={{ width: 24 }} />
+          </View>
 
-      {sorted.length === 0 ? (
-        <Text style={styles.empty}>No photos yet. Tap the camera to start tracking your progress.</Text>
-      ) : (
-        <FlatList
-          data={sorted}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.timeline}
-          renderItem={({ item }) => {
-            const isSelected = comparePhotos.some((p) => p.id === item.id);
-            return (
-              <Pressable
-                style={[styles.photoCard, isSelected && styles.photoCardSelected]}
-                onPress={() => compareMode ? handlePhotoTap(item) : null}
-                onLongPress={() => deletePhoto(item.id)}
-              >
-                <Image source={{ uri: item.uri }} style={styles.photoImage} />
-                <Text style={styles.photoDate}>{item.date}</Text>
-                <Text style={styles.photoPose}>{item.pose}</Text>
-              </Pressable>
-            );
-          }}
-        />
-      )}
+          {selectedPoseFilter === null ? (
+            // Pose category list
+            sorted.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Feather name="image" size={48} color={colors.muted} />
+                <Text style={styles.empty}>No photos yet. Tap the camera to start tracking your progress.</Text>
+              </View>
+            ) : (
+              <ScrollView contentContainerStyle={styles.poseListContainer}>
+                {allPoses.map((pose) => {
+                  const posePhotos = photos.filter((p) => p.pose === pose);
+                  if (posePhotos.length === 0) return null;
+                  const latest = posePhotos.reduce((a, b) => a.timestamp > b.timestamp ? a : b);
+                  return (
+                    <Pressable
+                      key={pose}
+                      style={styles.poseRow}
+                      onPress={() => setSelectedPoseFilter(pose)}
+                    >
+                      <Image source={{ uri: latest.uri }} style={styles.poseThumbnail} />
+                      <View style={styles.poseInfo}>
+                        <Text style={styles.poseName}>{pose}</Text>
+                        <Text style={styles.poseCount}>{posePhotos.length} photo{posePhotos.length !== 1 ? 's' : ''}</Text>
+                      </View>
+                      <Feather name="chevron-right" size={20} color={colors.muted} />
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )
+          ) : (
+            // Photos for selected pose
+            <>
+              {filteredPhotos.length >= 2 ? (
+                <View style={styles.galleryActions}>
+                  <Pressable style={styles.actionButton} onPress={compareMode ? () => setCompareMode(false) : startCompare}>
+                    <Text style={styles.actionText}>{compareMode ? 'Cancel' : 'Compare'}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              {compareMode ? (
+                <Text style={styles.compareHint}>
+                  Select 2 photos to compare ({comparePhotos.length}/2)
+                  {comparePhotos.length === 2 ? (
+                    <Text onPress={viewComparison} style={{ color: colors.accent }}> — View</Text>
+                  ) : null}
+                </Text>
+              ) : null}
+
+              <FlatList
+                data={filteredPhotos}
+                numColumns={3}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.photoGrid}
+                renderItem={({ item }) => {
+                  const isSelected = comparePhotos.some((p) => p.id === item.id);
+                  return (
+                    <Pressable
+                      style={[styles.photoCard, isSelected && styles.photoCardSelected]}
+                      onPress={() => compareMode ? handlePhotoTap(item) : null}
+                      onLongPress={() => deletePhoto(item.id)}
+                    >
+                      <Image source={{ uri: item.uri }} style={styles.photoImage} />
+                      <Text style={styles.photoDate}>{item.date}</Text>
+                    </Pressable>
+                  );
+                }}
+              />
+            </>
+          )}
+        </View>
+      </Modal>
 
       {/* Capture Modal */}
       <Modal visible={captureModalOpen} animationType="slide" onRequestClose={() => setCaptureModalOpen(false)}>
         <View style={styles.captureContainer}>
           {capturedUri ? (
-            // Preview + pose selection
-            <View style={styles.previewContainer}>
+            <KeyboardAvoidingView style={styles.previewContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
               <Image source={{ uri: capturedUri }} style={styles.previewImage} />
               <Text style={styles.poseLabel}>Tag this photo</Text>
-              <FlatList
-                data={POSE_TAGS}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(item) => item}
-                contentContainerStyle={styles.poseList}
-                renderItem={({ item }) => (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.poseList} style={styles.poseScroll}>
+                {allPoses.map((pose) => (
                   <Pressable
-                    style={[styles.poseChip, selectedPose === item && styles.poseChipActive]}
-                    onPress={() => setSelectedPose(item)}
+                    key={pose}
+                    style={[styles.poseChip, selectedPose === pose && styles.poseChipActive]}
+                    onPress={() => setSelectedPose(pose)}
+                    onLongPress={() => {
+                      if (customPoses.includes(pose)) {
+                        Alert.alert('Remove pose?', `Delete "${pose}" from your poses?`, [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Remove', style: 'destructive', onPress: () => removeCustomPose(pose) },
+                        ]);
+                      }
+                    }}
                   >
-                    <Text style={[styles.poseChipText, selectedPose === item && styles.poseChipTextActive]}>
-                      {item}
+                    <Text style={[styles.poseChipText, selectedPose === pose && styles.poseChipTextActive]}>
+                      {pose}
                     </Text>
                   </Pressable>
-                )}
-              />
+                ))}
+                <Pressable
+                  style={[styles.poseChip, styles.poseChipAdd]}
+                  onPress={() => setShowCustomInput(true)}
+                >
+                  <Text style={styles.poseChipAddText}>+ Custom</Text>
+                </Pressable>
+              </ScrollView>
+              {showCustomInput ? (
+                <View style={styles.customInputRow}>
+                  <TextInput
+                    style={styles.customInput}
+                    value={customPoseInput}
+                    onChangeText={setCustomPoseInput}
+                    placeholder="Pose name"
+                    placeholderTextColor={colors.muted}
+                    autoFocus
+                    onSubmitEditing={() => {
+                      if (customPoseInput.trim()) {
+                        addCustomPose(customPoseInput);
+                        setSelectedPose(customPoseInput.trim());
+                        setCustomPoseInput('');
+                        setShowCustomInput(false);
+                      }
+                    }}
+                  />
+                  <Pressable
+                    style={styles.customInputSave}
+                    onPress={() => {
+                      if (customPoseInput.trim()) {
+                        addCustomPose(customPoseInput);
+                        setSelectedPose(customPoseInput.trim());
+                        setCustomPoseInput('');
+                        setShowCustomInput(false);
+                      }
+                    }}
+                  >
+                    <Text style={styles.customInputSaveText}>Add</Text>
+                  </Pressable>
+                  <Pressable onPress={() => { setShowCustomInput(false); setCustomPoseInput(''); }}>
+                    <Text style={styles.customInputCancel}>Cancel</Text>
+                  </Pressable>
+                </View>
+              ) : null}
               <View style={styles.previewActions}>
                 <Pressable style={styles.retakeButton} onPress={() => setCapturedUri(null)}>
                   <Text style={styles.retakeText}>Retake</Text>
@@ -189,9 +312,8 @@ export function ProgressPhotos() {
                   <Text style={styles.saveText}>Save</Text>
                 </Pressable>
               </View>
-            </View>
+            </KeyboardAvoidingView>
           ) : (
-            // Camera view
             <View style={styles.cameraContainer}>
               {cameraPermission?.granted ? (
                 <CameraView ref={cameraRef} style={styles.camera} facing="back" />
@@ -241,19 +363,58 @@ export function ProgressPhotos() {
 }
 
 const styles = StyleSheet.create({
-  header: {
+  cardRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  cardTextCol: {
+    flex: 1,
   },
   title: {
     ...typography.headline,
     color: colors.text,
   },
-  headerActions: {
+  addButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  viewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  viewButtonText: {
+    ...typography.body,
+    color: colors.accent,
+  },
+  // Gallery modal
+  galleryContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingTop: 60,
+    padding: spacing.lg,
+  },
+  galleryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  galleryTitle: {
+    ...typography.headline,
+    color: colors.text,
+  },
+  galleryActions: {
     flexDirection: 'row',
     gap: spacing.sm,
-    alignItems: 'center',
+    marginBottom: spacing.xs,
   },
   actionButton: {
     paddingHorizontal: spacing.sm,
@@ -267,32 +428,63 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontSize: 12,
   },
-  addButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   compareHint: {
     ...typography.body,
     color: colors.muted,
     fontSize: 13,
+    marginBottom: spacing.xs,
+  },
+  poseListContainer: {
+    gap: spacing.xs,
+  },
+  poseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  poseThumbnail: {
+    width: 56,
+    height: 56,
+    borderRadius: 10,
+    backgroundColor: colors.border,
+  },
+  poseInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  poseName: {
+    ...typography.body,
+    color: colors.text,
+    fontWeight: '600',
+  },
+  poseCount: {
+    ...typography.label,
+    color: colors.muted,
+    fontSize: 12,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
   },
   empty: {
     ...typography.body,
     color: colors.muted,
+    textAlign: 'center',
   },
-  timeline: {
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
+  photoGrid: {
+    gap: spacing.xs,
   },
   photoCard: {
-    width: 120,
+    flex: 1 / 3,
+    margin: 2,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderWidth: 2,
     borderColor: 'transparent',
   },
@@ -300,14 +492,14 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
   },
   photoImage: {
-    width: 120,
-    height: 160,
+    width: '100%',
+    aspectRatio: 3 / 4,
     backgroundColor: colors.border,
   },
   photoDate: {
     ...typography.body,
     color: colors.text,
-    fontSize: 12,
+    fontSize: 11,
     paddingHorizontal: spacing.xs,
     paddingTop: 4,
   },
@@ -394,8 +586,52 @@ const styles = StyleSheet.create({
     ...typography.label,
     color: colors.muted,
   },
+  poseScroll: {
+    flexGrow: 0,
+  },
   poseList: {
     gap: spacing.xs,
+  },
+  poseChipAdd: {
+    borderStyle: 'dashed',
+    borderColor: colors.accent,
+  },
+  poseChipAddText: {
+    ...typography.body,
+    color: colors.accent,
+    fontSize: 13,
+  },
+  customInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  customInput: {
+    ...typography.body,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: colors.background,
+    flex: 1,
+  },
+  customInputSave: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.accent,
+  },
+  customInputSaveText: {
+    ...typography.body,
+    color: '#fff',
+    fontSize: 13,
+  },
+  customInputCancel: {
+    ...typography.body,
+    color: colors.muted,
+    fontSize: 13,
   },
   poseChip: {
     paddingHorizontal: spacing.sm,
@@ -420,6 +656,7 @@ const styles = StyleSheet.create({
   previewActions: {
     flexDirection: 'row',
     gap: spacing.sm,
+    marginBottom: 24,
   },
   retakeButton: {
     flex: 1,

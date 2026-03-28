@@ -1,33 +1,24 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { File, Paths } from 'expo-file-system';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 const PHOTOS_KEY = 'fitnessapp.progressPhotos.v1';
-const PHOTOS_DIR = Paths.document + '/progress-photos/';
+const CUSTOM_POSES_KEY = 'fitnessapp.customPoses.v1';
 
-export type PoseTag =
-  | 'Front Relaxed'
-  | 'Back Relaxed'
-  | 'Side Left'
-  | 'Side Right'
-  | 'Front Double Bicep'
-  | 'Back Double Bicep'
-  | 'Custom';
-
-export const POSE_TAGS: PoseTag[] = [
-  'Front Relaxed',
-  'Back Relaxed',
-  'Side Left',
-  'Side Right',
-  'Front Double Bicep',
-  'Back Double Bicep',
-  'Custom',
-];
+export const DEFAULT_POSES = [
+  'Front Double Biceps',
+  'Front Lat Spread',
+  'Side Chest',
+  'Back Double Biceps',
+  'Back Lat Spread',
+  'Side Triceps',
+  'Abdominals and Thighs',
+  'Most Muscular',
+] as const;
 
 export type ProgressPhoto = {
   id: string;
   date: string;
-  pose: PoseTag;
+  pose: string;
   uri: string;
   timestamp: number;
 };
@@ -36,6 +27,10 @@ type ProgressPhotoContextValue = {
   photos: ProgressPhoto[];
   addPhoto: (photo: Omit<ProgressPhoto, 'id' | 'timestamp'>) => void;
   deletePhoto: (id: string) => Promise<void>;
+  customPoses: string[];
+  addCustomPose: (name: string) => void;
+  removeCustomPose: (name: string) => void;
+  allPoses: string[];
   isLoading: boolean;
 };
 
@@ -57,37 +52,33 @@ function isProgressPhoto(value: unknown): value is ProgressPhoto {
   );
 }
 
-async function ensureDir() {
-  try {
-    const dir = new File(PHOTOS_DIR);
-    if (!dir.exists) {
-      dir.create();
-    }
-  } catch {}
-}
-
 export async function savePhotoFile(sourceUri: string): Promise<string> {
-  await ensureDir();
-  const filename = `${Date.now()}-${Math.floor(Math.random() * 10000)}.jpg`;
-  const destUri = PHOTOS_DIR + filename;
-  const source = new File(sourceUri);
-  source.copy(new File(destUri));
-  return destUri;
+  return sourceUri;
 }
 
 export function ProgressPhotoProvider({ children }: { children: React.ReactNode }) {
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
+  const [customPoses, setCustomPoses] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(PHOTOS_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
+        const [rawPhotos, rawPoses] = await Promise.all([
+          AsyncStorage.getItem(PHOTOS_KEY),
+          AsyncStorage.getItem(CUSTOM_POSES_KEY),
+        ]);
+        if (rawPhotos) {
+          const parsed = JSON.parse(rawPhotos);
           if (Array.isArray(parsed)) {
             setPhotos(parsed.filter(isProgressPhoto));
+          }
+        }
+        if (rawPoses) {
+          const parsed = JSON.parse(rawPoses);
+          if (Array.isArray(parsed)) {
+            setCustomPoses(parsed.filter((p: unknown) => typeof p === 'string'));
           }
         }
       } catch {}
@@ -101,6 +92,11 @@ export function ProgressPhotoProvider({ children }: { children: React.ReactNode 
     AsyncStorage.setItem(PHOTOS_KEY, JSON.stringify(photos)).catch(() => {});
   }, [photos]);
 
+  useEffect(() => {
+    if (!hasLoadedRef.current) return;
+    AsyncStorage.setItem(CUSTOM_POSES_KEY, JSON.stringify(customPoses)).catch(() => {});
+  }, [customPoses]);
+
   const addPhoto = useCallback((photo: Omit<ProgressPhoto, 'id' | 'timestamp'>) => {
     const entry: ProgressPhoto = {
       ...photo,
@@ -111,21 +107,30 @@ export function ProgressPhotoProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const deletePhoto = useCallback(async (id: string) => {
-    const photo = photos.find((p) => p.id === id);
-    if (photo) {
-      try {
-        const file = new File(photo.uri);
-        if (file.exists) {
-          file.delete();
-        }
-      } catch {}
-    }
     setPhotos((prev) => prev.filter((p) => p.id !== id));
-  }, [photos]);
+  }, []);
+
+  const addCustomPose = useCallback((name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setCustomPoses((prev) => {
+      if (prev.includes(trimmed) || (DEFAULT_POSES as readonly string[]).includes(trimmed)) return prev;
+      return [...prev, trimmed];
+    });
+  }, []);
+
+  const removeCustomPose = useCallback((name: string) => {
+    setCustomPoses((prev) => prev.filter((p) => p !== name));
+  }, []);
+
+  const allPoses = useMemo(
+    () => [...DEFAULT_POSES, ...customPoses],
+    [customPoses],
+  );
 
   const value = useMemo(
-    () => ({ photos, addPhoto, deletePhoto, isLoading }),
-    [photos, addPhoto, deletePhoto, isLoading],
+    () => ({ photos, addPhoto, deletePhoto, customPoses, addCustomPose, removeCustomPose, allPoses, isLoading }),
+    [photos, addPhoto, deletePhoto, customPoses, addCustomPose, removeCustomPose, allPoses, isLoading],
   );
 
   return (

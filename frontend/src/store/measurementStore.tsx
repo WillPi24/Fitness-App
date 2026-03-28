@@ -9,6 +9,7 @@ export type MeasurementType =
   | 'Chest'
   | 'Waist'
   | 'Hips'
+  | 'Glutes'
   | 'Left Quad'
   | 'Right Quad'
   | 'Left Calf'
@@ -20,6 +21,7 @@ export const MEASUREMENT_TYPES: MeasurementType[] = [
   'Chest',
   'Waist',
   'Hips',
+  'Glutes',
   'Shoulders',
   'Neck',
   'Left Arm',
