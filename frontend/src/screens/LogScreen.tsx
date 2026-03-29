@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -23,6 +23,7 @@ import { WeeklyMuscleMap } from '../components/WeeklyMuscleMap';
 import type { CanonicalBodyPart } from '../components/WeeklyMuscleMap';
 import { EXERCISE_OPTIONS } from '../data/exercises';
 import type { ExerciseOption } from '../data/exercises';
+import { useCustomExerciseStore } from '../store/customExerciseStore';
 import {
   DraftWorkout,
   WorkoutCompletionPreview,
@@ -67,7 +68,10 @@ function formatMonthYear(date: Date) {
 }
 
 function formatShortDate(date: Date) {
-  return `${weekDays[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`;
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yy = String(date.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
 }
 
 function formatTime(timestamp: number) {
@@ -227,6 +231,7 @@ export function LogScreen() {
   } = useWorkoutStore();
 
   const { user } = useUserStore();
+  const { customExercises, addCustomExercise, getCustomMuscleGroups } = useCustomExerciseStore();
   const weightUnit = user?.weightUnit ?? 'kg';
   const today = new Date();
   const todayIso = useMemo(() => formatISODate(today), [today]);
@@ -247,6 +252,8 @@ export function LogScreen() {
   const [templateEditorExercises, setTemplateEditorExercises] = useState<TemplateExerciseDraft[]>([
     createTemplateExerciseDraft(),
   ]);
+  const [musclePickerName, setMusclePickerName] = useState<string | null>(null);
+  const [musclePickerSelections, setMusclePickerSelections] = useState<CanonicalBodyPart[]>([]);
   const [completionPreview, setCompletionPreview] = useState<WorkoutCompletionPreview | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmMode, setConfirmMode] = useState<'complete' | 'discard' | null>(null);
@@ -275,6 +282,13 @@ export function LogScreen() {
     const start = startOfWeek(selectedDateObj);
     return Array.from({ length: 7 }, (_, index) => addDays(start, index));
   }, [selectedDateObj]);
+
+  const datesWithWorkouts = useMemo(() => {
+    const dates = new Set<string>();
+    workouts.forEach((w) => dates.add(w.date));
+    if (activeWorkout) dates.add(activeWorkout.date);
+    return dates;
+  }, [workouts, activeWorkout]);
 
   const earliestWorkoutDate = useMemo(() => {
     if (workouts.length === 0) {
@@ -331,14 +345,29 @@ export function LogScreen() {
       }
       lookup.set(option.name.trim().toLowerCase(), normalizedBodyPart);
     });
+    // Add custom exercises (primary muscle group used for the map)
+    customExercises.forEach((ce) => {
+      const key = ce.name.trim().toLowerCase();
+      if (!lookup.has(key)) {
+        lookup.set(key, ce.muscleGroups[0]);
+      }
+    });
     return lookup;
-  }, []);
+  }, [customExercises]);
 
   const weeklyBodyPartCounts = useMemo(() => {
     const counts: Partial<Record<CanonicalBodyPart, number>> = {};
     workoutsForSelectedWeek.forEach((workout) => {
       workout.exercises.forEach((exercise) => {
         const exerciseKey = exercise.name.trim().toLowerCase();
+        // Check custom exercises for multiple muscle groups
+        const customMuscles = getCustomMuscleGroups(exercise.name);
+        if (customMuscles) {
+          customMuscles.forEach((part) => {
+            counts[part] = (counts[part] ?? 0) + 1;
+          });
+          return;
+        }
         const bodyPart =
           exerciseBodyPartLookup.get(exerciseKey) ?? inferBodyPartFromExerciseName(exercise.name);
         if (!bodyPart) {
@@ -348,7 +377,7 @@ export function LogScreen() {
       });
     });
     return counts;
-  }, [workoutsForSelectedWeek, exerciseBodyPartLookup]);
+  }, [workoutsForSelectedWeek, exerciseBodyPartLookup, getCustomMuscleGroups]);
 
   const weeklyPersonalBests = useMemo(() => {
     return workoutsForSelectedWeek
@@ -371,17 +400,29 @@ export function LogScreen() {
 
   const elapsedMs = activeWorkout ? timerTick - activeWorkout.startedAt : 0;
 
+  const allExerciseOptions = useMemo(() => {
+    const customAsOptions: ExerciseOption[] = customExercises
+      .filter((ce) => !EXERCISE_OPTIONS.some((eo) => eo.name.toLowerCase() === ce.name.toLowerCase()))
+      .map((ce) => ({
+        name: ce.name,
+        bodyPart: ce.muscleGroups.map((g) => g.charAt(0).toUpperCase() + g.slice(1)).join(', '),
+        primaryFocus: 'Custom',
+        equipment: 'Custom',
+      }));
+    return [...EXERCISE_OPTIONS, ...customAsOptions];
+  }, [customExercises]);
+
   const filteredExercises = useMemo(() => {
     const query = exerciseSearch.trim().toLowerCase();
     if (!query) {
-      return EXERCISE_OPTIONS;
+      return allExerciseOptions;
     }
     const tokens = query.split(/\s+/).filter(Boolean);
-    return EXERCISE_OPTIONS.filter((option) => {
+    return allExerciseOptions.filter((option) => {
       const haystack = `${option.name} ${option.bodyPart} ${option.primaryFocus} ${option.equipment}`.toLowerCase();
       return tokens.every((token) => haystack.includes(token));
     });
-  }, [exerciseSearch]);
+  }, [exerciseSearch, allExerciseOptions]);
 
   const exerciseHistoryEntries = useMemo<ExerciseHistoryEntry[]>(() => {
     const targetExercise = normalizeExerciseName(exerciseHistoryExerciseName);
@@ -460,12 +501,64 @@ export function LogScreen() {
     closeExercisePicker();
   };
 
+  const musclePickerTargetRef = useRef(exercisePickerTarget);
+  musclePickerTargetRef.current = exercisePickerTarget;
+
   const handleUseCustomExercise = () => {
     const trimmed = exerciseSearch.trim();
-    if (!trimmed) {
+    if (!trimmed) return;
+
+    // If already a known custom exercise, just select it
+    const existing = customExercises.find((e) => e.name.toLowerCase() === trimmed.toLowerCase());
+    if (existing) {
+      handleSelectExercise(existing.name);
       return;
     }
-    handleSelectExercise(trimmed);
+
+    // Close exercise picker first, then show muscle group picker
+    setExercisePickerOpen(false);
+    setMusclePickerName(trimmed);
+    setMusclePickerSelections([]);
+  };
+
+  const handleMusclePickerToggle = (part: CanonicalBodyPart) => {
+    setMusclePickerSelections((prev) => {
+      if (prev.includes(part)) return prev.filter((p) => p !== part);
+      if (prev.length >= 2) return [prev[1], part];
+      return [...prev, part];
+    });
+  };
+
+  const handleMusclePickerConfirm = () => {
+    if (!musclePickerName || musclePickerSelections.length === 0) return;
+    const target = musclePickerTargetRef.current;
+    addCustomExercise({
+      name: musclePickerName,
+      muscleGroups: musclePickerSelections as [CanonicalBodyPart, ...CanonicalBodyPart[]],
+    });
+
+    // Apply the exercise to the original target
+    if (target) {
+      if (target.type === 'new') {
+        addExercise(selectedDate, musclePickerName);
+      } else if (target.type === 'edit') {
+        updateExerciseName(target.exerciseId, musclePickerName);
+      } else {
+        handleUpdateTemplateExercise(target.templateExerciseId, musclePickerName);
+      }
+    }
+
+    setMusclePickerName(null);
+    setMusclePickerSelections([]);
+    setExercisePickerTarget(null);
+    setExerciseSearch('');
+  };
+
+  const handleMusclePickerCancel = () => {
+    setMusclePickerName(null);
+    setMusclePickerSelections([]);
+    // Re-open the exercise picker
+    setExercisePickerOpen(true);
   };
 
   const handleStartWorkout = () => {
@@ -873,6 +966,7 @@ export function LogScreen() {
                 placeholder="Search by name, muscle, or equipment"
                 placeholderTextColor={colors.muted}
               />
+              <ScrollView contentContainerStyle={styles.optionList} keyboardShouldPersistTaps="handled">
               {exerciseSearch.trim() ? (
                 <Pressable style={styles.customOption} onPress={handleUseCustomExercise}>
                   <Text style={styles.customOptionText}>
@@ -880,7 +974,6 @@ export function LogScreen() {
                   </Text>
                 </Pressable>
               ) : null}
-              <ScrollView contentContainerStyle={styles.optionList} keyboardShouldPersistTaps="handled">
                 {filteredExercises.length === 0 ? (
                   <Text style={styles.emptyOptions}>
                     No matches. Try a different search or add a custom exercise.
@@ -891,6 +984,48 @@ export function LogScreen() {
               </ScrollView>
             </View>
           </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      <Modal visible={musclePickerName !== null} transparent animationType="fade" onRequestClose={handleMusclePickerCancel}>
+        <View style={styles.confirmBackdrop}>
+          <View style={styles.confirmModal}>
+            <Text style={styles.modalTitle}>What does this target?</Text>
+            <Text style={styles.sectionSubtitle}>
+              Select up to 2 muscle groups for "{musclePickerName}"
+            </Text>
+            <View style={styles.musclePickerGrid}>
+              {(['chest', 'back', 'shoulders', 'quads', 'hamsGlutes', 'calves', 'triceps', 'biceps', 'forearms', 'absCore'] as CanonicalBodyPart[]).map((part) => {
+                const selected = musclePickerSelections.includes(part);
+                const label: Record<CanonicalBodyPart, string> = {
+                  chest: 'Chest', back: 'Back', shoulders: 'Shoulders', quads: 'Quads',
+                  hamsGlutes: 'Hams/Glutes', calves: 'Calves', triceps: 'Triceps',
+                  biceps: 'Biceps', forearms: 'Forearms', absCore: 'Abs/Core',
+                };
+                return (
+                  <Pressable
+                    key={part}
+                    style={[styles.musclePickerChip, selected && styles.musclePickerChipSelected]}
+                    onPress={() => handleMusclePickerToggle(part)}
+                  >
+                    <Text style={[styles.musclePickerChipText, selected && styles.musclePickerChipTextSelected]}>
+                      {label[part]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Pressable
+              style={[styles.confirmButton, musclePickerSelections.length === 0 && styles.confirmButtonDisabled]}
+              onPress={handleMusclePickerConfirm}
+              disabled={musclePickerSelections.length === 0}
+            >
+              <Text style={styles.confirmButtonText}>Add Exercise</Text>
+            </Pressable>
+            <Pressable style={styles.cancelButton} onPress={handleMusclePickerCancel}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </Pressable>
+          </View>
         </View>
       </Modal>
 
@@ -1105,11 +1240,11 @@ export function LogScreen() {
             <Text style={styles.sectionSubtitle}>
               Start from a saved template, or begin with an empty workout.
             </Text>
-            <Pressable style={styles.confirmButton} onPress={handleStartWithTemplate}>
-              <Text style={styles.confirmButtonText}>Use template</Text>
-            </Pressable>
             <Pressable style={styles.secondaryButton} onPress={handleStartWithoutTemplate}>
-              <Text style={styles.secondaryButtonText}>Start Without</Text>
+              <Text style={styles.secondaryButtonText}>Start Workout</Text>
+            </Pressable>
+            <Pressable style={styles.confirmButton} onPress={handleStartWithTemplate}>
+              <Text style={styles.confirmButtonText}>Use Template</Text>
             </Pressable>
             <Pressable style={styles.cancelButton} onPress={handleCloseStartWorkoutChoice}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -1178,6 +1313,7 @@ export function LogScreen() {
               const iso = formatISODate(date);
               const isToday = iso === todayIso;
               const isSelected = iso === selectedDate;
+              const hasData = !isSelected && !isToday && datesWithWorkouts.has(iso);
               return (
                 <Pressable
                   key={iso}
@@ -1185,6 +1321,7 @@ export function LogScreen() {
                     styles.weekDay,
                     isSelected ? styles.weekDaySelected : null,
                     isToday && !isSelected ? styles.weekDayToday : null,
+                    hasData ? styles.weekDayHasData : null,
                   ]}
                   onPress={() => setSelectedDate(iso)}
                 >
@@ -1410,6 +1547,9 @@ const styles = StyleSheet.create({
   weekDayToday: {
     borderColor: colors.accent,
   },
+  weekDayHasData: {
+    backgroundColor: colors.accentSoft,
+  },
   weekDayLabel: {
     ...typography.label,
     color: colors.muted,
@@ -1613,14 +1753,18 @@ const styles = StyleSheet.create({
   exerciseName: {
     ...typography.body,
     color: colors.text,
-    flex: 1,
   },
   exerciseActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   exerciseNameButton: {
-    flex: 1,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 20,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
   },
   exerciseActionButton: {
     borderWidth: 1,
@@ -1998,6 +2142,35 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: 999,
     alignItems: 'center',
+  },
+  confirmButtonDisabled: {
+    opacity: 0.4,
+  },
+  musclePickerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginVertical: spacing.sm,
+  },
+  musclePickerChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  musclePickerChipSelected: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  musclePickerChipText: {
+    ...typography.body,
+    color: colors.text,
+    fontSize: 14,
+  },
+  musclePickerChipTextSelected: {
+    color: colors.accent,
   },
   confirmButtonText: {
     ...typography.label,

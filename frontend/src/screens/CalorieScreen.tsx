@@ -71,7 +71,10 @@ function formatMonthYear(date: Date) {
 }
 
 function formatShortDate(date: Date) {
-  return `${weekDays[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`;
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yy = String(date.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
 }
 
 function monthsBetween(start: Date, end: Date) {
@@ -219,6 +222,14 @@ export function CalorieScreen() {
     const start = startOfWeek(selectedDateObj);
     return Array.from({ length: 7 }, (_, index) => addDays(start, index));
   }, [selectedDateObj]);
+
+  const datesWithCalories = useMemo(() => {
+    const dates = new Set<string>();
+    calorieDays.forEach((d) => {
+      if (d.meals.length > 0) dates.add(d.date);
+    });
+    return dates;
+  }, [calorieDays]);
 
   const earliestCalorieDate = useMemo(() => {
     if (calorieDays.length === 0) {
@@ -2153,6 +2164,7 @@ export function CalorieScreen() {
               const iso = formatISODate(date);
               const isToday = iso === todayIso;
               const isSelected = iso === selectedDate;
+              const hasData = !isSelected && !isToday && datesWithCalories.has(iso);
               return (
                 <Pressable
                   key={iso}
@@ -2160,6 +2172,7 @@ export function CalorieScreen() {
                     styles.weekDay,
                     isSelected ? styles.weekDaySelected : null,
                     isToday && !isSelected ? styles.weekDayToday : null,
+                    hasData ? styles.weekDayHasData : null,
                   ]}
                   onPress={() => setSelectedDate(iso)}
                 >
@@ -2495,6 +2508,9 @@ const styles = StyleSheet.create({
   },
   weekDayToday: {
     borderColor: colors.accent,
+  },
+  weekDayHasData: {
+    backgroundColor: colors.accentSoft,
   },
   weekDayLabel: {
     ...typography.label,

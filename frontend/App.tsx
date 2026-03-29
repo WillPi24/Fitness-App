@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { AccountScreen } from './src/screens/AccountScreen';
 import { BodyweightProvider } from './src/store/bodyweightStore';
+import { CustomExerciseProvider } from './src/store/customExerciseStore';
 import { MeasurementProvider } from './src/store/measurementStore';
 import { ProgressPhotoProvider } from './src/store/progressPhotoStore';
 import { BodyInfoScreen } from './src/screens/BodyInfoScreen';
@@ -153,15 +154,17 @@ function AppContent() {
   return (
     <RunProvider>
       <WorkoutProvider>
-        <CalorieProvider>
-          <BodyweightProvider>
-            <MeasurementProvider>
-              <ProgressPhotoProvider>
-                <MainApp />
-              </ProgressPhotoProvider>
-            </MeasurementProvider>
-          </BodyweightProvider>
-        </CalorieProvider>
+        <CustomExerciseProvider>
+          <CalorieProvider>
+            <BodyweightProvider>
+              <MeasurementProvider>
+                <ProgressPhotoProvider>
+                  <MainApp />
+                </ProgressPhotoProvider>
+              </MeasurementProvider>
+            </BodyweightProvider>
+          </CalorieProvider>
+        </CustomExerciseProvider>
       </WorkoutProvider>
     </RunProvider>
   );

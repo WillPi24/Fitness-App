@@ -256,6 +256,12 @@ export function RunScreen() {
     const start = startOfWeek(selectedDateObj);
     return Array.from({ length: 7 }, (_, index) => addDays(start, index));
   }, [selectedDateObj]);
+  const datesWithRuns = useMemo(() => {
+    const dates = new Set<string>();
+    runs.forEach((r) => dates.add(r.date));
+    return dates;
+  }, [runs]);
+
   const earliestRunDate = useMemo(() => {
     if (runs.length === 0) {
       return selectedDate;
@@ -424,6 +430,7 @@ export function RunScreen() {
               const iso = formatISODate(date);
               const isToday = iso === todayIso;
               const isSelected = iso === selectedDate;
+              const hasData = !isSelected && !isToday && datesWithRuns.has(iso);
               return (
                 <Pressable
                   key={iso}
@@ -431,6 +438,7 @@ export function RunScreen() {
                     styles.weekDay,
                     isSelected ? styles.weekDaySelected : null,
                     isToday && !isSelected ? styles.weekDayToday : null,
+                    hasData ? styles.weekDayHasData : null,
                   ]}
                   onPress={() => setSelectedDate(iso)}
                 >
@@ -1185,6 +1193,9 @@ const styles = StyleSheet.create({
   },
   weekDayToday: {
     borderColor: colors.accent,
+  },
+  weekDayHasData: {
+    backgroundColor: colors.accentSoft,
   },
   weekDayLabel: {
     ...typography.label,
