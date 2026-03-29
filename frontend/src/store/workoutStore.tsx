@@ -92,7 +92,7 @@ type WorkoutContextValue = {
   updateWorkoutTemplate: (id: string, name: string, exercises: WorkoutTemplateExerciseInput[]) => void;
   deleteWorkoutTemplate: (id: string) => void;
   discardActiveWorkout: () => void;
-  addExercise: (date: string, name: string) => void;
+  addExercise: (date: string, name: string, defaultWeight?: string) => void;
   updateExerciseName: (exerciseId: string, name: string) => void;
   removeExercise: (exerciseId: string) => void;
   addSet: (exerciseId: string) => void;
@@ -127,19 +127,19 @@ function normalizeExercise(name: string) {
   return name.trim().toLowerCase();
 }
 
-function createDraftSet(): DraftWorkoutSet {
+function createDraftSet(defaultWeight?: string): DraftWorkoutSet {
   return {
     id: generateId(),
-    weight: '',
+    weight: defaultWeight ?? '',
     reps: '',
   };
 }
 
-function createDraftExercise(name: string): DraftWorkoutExercise {
+function createDraftExercise(name: string, defaultWeight?: string): DraftWorkoutExercise {
   return {
     id: generateId(),
     name,
-    sets: [createDraftSet()],
+    sets: [createDraftSet(defaultWeight)],
   };
 }
 
@@ -763,7 +763,7 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     setError(null);
   };
 
-  const addExercise = (date: string, name: string) => {
+  const addExercise = (date: string, name: string, defaultWeight?: string) => {
     const trimmed = name.trim();
     if (!trimmed) {
       setError('Exercise name is required.');
@@ -779,7 +779,7 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
       const draft = prev ?? createDraftWorkout(date);
       return {
         ...draft,
-        exercises: [...draft.exercises, createDraftExercise(trimmed)],
+        exercises: [...draft.exercises, createDraftExercise(trimmed, defaultWeight)],
       };
     });
   };
@@ -817,11 +817,11 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
       }
       return {
         ...prev,
-        exercises: prev.exercises.map((exercise) =>
-          exercise.id === exerciseId
-            ? { ...exercise, sets: [...exercise.sets, createDraftSet()] }
-            : exercise
-        ),
+        exercises: prev.exercises.map((exercise) => {
+          if (exercise.id !== exerciseId) return exercise;
+          const lastSet = exercise.sets[exercise.sets.length - 1];
+          return { ...exercise, sets: [...exercise.sets, createDraftSet(lastSet?.weight)] };
+        }),
       };
     });
   };

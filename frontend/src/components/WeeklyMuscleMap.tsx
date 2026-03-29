@@ -9,7 +9,8 @@ export type CanonicalBodyPart =
   | 'back'
   | 'shoulders'
   | 'quads'
-  | 'hamsGlutes'
+  | 'hamstrings'
+  | 'glutes'
   | 'calves'
   | 'triceps'
   | 'biceps'
@@ -26,7 +27,8 @@ const BODY_PART_LABELS: Record<CanonicalBodyPart, string> = {
   back: 'Back',
   shoulders: 'Shoulders',
   quads: 'Quads',
-  hamsGlutes: 'Hamstrings/Glutes',
+  hamstrings: 'Hamstrings',
+  glutes: 'Glutes',
   calves: 'Calves',
   triceps: 'Triceps',
   biceps: 'Biceps',
@@ -42,7 +44,8 @@ const MALE_MASKS: Record<CanonicalBodyPart, number> = {
   back: require('../../assets/muscle-masks/male/back.png'),
   shoulders: require('../../assets/muscle-masks/male/shoulders.png'),
   quads: require('../../assets/muscle-masks/male/quads.png'),
-  hamsGlutes: require('../../assets/muscle-masks/male/hamsGlutes.png'),
+  hamstrings: require('../../assets/muscle-masks/male/hamstrings.png'),
+  glutes: require('../../assets/muscle-masks/male/glutes.png'),
   calves: require('../../assets/muscle-masks/male/calves.png'),
   triceps: require('../../assets/muscle-masks/male/triceps.png'),
   biceps: require('../../assets/muscle-masks/male/biceps.png'),
@@ -55,7 +58,8 @@ const FEMALE_MASKS: Record<CanonicalBodyPart, number> = {
   back: require('../../assets/muscle-masks/female/back.png'),
   shoulders: require('../../assets/muscle-masks/female/shoulders.png'),
   quads: require('../../assets/muscle-masks/female/quads.png'),
-  hamsGlutes: require('../../assets/muscle-masks/female/hamsGlutes.png'),
+  hamstrings: require('../../assets/muscle-masks/female/hamstrings.png'),
+  glutes: require('../../assets/muscle-masks/female/glutes.png'),
   calves: require('../../assets/muscle-masks/female/calves.png'),
   triceps: require('../../assets/muscle-masks/female/triceps.png'),
   biceps: require('../../assets/muscle-masks/female/biceps.png'),

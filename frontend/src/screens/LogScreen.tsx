@@ -104,11 +104,11 @@ const bodyPartAliases: Record<string, CanonicalBodyPart> = {
   back: 'back',
   shoulders: 'shoulders',
   quads: 'quads',
-  'hams/glutes': 'hamsGlutes',
-  'hams / glutes': 'hamsGlutes',
-  'hamstrings / glutes': 'hamsGlutes',
-  hamstrings: 'hamsGlutes',
-  glutes: 'hamsGlutes',
+  hamstrings: 'hamstrings',
+  'hams/glutes': 'hamstrings',
+  'hams / glutes': 'hamstrings',
+  'hamstrings / glutes': 'hamstrings',
+  glutes: 'glutes',
   calves: 'calves',
   triceps: 'triceps',
   biceps: 'biceps',
@@ -135,8 +135,11 @@ function inferBodyPartFromExerciseName(name: string): CanonicalBodyPart | null {
   if (/(bench|chest|pec|fly|pullover)/.test(normalized)) {
     return 'chest';
   }
-  if (/(rdl|romanian|stiff[-\s]?leg|hip thrust|glute|leg curl|hamstring|ghr|pull[-\s]?through)/.test(normalized)) {
-    return 'hamsGlutes';
+  if (/(hip thrust|glute|pull[-\s]?through)/.test(normalized)) {
+    return 'glutes';
+  }
+  if (/(rdl|romanian|stiff[-\s]?leg|leg curl|hamstring|ghr|nordic)/.test(normalized)) {
+    return 'hamstrings';
   }
   if (/(row|pull[-\s]?up|chin[-\s]?up|pulldown|lat|trap|deadlift)/.test(normalized)) {
     return 'back';
@@ -485,13 +488,27 @@ export function LogScreen() {
     }
   };
 
+  const BODYWEIGHT_EXERCISES = new Set([
+    'push-up', 'diamond push-up', 'pike push-up', 'bodyweight squat',
+    'bodyweight lunge', 'bodyweight calf raise', 'glute kickback',
+    'pull-up', 'chin-up', 'dips', 'muscle-up', 'inverted row',
+    'nordic curl',
+  ]);
+
+  const getBodyweightDefault = (exerciseName: string): string | undefined => {
+    if (!BODYWEIGHT_EXERCISES.has(exerciseName.toLowerCase())) return undefined;
+    const bwKg = user?.bodyweightKg ?? 0;
+    if (bwKg <= 0) return undefined;
+    return String(toDisplayWeight(bwKg, weightUnit));
+  };
+
   const handleSelectExercise = (name: string) => {
     if (!exercisePickerTarget) {
       return;
     }
 
     if (exercisePickerTarget.type === 'new') {
-      addExercise(selectedDate, name);
+      addExercise(selectedDate, name, getBodyweightDefault(name));
     } else if (exercisePickerTarget.type === 'edit') {
       updateExerciseName(exercisePickerTarget.exerciseId, name);
     } else {
@@ -995,11 +1012,11 @@ export function LogScreen() {
               Select up to 2 muscle groups for "{musclePickerName}"
             </Text>
             <View style={styles.musclePickerGrid}>
-              {(['chest', 'back', 'shoulders', 'quads', 'hamsGlutes', 'calves', 'triceps', 'biceps', 'forearms', 'absCore'] as CanonicalBodyPart[]).map((part) => {
+              {(['chest', 'back', 'shoulders', 'quads', 'hamstrings', 'glutes', 'calves', 'triceps', 'biceps', 'forearms', 'absCore'] as CanonicalBodyPart[]).map((part) => {
                 const selected = musclePickerSelections.includes(part);
                 const label: Record<CanonicalBodyPart, string> = {
                   chest: 'Chest', back: 'Back', shoulders: 'Shoulders', quads: 'Quads',
-                  hamsGlutes: 'Hams/Glutes', calves: 'Calves', triceps: 'Triceps',
+                  hamstrings: 'Hamstrings', glutes: 'Glutes', calves: 'Calves', triceps: 'Triceps',
                   biceps: 'Biceps', forearms: 'Forearms', absCore: 'Abs/Core',
                 };
                 return (

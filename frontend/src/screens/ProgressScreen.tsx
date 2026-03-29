@@ -63,7 +63,8 @@ type CanonicalBodyPart =
   | 'Back'
   | 'Shoulders'
   | 'Quads'
-  | 'Hamstrings/Glutes'
+  | 'Hamstrings'
+  | 'Glutes'
   | 'Calves'
   | 'Triceps'
   | 'Biceps'
@@ -103,7 +104,8 @@ const BODY_PARTS: CanonicalBodyPart[] = [
   'Back',
   'Shoulders',
   'Quads',
-  'Hamstrings/Glutes',
+  'Hamstrings',
+  'Glutes',
   'Calves',
   'Triceps',
   'Biceps',
@@ -117,11 +119,11 @@ const bodyPartAliases: Record<string, CanonicalBodyPart> = {
   back: 'Back',
   shoulders: 'Shoulders',
   quads: 'Quads',
-  'hams/glutes': 'Hamstrings/Glutes',
-  'hams / glutes': 'Hamstrings/Glutes',
-  'hamstrings / glutes': 'Hamstrings/Glutes',
-  hamstrings: 'Hamstrings/Glutes',
-  glutes: 'Hamstrings/Glutes',
+  hamstrings: 'Hamstrings',
+  'hams/glutes': 'Hamstrings',
+  'hams / glutes': 'Hamstrings',
+  'hamstrings / glutes': 'Hamstrings',
+  glutes: 'Glutes',
   calves: 'Calves',
   triceps: 'Triceps',
   biceps: 'Biceps',
@@ -183,12 +185,11 @@ function inferBodyPartFromExerciseName(name: string): CanonicalBodyPart {
   if (/(bench|chest|pec|fly|pullover)/.test(normalized)) {
     return 'Chest';
   }
-  if (
-    /(rdl|romanian|stiff[-\s]?leg|hip thrust|glute|leg curl|hamstring|ghr|pull[-\s]?through)/.test(
-      normalized,
-    )
-  ) {
-    return 'Hamstrings/Glutes';
+  if (/(hip thrust|glute|pull[-\s]?through)/.test(normalized)) {
+    return 'Glutes';
+  }
+  if (/(rdl|romanian|stiff[-\s]?leg|leg curl|hamstring|ghr|nordic)/.test(normalized)) {
+    return 'Hamstrings';
   }
   if (/(row|pull[-\s]?up|chin[-\s]?up|pulldown|lat|trap|deadlift)/.test(normalized)) {
     return 'Back';
