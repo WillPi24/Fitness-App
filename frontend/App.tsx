@@ -1,10 +1,10 @@
 import { Feather } from '@expo/vector-icons';
 import { SpaceGrotesk_400Regular, SpaceGrotesk_500Medium, SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold, useFonts } from '@expo-google-fonts/space-grotesk';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, useNavigation } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from './src/components/ErrorBoundary';
@@ -25,8 +25,8 @@ import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { CalorieProvider } from './src/store/calorieStore';
 import { RunProvider } from './src/store/runStore';
 import { UserProvider, useUserStore } from './src/store/userStore';
-import { WorkoutProvider } from './src/store/workoutStore';
-import { colors } from './src/theme';
+import { WorkoutProvider, useWorkoutStore } from './src/store/workoutStore';
+import { colors, spacing, typography } from './src/theme';
 
 // Bottom tab navigation for the core flows.
 type RootTabParamList = {
@@ -83,10 +83,69 @@ function AuthFlow({ onComplete }: { onComplete: () => void }) {
   }
 }
 
+function formatRecoveryDate(dateString: string) {
+  const [year, month, day] = dateString.split('-').map(Number);
+  const dd = String(day).padStart(2, '0');
+  const mm = String(month).padStart(2, '0');
+  const yy = String(year).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+}
+
+function WorkoutRecoveryPrompt() {
+  const { activeWorkout, isLoading, discardActiveWorkout } = useWorkoutStore();
+  const navigation = useNavigation();
+  const [visible, setVisible] = useState(false);
+  const checkedRef = useRef(false);
+
+  useEffect(() => {
+    if (isLoading || checkedRef.current) return;
+    checkedRef.current = true;
+    if (activeWorkout) {
+      setVisible(true);
+    }
+  }, [isLoading]);
+
+  if (!visible || !activeWorkout) return null;
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={() => setVisible(false)}>
+      <View style={styles.recoveryBackdrop}>
+        <View style={styles.recoveryModal}>
+          <Text style={styles.recoveryTitle}>Workout in progress</Text>
+          <Text style={styles.recoveryBody}>
+            You have an unfinished workout from {formatRecoveryDate(activeWorkout.date)}
+            {` (${activeWorkout.exercises.length} exercise${activeWorkout.exercises.length !== 1 ? 's' : ''})`}
+            . Would you like to continue or discard it?
+          </Text>
+          <Pressable
+            style={styles.recoveryContinueButton}
+            onPress={() => {
+              setVisible(false);
+              navigation.navigate('Log' as never);
+            }}
+          >
+            <Text style={styles.recoveryContinueText}>Continue workout</Text>
+          </Pressable>
+          <Pressable
+            style={styles.recoveryDiscardButton}
+            onPress={() => {
+              discardActiveWorkout();
+              setVisible(false);
+            }}
+          >
+            <Text style={styles.recoveryDiscardText}>Discard workout</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function MainApp() {
   return (
     <NavigationContainer theme={navTheme}>
       <StatusBar style="dark" />
+      <WorkoutRecoveryPrompt />
       <Tab.Navigator
         tabBarPosition="bottom"
         screenOptions={({ route }) => ({
@@ -250,5 +309,45 @@ const styles = StyleSheet.create({
   },
   scene: {
     backgroundColor: colors.background,
+  },
+  recoveryBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(27, 31, 36, 0.6)',
+    justifyContent: 'center',
+  },
+  recoveryModal: {
+    backgroundColor: colors.surface,
+    margin: spacing.lg,
+    borderRadius: 20,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  recoveryTitle: {
+    ...typography.headline,
+    color: colors.text,
+  },
+  recoveryBody: {
+    ...typography.body,
+    color: colors.muted,
+  },
+  recoveryContinueButton: {
+    backgroundColor: colors.accent,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center' as const,
+  },
+  recoveryContinueText: {
+    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  recoveryDiscardButton: {
+    alignItems: 'center' as const,
+    paddingVertical: 10,
+  },
+  recoveryDiscardText: {
+    fontFamily: 'SpaceGrotesk_500Medium',
+    fontSize: 15,
+    color: colors.muted,
   },
 });
