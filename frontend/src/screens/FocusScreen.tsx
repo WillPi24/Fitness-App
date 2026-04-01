@@ -1,11 +1,13 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getDefaultFeatures } from '../services/featureRegistry';
+import { useTheme } from '../store/themeStore';
 import { TrainingFocus, useUserStore } from '../store/userStore';
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
 
 type FocusScreenProps = {
   onBack: () => void;
@@ -47,6 +49,8 @@ const focusOptions: FocusOption[] = [
 ];
 
 export function FocusScreen({ onBack, onComplete }: FocusScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { setFocus, setEnabledFeatures } = useUserStore();
   const [selected, setSelected] = useState<TrainingFocus | null>(null);
@@ -112,7 +116,7 @@ export function FocusScreen({ onBack, onComplete }: FocusScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   scrollView: {
     flex: 1,
     backgroundColor: colors.background,

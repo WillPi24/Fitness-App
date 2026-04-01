@@ -30,7 +30,9 @@ import { PaceKeeperControls } from '../components/PaceKeeperControls';
 import { SplitTimesDisplay } from '../components/SplitTimesDisplay';
 import { ActiveRun, RunPoint, RunSession, useRunStore } from '../store/runStore';
 import { useFeatureEnabled } from '../store/userStore';
-import { colors, spacing, typography } from '../theme';
+import { useTheme } from '../store/themeStore';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
 
 function splitRouteSegments(route: RunPoint[], segmentBreaks?: number[]): [number, number][][] {
   if (!route || route.length === 0) return [];
@@ -143,6 +145,8 @@ function formatTime(timestamp: number) {
 }
 
 export function RunScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const {
     runs,
     activeRun,
@@ -1124,7 +1128,7 @@ export function RunScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

@@ -1,10 +1,12 @@
 import { Feather } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useTheme } from '../store/themeStore';
 import { useUserStore } from '../store/userStore';
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
 
 type LoginScreenProps = {
   onBack: () => void;
@@ -12,6 +14,8 @@ type LoginScreenProps = {
 };
 
 export function LoginScreen({ onBack, onSuccess }: LoginScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { login, error, clearError } = useUserStore();
   const [email, setEmail] = useState('');
@@ -92,7 +96,7 @@ export function LoginScreen({ onBack, onSuccess }: LoginScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#e9dbd0',

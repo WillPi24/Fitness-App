@@ -24,12 +24,16 @@ import {
   savePhotoFile,
   useProgressPhotoStore,
 } from '../store/progressPhotoStore';
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
+import { useTheme } from '../store/themeStore';
 import { Card } from './Card';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export function ProgressPhotos() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { photos, addPhoto, deletePhoto, customPoses, addCustomPose, removeCustomPose, allPoses } = useProgressPhotoStore();
   const [captureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
@@ -362,7 +366,7 @@ export function ProgressPhotos() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   cardRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -559,7 +563,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   galleryButton: {
     width: 44,

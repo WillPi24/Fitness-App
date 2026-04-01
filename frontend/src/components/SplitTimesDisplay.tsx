@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, spacing, typography } from '../theme';
+import { useTheme } from '../store/themeStore';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
 
 export type RunSplit = {
   km: number;
@@ -21,6 +23,9 @@ function formatSplitPace(ms: number): string {
 }
 
 export function SplitTimesDisplay({ splits, isLive }: SplitTimesDisplayProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (splits.length === 0) return null;
 
   // Compute per-km pace (delta from previous split)
@@ -60,7 +65,7 @@ export function SplitTimesDisplay({ splits, isLive }: SplitTimesDisplayProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     gap: spacing.xs,
   },

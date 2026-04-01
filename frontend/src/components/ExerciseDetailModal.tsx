@@ -11,7 +11,9 @@ import {
 
 import { type WeightUnit, toDisplayWeight } from '../store/userStore';
 import { estimateOneRepMax, type WorkoutSession } from '../store/workoutStore';
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
+import { useTheme } from '../store/themeStore';
 import { LineGraph } from './LineGraph';
 
 type ExerciseDetailModalProps = {
@@ -58,6 +60,8 @@ export function ExerciseDetailModal({
   weightUnit,
   onClose,
 }: ExerciseDetailModalProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
 
   const detail = useMemo(() => {
@@ -297,7 +301,7 @@ export function ExerciseDetailModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(27, 31, 36, 0.6)',

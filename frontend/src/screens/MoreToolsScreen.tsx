@@ -1,12 +1,14 @@
 import { Feather } from '@expo/vector-icons';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../components/Card';
 import { FEATURE_REGISTRY, type FeatureDefinition } from '../services/featureRegistry';
 import { useUserStore } from '../store/userStore';
-import { colors, spacing, typography } from '../theme';
+import { useTheme } from '../store/themeStore';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
 
 type MoreToolsScreenProps = {
   onBack: () => void;
@@ -23,6 +25,8 @@ const screenLabels: Record<FeatureDefinition['screen'], string> = {
 const groupOrder: FeatureDefinition['screen'][] = ['Log', 'Cardio', 'Progress', 'Account'];
 
 export function MoreToolsScreen({ onBack }: MoreToolsScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { user, toggleFeature } = useUserStore();
   const enabledFeatures = user?.enabledFeatures ?? [];
@@ -83,7 +87,7 @@ export function MoreToolsScreen({ onBack }: MoreToolsScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

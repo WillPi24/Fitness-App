@@ -1,10 +1,12 @@
 import { Feather } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useTheme } from '../store/themeStore';
 import { UserSex, WeightUnit, fromDisplayWeight, toDisplayWeight, useUserStore } from '../store/userStore';
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
 
 type BodyInfoScreenProps = {
   onBack: () => void;
@@ -12,6 +14,8 @@ type BodyInfoScreenProps = {
 };
 
 export function BodyInfoScreen({ onBack, onComplete }: BodyInfoScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { setBodyInfo } = useUserStore();
   const [sex, setSex] = useState<UserSex>('male');
@@ -123,7 +127,7 @@ export function BodyInfoScreen({ onBack, onComplete }: BodyInfoScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

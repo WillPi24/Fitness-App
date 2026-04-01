@@ -25,7 +25,9 @@ import { EXERCISE_OPTIONS } from '../data/exercises';
 import { useRunStore } from '../store/runStore';
 import { useUserStore, useFeatureEnabled, toDisplayWeight } from '../store/userStore';
 import { estimateOneRepMax, useWorkoutStore } from '../store/workoutStore';
-import { colors, spacing, typography } from '../theme';
+import { useTheme } from '../store/themeStore';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
 
 const months = [
   'Jan',
@@ -277,9 +279,11 @@ function PressableGraph({
 type GraphModalProps = {
   graph: ExpandedGraph | null;
   onClose: () => void;
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
 };
 
-function GraphModal({ graph, onClose }: GraphModalProps) {
+function GraphModal({ graph, onClose, colors, styles }: GraphModalProps) {
   return (
     <Modal
       visible={graph !== null}
@@ -314,6 +318,8 @@ function GraphModal({ graph, onClose }: GraphModalProps) {
 /* ─── Main screen ─── */
 
 export function ProgressScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { workouts, isLoading, error, clearError, seedDemoWorkouts, clearDemoWorkouts } =
     useWorkoutStore();
   const { runs, seedDemoRuns, clearDemoRuns } = useRunStore();
@@ -1261,7 +1267,7 @@ export function ProgressScreen() {
       </ScrollView>
 
       {/* Full-screen graph modal */}
-      <GraphModal graph={expandedGraph} onClose={() => setExpandedGraph(null)} />
+      <GraphModal graph={expandedGraph} onClose={() => setExpandedGraph(null)} colors={colors} styles={styles} />
 
       {/* Exercise drill-down modal */}
       <ExerciseDetailModal
@@ -1278,7 +1284,7 @@ export function ProgressScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1402,7 +1408,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     ...typography.body,
     color: colors.text,
   },

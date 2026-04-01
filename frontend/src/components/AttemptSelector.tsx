@@ -4,7 +4,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import { getBestE1RMForLifts } from '../services/plCoefficients';
 import type { WorkoutSession } from '../store/workoutStore';
 import { toDisplayWeight, type WeightUnit } from '../store/userStore';
-import { colors, spacing, typography } from '../theme';
+import { useTheme } from '../store/themeStore';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
 import { CollapsibleSection } from './CollapsibleSection';
 
 type AttemptSelectorProps = {
@@ -27,6 +29,8 @@ const ATTEMPT_PERCENTS = [
 ];
 
 export function AttemptSelector({ workouts, weightUnit, expanded, onToggle }: AttemptSelectorProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const bests = useMemo(() => getBestE1RMForLifts(workouts), [workouts]);
 
   const hasData = bests.squat > 0 || bests.bench > 0 || bests.deadlift > 0;
@@ -69,7 +73,7 @@ export function AttemptSelector({ workouts, weightUnit, expanded, onToggle }: At
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   empty: {
     ...typography.body,
     color: colors.muted,

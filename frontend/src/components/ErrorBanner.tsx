@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
+import { useTheme } from '../store/themeStore';
 
 type ErrorBannerProps = {
   message: string;
@@ -10,6 +12,9 @@ type ErrorBannerProps = {
 
 // Inline error banner for recoverable issues (e.g. storage failures).
 export function ErrorBanner({ message, onDismiss }: ErrorBannerProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.container}>
       <Text style={styles.text}>{message}</Text>
@@ -20,7 +25,7 @@ export function ErrorBanner({ message, onDismiss }: ErrorBannerProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     backgroundColor: '#FDECEC',
     borderColor: colors.danger,

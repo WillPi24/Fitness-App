@@ -33,7 +33,9 @@ import {
 } from '../nutrition/micronutrients';
 import { FoodSearchResult, hydrateFoodMicronutrients, searchFoods, searchSimpleFoods } from '../services/foodSearch';
 import { CalorieDay, FoodItem, Meal, SavedMeal, SavedMealFood, useCalorieStore } from '../store/calorieStore';
-import { colors, spacing, typography } from '../theme';
+import { useTheme } from '../store/themeStore';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -101,6 +103,8 @@ function createPieSlicePath(centerX: number, centerY: number, radius: number, st
 }
 
 export function CalorieScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const {
     calorieDays,
     draftEntry,
@@ -2444,7 +2448,7 @@ export function CalorieScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -2849,7 +2853,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     ...typography.body,
     color: colors.text,
   },
@@ -2921,7 +2925,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     ...typography.title,
     color: colors.text,
     textAlign: 'center',
@@ -3037,7 +3041,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     ...typography.body,
     color: colors.text,
   },

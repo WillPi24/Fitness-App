@@ -4,7 +4,9 @@ import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, Vi
 
 import { MEASUREMENT_TYPES, useMeasurementStore, type MeasurementType } from '../store/measurementStore';
 import type { WeightUnit } from '../store/userStore';
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
+import { useTheme } from '../store/themeStore';
 import { Card } from './Card';
 import { LineGraph } from './LineGraph';
 
@@ -29,6 +31,8 @@ function lengthUnit(unit: WeightUnit): string {
 }
 
 export function BodyMeasurements({ weightUnit }: BodyMeasurementsProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { measurements, addMeasurement, deleteMeasurement } = useMeasurementStore();
   const [selectedType, setSelectedType] = useState<MeasurementType | null>(null);
   const [addModalType, setAddModalType] = useState<MeasurementType | null>(null);
@@ -186,7 +190,7 @@ export function BodyMeasurements({ weightUnit }: BodyMeasurementsProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   title: {
     ...typography.headline,
     color: colors.text,

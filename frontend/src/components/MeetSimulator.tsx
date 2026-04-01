@@ -5,7 +5,9 @@ import { getBestE1RMForLifts, wilksScore, dotsScore } from '../services/plCoeffi
 import type { WorkoutSession } from '../store/workoutStore';
 import type { UserSex, WeightUnit } from '../store/userStore';
 import { toDisplayWeight, fromDisplayWeight } from '../store/userStore';
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
+import { useTheme } from '../store/themeStore';
 import { CollapsibleSection } from './CollapsibleSection';
 
 type MeetSimulatorProps = {
@@ -39,6 +41,8 @@ export function MeetSimulator({
   expanded,
   onToggle,
 }: MeetSimulatorProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const suggested = useMemo(() => getBestE1RMForLifts(workouts), [workouts]);
 
   const [attempts, setAttempts] = useState<Record<Lift, AttemptState[]>>(() => {
@@ -142,7 +146,7 @@ export function MeetSimulator({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   liftSection: {
     gap: spacing.xs,
   },

@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { WeightUnit } from '../store/userStore';
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
+import { useTheme } from '../store/themeStore';
 import { Card } from './Card';
 
 type OneRepMaxCalcProps = {
@@ -15,6 +17,8 @@ function brzycki(weight: number, reps: number): number {
 }
 
 export function OneRepMaxCalc({ weightUnit }: OneRepMaxCalcProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [weightInput, setWeightInput] = useState('');
   const [repsInput, setRepsInput] = useState('');
 
@@ -69,7 +73,7 @@ export function OneRepMaxCalc({ weightUnit }: OneRepMaxCalcProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   title: {
     ...typography.headline,
     color: colors.text,

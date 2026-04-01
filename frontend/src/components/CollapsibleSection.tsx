@@ -1,8 +1,10 @@
 import { Feather } from '@expo/vector-icons';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
+import { useTheme } from '../store/themeStore';
 import { Card } from './Card';
 
 type CollapsibleSectionProps = {
@@ -20,6 +22,9 @@ export function CollapsibleSection({
   onToggle,
   children,
 }: CollapsibleSectionProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <Card>
       <Pressable style={styles.sectionHeader} onPress={onToggle}>
@@ -38,7 +43,7 @@ export function CollapsibleSection({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

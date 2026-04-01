@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
+import { useTheme } from '../store/themeStore';
 
 export type BarChartDatum = {
   label: string;
@@ -15,6 +17,9 @@ type BarChartProps = {
 
 // Lightweight horizontal bar chart for simple trend visualizations.
 export function BarChart({ data, unit }: BarChartProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const maxValue = Math.max(...data.map((item) => item.value), 0);
 
   return (
@@ -39,7 +44,7 @@ export function BarChart({ data, unit }: BarChartProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     gap: spacing.sm,
   },

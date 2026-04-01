@@ -30,7 +30,9 @@ import {
   useWorkoutStore,
 } from '../store/workoutStore';
 import { useUserStore, useFeatureEnabled, toDisplayWeight, fromDisplayWeight } from '../store/userStore';
-import { colors, spacing, typography } from '../theme';
+import { useTheme } from '../store/themeStore';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -208,6 +210,8 @@ function getTopSet(sets: Array<{ weight: number; reps: number }>) {
 }
 
 export function LogScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const {
     workouts,
     activeWorkout,
@@ -1499,7 +1503,7 @@ export function LogScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1629,7 +1633,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     justifyContent: 'center',
   },
   templateExerciseButtonText: {
@@ -1877,7 +1881,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: spacing.md,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   setInput: {
     flex: 1,
@@ -1972,7 +1976,7 @@ const styles = StyleSheet.create({
   },
   endButtonText: {
     ...typography.label,
-    color: '#fff',
+    color: colors.background,
   },
   historySection: {
     gap: spacing.md,
@@ -2106,7 +2110,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     ...typography.body,
     color: colors.text,
   },

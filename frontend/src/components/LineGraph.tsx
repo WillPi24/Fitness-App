@@ -7,7 +7,9 @@ import {
   View,
 } from 'react-native';
 
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
+import { useTheme } from '../store/themeStore';
 
 type LineGraphValue = number | null;
 
@@ -58,7 +60,7 @@ function pickAxisLabels(
 export function LineGraph({
   data,
   labels,
-  color = colors.accent,
+  color,
   height = 150,
   compact = false,
   startLabel,
@@ -67,6 +69,11 @@ export function LineGraph({
   onInteractionStart,
   onInteractionEnd,
 }: LineGraphProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const resolvedColor = color ?? colors.accent;
+
   const [width, setWidth] = useState(0);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const pointsRef = useRef<PlotPoint[]>([]);
@@ -229,7 +236,7 @@ export function LineGraph({
             style={[
               styles.segment,
               {
-                backgroundColor: color,
+                backgroundColor: resolvedColor,
                 width: segment.length,
                 left: segment.cx - segment.length / 2,
                 top: segment.cy - 1,
@@ -253,7 +260,7 @@ export function LineGraph({
                   borderRadius: dotSize / 2,
                   left: point.x - dotSize / 2,
                   top: point.y - dotSize / 2,
-                  backgroundColor: isActive ? colors.text : color,
+                  backgroundColor: isActive ? colors.text : resolvedColor,
                   borderWidth: isActive ? 2 : 0,
                   borderColor: isActive ? colors.surface : undefined,
                 },
@@ -329,7 +336,7 @@ export function LineGraph({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   wrapper: {
     gap: spacing.xs,
   },

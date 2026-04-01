@@ -1,5 +1,5 @@
 // Centralized color palette for consistent theming.
-export const colors = {
+export const lightColors = {
   background: '#F7F3EE',
   surface: '#FFFFFF',
   text: '#1B1F24',
@@ -10,6 +10,23 @@ export const colors = {
   success: '#2A9D8F',
   danger: '#D64545',
 };
+
+export type ThemeColors = typeof lightColors;
+
+export const darkColors: ThemeColors = {
+  background: '#1E2126',
+  surface: '#2A2E35',
+  text: '#E8E6E3',
+  muted: '#9CA3AF',
+  border: '#2D3139',
+  accent: '#E4572E',
+  accentSoft: '#3A2520',
+  success: '#2A9D8F',
+  danger: '#D64545',
+};
+
+// Static fallback for files not yet migrated to useTheme().
+export const colors = lightColors;
 
 // Shared spacing scale for layout rhythm.
 export const spacing = {

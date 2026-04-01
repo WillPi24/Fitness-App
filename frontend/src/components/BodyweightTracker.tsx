@@ -4,7 +4,9 @@ import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-nativ
 
 import { useBodyweightStore } from '../store/bodyweightStore';
 import { toDisplayWeight, fromDisplayWeight, type WeightUnit } from '../store/userStore';
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
+import { useTheme } from '../store/themeStore';
 import { Card } from './Card';
 import { LineGraph } from './LineGraph';
 
@@ -13,6 +15,8 @@ type BodyweightTrackerProps = {
 };
 
 export function BodyweightTracker({ weightUnit }: BodyweightTrackerProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { entries, addEntry, deleteEntry } = useBodyweightStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [weightInput, setWeightInput] = useState('');
@@ -124,7 +128,7 @@ export function BodyweightTracker({ weightUnit }: BodyweightTrackerProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

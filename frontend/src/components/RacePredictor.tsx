@@ -2,7 +2,9 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { RunSession } from '../store/runStore';
-import { colors, spacing, typography } from '../theme';
+import { useTheme } from '../store/themeStore';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
 import { CollapsibleSection } from './CollapsibleSection';
 
 type RacePredictorProps = {
@@ -35,6 +37,9 @@ const RACE_DISTANCES = [
 ];
 
 export function RacePredictor({ runs, expanded, onToggle }: RacePredictorProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const bestRun = useMemo(() => {
     const cutoff = Date.now() - 90 * 86400000;
     let fastest: RunSession | null = null;
@@ -93,7 +98,7 @@ export function RacePredictor({ runs, expanded, onToggle }: RacePredictorProps) 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   empty: {
     ...typography.body,
     color: colors.muted,

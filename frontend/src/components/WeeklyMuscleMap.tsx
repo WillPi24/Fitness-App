@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
+import { useTheme } from '../store/themeStore';
 import { Card } from './Card';
 
 export type CanonicalBodyPart =
@@ -68,6 +70,9 @@ const FEMALE_MASKS: Record<CanonicalBodyPart, number> = {
 };
 
 export function WeeklyMuscleMap({ bodyPartCounts, sex = 'male' }: WeeklyMuscleMapProps) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const figureImage = sex === 'female' ? FEMALE_FIGURE : MALE_FIGURE;
   const maskImages = sex === 'female' ? FEMALE_MASKS : MALE_MASKS;
   const activeBodyParts = useMemo(
@@ -85,7 +90,9 @@ export function WeeklyMuscleMap({ bodyPartCounts, sex = 'male' }: WeeklyMuscleMa
         <Image source={figureImage} style={styles.figureImage} resizeMode="contain" />
         {activeBodyParts.map((bodyPart) => {
           const count = bodyPartCounts[bodyPart] ?? 0;
-          const opacity = Math.min(0.18 + count * 0.06, 0.5);
+          const opacity = isDark
+            ? Math.min(0.35 + count * 0.1, 0.85)
+            : Math.min(0.18 + count * 0.06, 0.5);
           return (
             <Image
               key={bodyPart}
@@ -111,7 +118,7 @@ export function WeeklyMuscleMap({ bodyPartCounts, sex = 'male' }: WeeklyMuscleMa
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     gap: spacing.sm,
   },
@@ -129,6 +136,7 @@ const styles = StyleSheet.create({
   figureImage: {
     width: '100%',
     height: '100%',
+    tintColor: colors.text,
   },
   maskImage: {
     ...StyleSheet.absoluteFillObject,

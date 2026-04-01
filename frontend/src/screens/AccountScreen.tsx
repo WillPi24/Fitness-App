@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BodyMeasurements } from '../components/BodyMeasurements';
@@ -11,8 +11,10 @@ import { MoreToolsScreen } from './MoreToolsScreen';
 import { useCalorieStore, CalorieDay } from '../store/calorieStore';
 import { useRunStore } from '../store/runStore';
 import { TrainingFocus, UserSex, WeightUnit, toDisplayWeight, fromDisplayWeight, useUserStore, useFeatureEnabled } from '../store/userStore';
+import { useTheme } from '../store/themeStore';
 import { useWorkoutStore } from '../store/workoutStore';
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
 import { exportToJSON, exportWorkoutsToCSV, exportRunsToCSV, exportCaloriesToCSV } from '../services/exportData';
 import {
   detectFileType,
@@ -50,6 +52,8 @@ type ImportOptions = {
 
 export function AccountScreen() {
   const insets = useSafeAreaInsets();
+  const { colors, isDark, toggleColorMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { user, updateProfile, setFocus, signOut } = useUserStore();
   const { workouts, importWorkouts } = useWorkoutStore();
   const { runs, importRuns } = useRunStore();
@@ -423,6 +427,21 @@ export function AccountScreen() {
           </Pressable>
         </Card>
 
+        <Card>
+          <View style={styles.darkModeRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionTitle}>Appearance</Text>
+              <Text style={styles.infoLabel}>Dark Mode</Text>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={toggleColorMode}
+              trackColor={{ false: colors.border, true: colors.accent }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+        </Card>
+
         {useFeatureEnabled('bodyweightTracker') ? (
           <BodyweightTracker weightUnit={user.weightUnit} />
         ) : null}
@@ -781,7 +800,7 @@ export function AccountScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -850,6 +869,12 @@ const styles = StyleSheet.create({
   },
   infoRowLast: {
     borderBottomWidth: 0,
+  },
+  darkModeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   infoLabel: {
     ...typography.body,
@@ -924,7 +949,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: spacing.md,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     ...typography.body,
     color: colors.text,
   },

@@ -3,7 +3,7 @@ import { SpaceGrotesk_400Regular, SpaceGrotesk_500Medium, SpaceGrotesk_600SemiBo
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { NavigationContainer, DefaultTheme, useNavigation } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -24,9 +24,10 @@ import { SignUpScreen } from './src/screens/SignUpScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { CalorieProvider } from './src/store/calorieStore';
 import { RunProvider } from './src/store/runStore';
+import { ThemeProvider, useTheme } from './src/store/themeStore';
 import { UserProvider, useUserStore } from './src/store/userStore';
 import { WorkoutProvider, useWorkoutStore } from './src/store/workoutStore';
-import { colors, spacing, typography } from './src/theme';
+import { colors as staticColors, spacing, typography } from './src/theme';
 
 // Bottom tab navigation for the core flows.
 type RootTabParamList = {
@@ -93,6 +94,7 @@ function formatRecoveryDate(dateString: string) {
 
 function WorkoutRecoveryPrompt() {
   const { activeWorkout, isLoading, discardActiveWorkout } = useWorkoutStore();
+  const { colors } = useTheme();
   const navigation = useNavigation();
   const [visible, setVisible] = useState(false);
   const checkedRef = useRef(false);
@@ -105,35 +107,78 @@ function WorkoutRecoveryPrompt() {
     }
   }, [isLoading]);
 
+  const s = useMemo(() => StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(27, 31, 36, 0.6)',
+      justifyContent: 'center',
+    },
+    modal: {
+      backgroundColor: colors.surface,
+      margin: spacing.lg,
+      borderRadius: 20,
+      padding: spacing.lg,
+      gap: spacing.md,
+    },
+    title: {
+      ...typography.headline,
+      color: colors.text,
+    },
+    body: {
+      ...typography.body,
+      color: colors.muted,
+    },
+    continueButton: {
+      backgroundColor: colors.accent,
+      borderRadius: 14,
+      paddingVertical: 14,
+      alignItems: 'center' as const,
+    },
+    continueText: {
+      fontFamily: 'SpaceGrotesk_600SemiBold',
+      fontSize: 16,
+      color: '#FFFFFF',
+    },
+    discardButton: {
+      alignItems: 'center' as const,
+      paddingVertical: 10,
+    },
+    discardText: {
+      fontFamily: 'SpaceGrotesk_500Medium',
+      fontSize: 15,
+      color: colors.muted,
+    },
+  }), [colors]);
+
   if (!visible || !activeWorkout) return null;
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={() => setVisible(false)}>
-      <View style={styles.recoveryBackdrop}>
-        <View style={styles.recoveryModal}>
-          <Text style={styles.recoveryTitle}>Workout in progress</Text>
-          <Text style={styles.recoveryBody}>
+      <View style={s.backdrop}>
+        <View style={s.modal}>
+          <Text style={s.title}>Workout in progress</Text>
+          <Text style={s.body}>
             You have an unfinished workout from {formatRecoveryDate(activeWorkout.date)}
             {` (${activeWorkout.exercises.length} exercise${activeWorkout.exercises.length !== 1 ? 's' : ''})`}
             . Would you like to continue or discard it?
           </Text>
           <Pressable
-            style={styles.recoveryContinueButton}
+            style={s.continueButton}
             onPress={() => {
               setVisible(false);
               navigation.navigate('Log' as never);
             }}
           >
-            <Text style={styles.recoveryContinueText}>Continue workout</Text>
+            <Text style={s.continueText}>Continue workout</Text>
           </Pressable>
           <Pressable
-            style={styles.recoveryDiscardButton}
+            style={s.discardButton}
             onPress={() => {
               discardActiveWorkout();
               setVisible(false);
             }}
           >
-            <Text style={styles.recoveryDiscardText}>Discard workout</Text>
+            <Text style={s.discardText}>Discard workout</Text>
           </Pressable>
         </View>
       </View>
@@ -142,9 +187,44 @@ function WorkoutRecoveryPrompt() {
 }
 
 function MainApp() {
+  const { colors, isDark } = useTheme();
+
+  const navTheme = useMemo(() => ({
+    ...DefaultTheme,
+    dark: isDark,
+    colors: {
+      ...DefaultTheme.colors,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.text,
+      border: colors.border,
+      primary: colors.accent,
+    },
+  }), [colors, isDark]);
+
+  const s = useMemo(() => StyleSheet.create({
+    tabBar: {
+      backgroundColor: colors.surface,
+      borderTopColor: colors.border,
+      borderTopWidth: 1,
+      elevation: 0,
+      shadowOpacity: 0,
+      paddingTop: 5,
+      paddingBottom: Platform.OS === 'ios' ? 14 : 9,
+      height: Platform.OS === 'ios' ? 72 : 65,
+    },
+    tabIndicator: {
+      backgroundColor: colors.accent,
+      height: 2,
+    },
+    scene: {
+      backgroundColor: colors.background,
+    },
+  }), [colors]);
+
   return (
     <NavigationContainer theme={navTheme}>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <WorkoutRecoveryPrompt />
       <Tab.Navigator
         tabBarPosition="bottom"
@@ -154,14 +234,14 @@ function MainApp() {
           lazy: false,
           tabBarShowIcon: true,
           tabBarAllowFontScaling: false,
-          sceneStyle: styles.scene,
-          tabBarStyle: styles.tabBar,
-          tabBarIndicatorStyle: styles.tabIndicator,
-          tabBarItemStyle: styles.tabItem,
-          tabBarIconStyle: styles.tabIcon,
+          sceneStyle: s.scene,
+          tabBarStyle: s.tabBar,
+          tabBarIndicatorStyle: s.tabIndicator,
+          tabBarItemStyle: staticStyles.tabItem,
+          tabBarIconStyle: staticStyles.tabIcon,
           tabBarActiveTintColor: colors.accent,
           tabBarInactiveTintColor: colors.muted,
-          tabBarLabelStyle: styles.tabLabel,
+          tabBarLabelStyle: staticStyles.tabLabel,
           tabBarIcon: ({ color }) => {
             const iconName =
               route.name === 'Log'
@@ -189,11 +269,12 @@ function MainApp() {
 
 function AppContent() {
   const { user, isLoading } = useUserStore();
+  const { colors } = useTheme();
   const [authComplete, setAuthComplete] = useState(false);
 
   if (isLoading) {
     return (
-      <View style={styles.loading}>
+      <View style={[staticStyles.loading, { backgroundColor: colors.background }]}>
         <ActivityIndicator color={colors.accent} />
       </View>
     );
@@ -241,8 +322,8 @@ export default function App() {
   // Avoid flash of unstyled text before fonts are ready.
   if (!fontsLoaded) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={colors.accent} />
+      <View style={staticStyles.loading}>
+        <ActivityIndicator color={staticColors.accent} />
       </View>
     );
   }
@@ -251,47 +332,23 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <UserProvider>
-          <AppContent />
-        </UserProvider>
+        <ThemeProvider>
+          <UserProvider>
+            <AppContent />
+          </UserProvider>
+        </ThemeProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );
 }
 
-// Custom navigation theme aligned with design tokens.
-const navTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: colors.background,
-    card: colors.surface,
-    text: colors.text,
-    border: colors.border,
-    primary: colors.accent,
-  },
-};
-
-const styles = StyleSheet.create({
+// Static styles for elements that render before ThemeProvider is available.
+const staticStyles = StyleSheet.create({
   loading: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: staticColors.background,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  tabBar: {
-    backgroundColor: colors.surface,
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-    elevation: 0,
-    shadowOpacity: 0,
-    paddingTop: 5,
-    paddingBottom: Platform.OS === 'ios' ? 14 : 9,
-    height: Platform.OS === 'ios' ? 72 : 65,
-  },
-  tabIndicator: {
-    backgroundColor: colors.accent,
-    height: 2,
   },
   tabLabel: {
     fontFamily: 'SpaceGrotesk_500Medium',
@@ -306,48 +363,5 @@ const styles = StyleSheet.create({
   },
   tabIcon: {
     marginBottom: 1,
-  },
-  scene: {
-    backgroundColor: colors.background,
-  },
-  recoveryBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(27, 31, 36, 0.6)',
-    justifyContent: 'center',
-  },
-  recoveryModal: {
-    backgroundColor: colors.surface,
-    margin: spacing.lg,
-    borderRadius: 20,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  recoveryTitle: {
-    ...typography.headline,
-    color: colors.text,
-  },
-  recoveryBody: {
-    ...typography.body,
-    color: colors.muted,
-  },
-  recoveryContinueButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center' as const,
-  },
-  recoveryContinueText: {
-    fontFamily: 'SpaceGrotesk_600SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  recoveryDiscardButton: {
-    alignItems: 'center' as const,
-    paddingVertical: 10,
-  },
-  recoveryDiscardText: {
-    fontFamily: 'SpaceGrotesk_500Medium',
-    fontSize: 15,
-    color: colors.muted,
   },
 });

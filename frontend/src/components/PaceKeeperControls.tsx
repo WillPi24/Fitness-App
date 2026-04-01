@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import {
@@ -11,7 +11,9 @@ import {
   shouldSpeak,
 } from '../services/paceKeeper';
 import type { ActiveRun, RunSession } from '../store/runStore';
-import { colors, spacing, typography } from '../theme';
+import { useTheme } from '../store/themeStore';
+import { spacing, typography } from '../theme';
+import type { ThemeColors } from '../theme';
 import { Card } from './Card';
 
 let Speech: typeof import('expo-speech') | null = null;
@@ -40,6 +42,8 @@ function triggerKey(t: PaceKeeperTrigger): string {
 }
 
 export function PaceKeeperControls({ runs, activeRun, elapsedMs }: PaceKeeperControlsProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [settings, setSettings] = useState<PaceKeeperSettings>(DEFAULT_SETTINGS);
   const [loaded, setLoaded] = useState(false);
   const [manualPace, setManualPace] = useState('5:00');
@@ -235,7 +239,7 @@ export function PaceKeeperControls({ runs, activeRun, elapsedMs }: PaceKeeperCon
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
