@@ -1,0 +1,10 @@
+name = "helm-events"
+main = "src/index.js"
+compatibility_date = "2024-09-01"
+
+[triggers]
+crons = ["0 6 * * 1"]
+
+[[kv_namespaces]]
+binding = "EVENTS_KV"
+id = "YOUR_KV_NAMESPACE_ID"
