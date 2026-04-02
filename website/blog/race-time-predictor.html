@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Race Time Predictor: Estimate Your 5K, 10K, and Marathon Time | Helm</title>
+  <meta name="description" content="Predict your race times using the Riegel formula. Enter a recent run to estimate 5K, 10K, half marathon, and marathon times.">
+
+  <link rel="canonical" href="https://helmfit.com/blog/race-time-predictor.html">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://helmfit.com/blog/race-time-predictor.html">
+  <meta property="og:title" content="Race Time Predictor: Estimate Your 5K, 10K, and Marathon Time | Helm">
+  <meta property="og:description" content="Predict your race times using the Riegel formula. Enter a recent run to estimate 5K, 10K, half marathon, and marathon times.">
+  <meta property="og:image" content="https://helmfit.com/assets/images/helm-app-icon.png">
+  <meta property="og:site_name" content="Helm">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Race Time Predictor: Estimate Your 5K, 10K, and Marathon Time | Helm">
+  <meta name="twitter:description" content="Predict your race times using the Riegel formula. Enter a recent run to estimate 5K, 10K, half marathon, and marathon times.">
+  <meta name="twitter:image" content="https://helmfit.com/assets/images/helm-app-icon.png">
+
+  <link rel="icon" type="image/png" href="../assets/images/helm-app-icon.png">
+  <link rel="stylesheet" href="../assets/css/style.css">
+
+  <!-- JSON-LD Article Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Race Time Predictor: Estimate Your 5K, 10K, and Marathon Time",
+    "description": "Predict your race times using the Riegel formula. Enter a recent run to estimate 5K, 10K, half marathon, and marathon times.",
+    "author": {
+      "@type": "Organization",
+      "name": "Helm"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Helm",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://helmfit.com/assets/images/helm-app-icon.png"
+      }
+    },
+    "datePublished": "2026-03-31",
+    "dateModified": "2026-03-31",
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://helmfit.com/blog/race-time-predictor.html"
+    },
+    "image": "https://helmfit.com/assets/images/helm-app-icon.png"
+  }
+  </script>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════
+       NAVIGATION
+       ═══════════════════════════════════════════════════ -->
+  <header class="nav">
+    <div class="nav__inner">
+      <a href="../index.html" class="nav__logo">
+        <img src="../assets/images/helm-app-icon.png" alt="Helm app icon" width="36" height="36">
+        Helm
+      </a>
+
+      <nav class="nav__links">
+        <a href="../index.html#features" class="nav__link">Features</a>
+        <a href="../index.html#import" class="nav__link">Import</a>
+        <a href="../index.html#compare" class="nav__link">Compare</a>
+        <a href="./" class="nav__link">Blog</a>
+        <a href="../index.html#cta" class="nav__cta">Get Notified</a>
+      </nav>
+
+      <div class="nav__burger" aria-label="Toggle menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+
+    <div class="nav__mobile">
+      <a href="../index.html#features">Features</a>
+      <a href="../index.html#import">Import</a>
+      <a href="../index.html#compare">Compare</a>
+      <a href="./">Blog</a>
+      <a href="../index.html#cta">Get Notified</a>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ═══════════════════════════════════════════════════
+         ARTICLE
+         ═══════════════════════════════════════════════════ -->
+    <article class="article">
+
+      <div class="section-header reveal" style="text-align: left; margin-bottom: var(--space-lg);">
+        <a href="./" class="t-label" style="color: var(--color-accent);">&larr; Back to Blog</a>
+        <h1 class="t-title" style="margin-top: var(--space-md);">Race Time Predictor</h1>
+        <p class="t-body-lg">Estimate your 5K, 10K, half marathon, and marathon times from a single race result.</p>
+      </div>
+
+      <!-- Calculator Widget -->
+      <div class="calculator reveal">
+        <div class="calculator__title">Predict Your Race Times</div>
+
+        <div class="calculator__row">
+          <div class="calculator__field">
+            <label class="calculator__label" for="rt-distance">Known Distance</label>
+            <select class="calculator__input" id="rt-distance" style="cursor: pointer;">
+              <option value="1609.34">1 Mile</option>
+              <option value="5000" selected>5K</option>
+              <option value="10000">10K</option>
+              <option value="21097">Half Marathon</option>
+              <option value="42195">Marathon</option>
+              <option value="custom">Custom (meters)</option>
+            </select>
+          </div>
+          <div class="calculator__field" id="rt-custom-field" style="display: none;">
+            <label class="calculator__label" for="rt-custom-meters">Distance (meters)</label>
+            <input class="calculator__input" type="number" id="rt-custom-meters" placeholder="e.g. 3000" min="1" step="any">
+          </div>
+        </div>
+
+        <div class="calculator__row">
+          <div class="calculator__field">
+            <label class="calculator__label" for="rt-minutes">Minutes</label>
+            <input class="calculator__input" type="number" id="rt-minutes" placeholder="e.g. 25" min="0" step="1">
+          </div>
+          <div class="calculator__field">
+            <label class="calculator__label" for="rt-seconds">Seconds</label>
+            <input class="calculator__input" type="number" id="rt-seconds" placeholder="e.g. 30" min="0" max="59" step="1">
+          </div>
+        </div>
+
+        <div class="calculator__row" style="gap: var(--space-md); flex-wrap: wrap;">
+          <div class="calculator__result" style="flex: 1; min-width: 140px;">
+            <div class="calculator__result-value" id="rt-5k">&mdash;</div>
+            <div class="calculator__result-label">5K</div>
+          </div>
+          <div class="calculator__result" style="flex: 1; min-width: 140px;">
+            <div class="calculator__result-value" id="rt-10k">&mdash;</div>
+            <div class="calculator__result-label">10K</div>
+          </div>
+          <div class="calculator__result" style="flex: 1; min-width: 140px;">
+            <div class="calculator__result-value" id="rt-half">&mdash;</div>
+            <div class="calculator__result-label">Half Marathon</div>
+          </div>
+          <div class="calculator__result" style="flex: 1; min-width: 140px;">
+            <div class="calculator__result-value" id="rt-full">&mdash;</div>
+            <div class="calculator__result-label">Marathon</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Article Content -->
+      <h2>What Is the Riegel Formula?</h2>
+      <p>The Riegel formula is the most widely used method for predicting race times across different distances. Published by Peter Riegel in 1977, it uses a simple power-law relationship to estimate how your performance scales with distance:</p>
+      <p><strong>T2 = T1 &times; (D2 / D1)<sup>1.06</sup></strong></p>
+      <p>Where T1 is your known time, D1 is the known distance, D2 is the target distance, and T2 is the predicted time. The exponent 1.06 accounts for the fact that you cannot maintain the same pace over longer distances &mdash; fatigue causes a predictable slowdown.</p>
+
+      <h2>How Accurate Is It?</h2>
+      <p>For well-trained runners competing at distances between 1,500 meters and the marathon, the Riegel formula is remarkably accurate &mdash; typically within 1&ndash;3% of actual race times. It works best when:</p>
+      <ul>
+        <li>Your known time is from a recent, all-out effort (not a training run)</li>
+        <li>The distances are within a reasonable range of each other (e.g., 5K to half marathon)</li>
+        <li>You have trained specifically for the target distance</li>
+      </ul>
+      <p>The formula becomes less reliable for extreme jumps (e.g., predicting a marathon from a single mile time) because it assumes a consistent training base for the target distance.</p>
+
+      <h2>Limitations to Keep in Mind</h2>
+      <p>The Riegel formula assumes that your aerobic fitness and endurance are evenly developed across distances. In practice, this is rarely true:</p>
+      <ul>
+        <li><strong>Speed-biased runners</strong> (those who train mostly short intervals) will find their actual long-distance times slower than predicted.</li>
+        <li><strong>Endurance-biased runners</strong> (those with a high weekly mileage base) may actually beat the predictions at longer distances.</li>
+        <li><strong>Beginners</strong> tend to slow down more than the formula predicts over the marathon, because fuelling strategy and mental endurance become major factors beyond the half marathon.</li>
+      </ul>
+      <p>Use the predictions as a guide, not gospel. They give you a realistic starting point for setting goal paces and planning race-day strategy.</p>
+
+      <h2>How Helm Predicts Your Race Times</h2>
+      <p>Helm goes beyond the basic Riegel formula by using your actual GPS running data. Instead of relying on a single race result, Helm analyses your recent training runs &mdash; including pace, distance, elevation, and heart rate &mdash; to generate personalised race predictions that update automatically as your fitness changes.</p>
+      <p>As you build your training log, Helm's predictions become more accurate because they are based on your real performance data, not just a theoretical formula. The race predictor appears right in the app's cardio section, always up to date.</p>
+
+      <!-- CTA -->
+      <div class="calculator__result" style="margin-top: var(--space-2xl);">
+        <div class="calculator__result-value" style="font-size: 1.25rem;">Get personalised race predictions with Helm</div>
+        <div class="calculator__result-label" style="margin-top: var(--space-sm);">
+          <a href="../index.html#cta" style="color: var(--color-accent); font-weight: 600;">Get notified at launch &rarr;</a>
+        </div>
+      </div>
+
+    </article>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════
+       FOOTER
+       ═══════════════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__grid">
+        <div class="footer__brand">
+          <div class="footer__logo">
+            <img src="../assets/images/helm-app-icon.png" alt="Helm" width="32" height="32">
+            Helm
+          </div>
+          <p class="footer__tagline">One app for strength, cardio, and nutrition. No ads, no fluff &mdash; just training.</p>
+        </div>
+
+        <div class="footer__col">
+          <div class="footer__col-title">Product</div>
+          <a href="../index.html#features">Features</a>
+          <a href="../index.html#import">Import Guide</a>
+          <a href="../index.html#compare">Compare</a>
+        </div>
+
+        <div class="footer__col">
+          <div class="footer__col-title">Resources</div>
+          <a href="./">Blog</a>
+        </div>
+
+        <div class="footer__col">
+          <div class="footer__col-title">Legal</div>
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+        </div>
+      </div>
+
+      <div class="footer__bottom">
+        <span>&copy; 2026 Helm. All rights reserved.</span>
+        <span>Made for lifters, by a lifter.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+
+  <!-- Race Time Predictor Script -->
+  <script>
+  (function () {
+    'use strict';
+
+    var distanceSelect = document.getElementById('rt-distance');
+    var customField = document.getElementById('rt-custom-field');
+    var customMeters = document.getElementById('rt-custom-meters');
+    var minutesInput = document.getElementById('rt-minutes');
+    var secondsInput = document.getElementById('rt-seconds');
+
+    var result5k = document.getElementById('rt-5k');
+    var result10k = document.getElementById('rt-10k');
+    var resultHalf = document.getElementById('rt-half');
+    var resultFull = document.getElementById('rt-full');
+
+    var targets = [
+      { el: result5k,   dist: 5000,  label: '5K' },
+      { el: result10k,  dist: 10000, label: '10K' },
+      { el: resultHalf, dist: 21097, label: 'Half Marathon' },
+      { el: resultFull, dist: 42195, label: 'Marathon' }
+    ];
+
+    function formatTime(totalSeconds) {
+      var hours = Math.floor(totalSeconds / 3600);
+      var mins = Math.floor((totalSeconds % 3600) / 60);
+      var secs = Math.round(totalSeconds % 60);
+
+      if (secs === 60) {
+        mins += 1;
+        secs = 0;
+      }
+      if (mins === 60) {
+        hours += 1;
+        mins = 0;
+      }
+
+      if (hours > 0) {
+        return hours + ':' + String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+      }
+      return mins + ':' + String(secs).padStart(2, '0');
+    }
+
+    function getKnownDistance() {
+      var val = distanceSelect.value;
+      if (val === 'custom') {
+        return parseFloat(customMeters.value) || 0;
+      }
+      return parseFloat(val);
+    }
+
+    // Riegel formula: T2 = T1 * (D2 / D1)^1.06
+    function predict(t1, d1, d2) {
+      return t1 * Math.pow(d2 / d1, 1.06);
+    }
+
+    function calculate() {
+      var d1 = getKnownDistance();
+      var mins = parseFloat(minutesInput.value) || 0;
+      var secs = parseFloat(secondsInput.value) || 0;
+      var t1 = mins * 60 + secs;
+
+      if (d1 <= 0 || t1 <= 0) {
+        targets.forEach(function (t) { t.el.textContent = '\u2014'; });
+        return;
+      }
+
+      targets.forEach(function (t) {
+        var predicted = predict(t1, d1, t.dist);
+        t.el.textContent = formatTime(predicted);
+      });
+    }
+
+    // Show/hide custom distance field
+    distanceSelect.addEventListener('change', function () {
+      customField.style.display = distanceSelect.value === 'custom' ? '' : 'none';
+      calculate();
+    });
+
+    minutesInput.addEventListener('input', calculate);
+    secondsInput.addEventListener('input', calculate);
+    customMeters.addEventListener('input', calculate);
+  })();
+  </script>
+</body>
+</html>

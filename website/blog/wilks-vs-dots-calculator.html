@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Wilks vs DOTS Score Calculator | Helm</title>
+  <meta name="description" content="Calculate and compare your Wilks and DOTS powerlifting scores. Understand which formula to use for competition.">
+
+  <link rel="canonical" href="https://helmfit.com/blog/wilks-vs-dots-calculator.html">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://helmfit.com/blog/wilks-vs-dots-calculator.html">
+  <meta property="og:title" content="Wilks vs DOTS Score Calculator | Helm">
+  <meta property="og:description" content="Calculate and compare your Wilks and DOTS powerlifting scores. Understand which formula to use for competition.">
+  <meta property="og:image" content="https://helmfit.com/assets/images/helm-app-icon.png">
+  <meta property="og:site_name" content="Helm">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Wilks vs DOTS Score Calculator | Helm">
+  <meta name="twitter:description" content="Calculate and compare your Wilks and DOTS powerlifting scores. Understand which formula to use for competition.">
+  <meta name="twitter:image" content="https://helmfit.com/assets/images/helm-app-icon.png">
+
+  <link rel="icon" type="image/png" href="../assets/images/helm-app-icon.png">
+  <link rel="stylesheet" href="../assets/css/style.css">
+
+  <!-- JSON-LD Article Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Wilks vs DOTS Score Calculator",
+    "description": "Calculate and compare your Wilks and DOTS powerlifting scores. Understand which formula to use for competition.",
+    "author": {
+      "@type": "Organization",
+      "name": "Helm"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Helm",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://helmfit.com/assets/images/helm-app-icon.png"
+      }
+    },
+    "datePublished": "2026-03-31",
+    "dateModified": "2026-03-31",
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://helmfit.com/blog/wilks-vs-dots-calculator.html"
+    },
+    "image": "https://helmfit.com/assets/images/helm-app-icon.png"
+  }
+  </script>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════
+       NAVIGATION
+       ═══════════════════════════════════════════════════ -->
+  <header class="nav">
+    <div class="nav__inner">
+      <a href="../index.html" class="nav__logo">
+        <img src="../assets/images/helm-app-icon.png" alt="Helm app icon" width="36" height="36">
+        Helm
+      </a>
+
+      <nav class="nav__links">
+        <a href="../index.html#features" class="nav__link">Features</a>
+        <a href="../index.html#import" class="nav__link">Import</a>
+        <a href="../index.html#compare" class="nav__link">Compare</a>
+        <a href="./" class="nav__link">Blog</a>
+        <a href="../index.html#cta" class="nav__cta">Get Notified</a>
+      </nav>
+
+      <div class="nav__burger" aria-label="Toggle menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+
+    <div class="nav__mobile">
+      <a href="../index.html#features">Features</a>
+      <a href="../index.html#import">Import</a>
+      <a href="../index.html#compare">Compare</a>
+      <a href="./">Blog</a>
+      <a href="../index.html#cta">Get Notified</a>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ═══════════════════════════════════════════════════
+         ARTICLE
+         ═══════════════════════════════════════════════════ -->
+    <article class="article">
+
+      <div class="section-header reveal" style="text-align: left; margin-bottom: var(--space-lg);">
+        <a href="./" class="t-label" style="color: var(--color-accent);">&larr; Back to Blog</a>
+        <h1 class="t-title" style="margin-top: var(--space-md);">Wilks vs DOTS Score Calculator</h1>
+        <p class="t-body-lg">Compare your powerlifting scores using both formulas side by side.</p>
+      </div>
+
+      <!-- Calculator Widget -->
+      <div class="calculator reveal">
+        <div class="calculator__title">Calculate Your Scores</div>
+
+        <div class="calculator__row">
+          <div class="calculator__field">
+            <label class="calculator__label" for="wd-bodyweight">Body Weight (kg)</label>
+            <input class="calculator__input" type="number" id="wd-bodyweight" placeholder="e.g. 83" min="0" step="any">
+          </div>
+          <div class="calculator__field">
+            <label class="calculator__label" for="wd-total">Total (kg)</label>
+            <input class="calculator__input" type="number" id="wd-total" placeholder="e.g. 500" min="0" step="any">
+          </div>
+        </div>
+
+        <div class="calculator__row">
+          <div class="calculator__field">
+            <label class="calculator__label">Sex</label>
+            <div style="display: flex; gap: var(--space-lg); padding-top: var(--space-xs);">
+              <label style="display: flex; align-items: center; gap: var(--space-xs); cursor: pointer; font-size: 0.9375rem;">
+                <input type="radio" name="wd-sex" value="male" checked style="accent-color: var(--color-accent);"> Male
+              </label>
+              <label style="display: flex; align-items: center; gap: var(--space-xs); cursor: pointer; font-size: 0.9375rem;">
+                <input type="radio" name="wd-sex" value="female" style="accent-color: var(--color-accent);"> Female
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="calculator__row" style="gap: var(--space-lg);">
+          <div class="calculator__result" style="flex: 1;">
+            <div class="calculator__result-value" id="wd-wilks">&mdash;</div>
+            <div class="calculator__result-label">Wilks Score</div>
+          </div>
+          <div class="calculator__result" style="flex: 1;">
+            <div class="calculator__result-value" id="wd-dots">&mdash;</div>
+            <div class="calculator__result-label">DOTS Score</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Article Content -->
+      <h2>What Are Wilks and DOTS Scores?</h2>
+      <p>In powerlifting, lifters compete across different weight classes. Comparing a 66 kg lifter's total to a 120 kg lifter's total is meaningless without some way to normalize for body weight. That is exactly what Wilks and DOTS scores do: they apply a mathematical coefficient to your total so that lifters of different sizes can be compared on a level playing field.</p>
+      <p>Both formulas produce a single number. The higher the number, the stronger you are relative to your body weight. A score above 300 is solid for a recreational lifter, above 400 is competitive, and above 500 puts you in elite territory.</p>
+
+      <h2>History of the Wilks Formula</h2>
+      <p>The Wilks coefficient was developed by Robert Wilks in the 1990s and became the official scoring system for the International Powerlifting Federation (IPF). It uses a fifth-degree polynomial fitted to world-record performances across weight classes. For decades, it was the undisputed standard for comparing lifters.</p>
+      <p>However, as powerlifting grew and more data became available, critics pointed out that the Wilks formula tended to favour middle-weight lifters. Lighter and heavier lifters were systematically disadvantaged in best-lifter rankings, which led to the search for a better alternative.</p>
+
+      <h2>History of the DOTS Formula</h2>
+      <p>The DOTS (Dynamic Objective Team Scoring) formula was introduced around 2019 as a modern replacement for Wilks. It uses a fourth-degree polynomial fitted to a more recent and comprehensive data set of competitive performances. The IPF adopted DOTS as its official scoring system, though some federations still use Wilks.</p>
+      <p>DOTS is generally considered more fair across the full range of body weights because it was built on a larger and more current data set. It reduces the bias toward middle-weight lifters that plagued the Wilks formula.</p>
+
+      <h2>Which One Should You Use?</h2>
+      <p>If you are competing, use whatever your federation requires. The IPF now uses DOTS (also known as IPF Points in some contexts), but many local federations and online communities still reference Wilks.</p>
+      <p>If you are tracking your own progress or comparing with training partners, <strong>DOTS is the better choice</strong>. It is newer, built on better data, and produces more consistent rankings across weight classes. That said, tracking both gives you the fullest picture, which is why Helm calculates both automatically in its meet simulator.</p>
+
+      <h2>How Helm Uses Both Formulas</h2>
+      <p>Helm's built-in meet simulator lets you enter your squat, bench, and deadlift attempts, then instantly calculates your Wilks and DOTS scores. As you log training cycles and simulated meets over time, Helm charts your scores so you can see your relative strength improving even as your body weight changes.</p>
+      <p>No need to look up coefficients or do the math yourself. Just lift, log, and let Helm handle the numbers.</p>
+
+      <!-- CTA -->
+      <div class="calculator__result" style="margin-top: var(--space-2xl);">
+        <div class="calculator__result-value" style="font-size: 1.25rem;">Simulate meets and track your scores with Helm</div>
+        <div class="calculator__result-label" style="margin-top: var(--space-sm);">
+          <a href="../index.html#cta" style="color: var(--color-accent); font-weight: 600;">Get notified at launch &rarr;</a>
+        </div>
+      </div>
+
+    </article>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════
+       FOOTER
+       ═══════════════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__grid">
+        <div class="footer__brand">
+          <div class="footer__logo">
+            <img src="../assets/images/helm-app-icon.png" alt="Helm" width="32" height="32">
+            Helm
+          </div>
+          <p class="footer__tagline">One app for strength, cardio, and nutrition. No ads, no fluff &mdash; just training.</p>
+        </div>
+
+        <div class="footer__col">
+          <div class="footer__col-title">Product</div>
+          <a href="../index.html#features">Features</a>
+          <a href="../index.html#import">Import Guide</a>
+          <a href="../index.html#compare">Compare</a>
+        </div>
+
+        <div class="footer__col">
+          <div class="footer__col-title">Resources</div>
+          <a href="./">Blog</a>
+        </div>
+
+        <div class="footer__col">
+          <div class="footer__col-title">Legal</div>
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+        </div>
+      </div>
+
+      <div class="footer__bottom">
+        <span>&copy; 2026 Helm. All rights reserved.</span>
+        <span>Made for lifters, by a lifter.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+
+  <!-- Wilks & DOTS Calculator Script -->
+  <script>
+  (function () {
+    'use strict';
+
+    // Real polynomial coefficients from the app
+    var wilksCoeffs = {
+      male:   [-216.0475144, 16.2606339, -0.002388645, -0.00113732, 7.01863e-6, -1.291e-8],
+      female: [594.31747775582, -27.23842536447, 0.82112226871, -0.00930733913, 4.731582e-5, -9.054e-8]
+    };
+
+    var dotsCoeffs = {
+      male:   [-307.75076, 24.0900756, -0.1918759221, 0.0007391293, -0.000001093],
+      female: [-57.96288, 13.6175032, -0.1126655495, 0.0005158568, -0.0000010706]
+    };
+
+    var bwInput = document.getElementById('wd-bodyweight');
+    var totalInput = document.getElementById('wd-total');
+    var sexInputs = document.querySelectorAll('input[name="wd-sex"]');
+    var wilksDisplay = document.getElementById('wd-wilks');
+    var dotsDisplay = document.getElementById('wd-dots');
+
+    function getSelectedSex() {
+      for (var i = 0; i < sexInputs.length; i++) {
+        if (sexInputs[i].checked) return sexInputs[i].value;
+      }
+      return 'male';
+    }
+
+    function calcWilks(bw, total, sex) {
+      var c = wilksCoeffs[sex];
+      var denom = c[0]
+        + c[1] * bw
+        + c[2] * Math.pow(bw, 2)
+        + c[3] * Math.pow(bw, 3)
+        + c[4] * Math.pow(bw, 4)
+        + c[5] * Math.pow(bw, 5);
+      return (500 / Math.abs(denom)) * total;
+    }
+
+    function calcDOTS(bw, total, sex) {
+      var c = dotsCoeffs[sex];
+      var denom = c[0]
+        + c[1] * bw
+        + c[2] * Math.pow(bw, 2)
+        + c[3] * Math.pow(bw, 3)
+        + c[4] * Math.pow(bw, 4);
+      return (500 / denom) * total;
+    }
+
+    function calculate() {
+      var bw = parseFloat(bwInput.value);
+      var total = parseFloat(totalInput.value);
+      var sex = getSelectedSex();
+
+      if (!bw || bw <= 0 || !total || total <= 0) {
+        wilksDisplay.textContent = '\u2014';
+        dotsDisplay.textContent = '\u2014';
+        return;
+      }
+
+      wilksDisplay.textContent = calcWilks(bw, total, sex).toFixed(2);
+      dotsDisplay.textContent = calcDOTS(bw, total, sex).toFixed(2);
+    }
+
+    bwInput.addEventListener('input', calculate);
+    totalInput.addEventListener('input', calculate);
+    for (var i = 0; i < sexInputs.length; i++) {
+      sexInputs[i].addEventListener('change', calculate);
+    }
+  })();
+  </script>
+</body>
+</html>

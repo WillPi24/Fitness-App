@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>One Rep Max (1RM) Calculator | Helm</title>
+  <meta name="description" content="Calculate your estimated one-rep max using the Brzycki formula. Enter your weight and reps to find your 1RM for any lift.">
+
+  <link rel="canonical" href="https://helmfit.com/blog/one-rep-max-calculator.html">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://helmfit.com/blog/one-rep-max-calculator.html">
+  <meta property="og:title" content="One Rep Max (1RM) Calculator | Helm">
+  <meta property="og:description" content="Calculate your estimated one-rep max using the Brzycki formula. Enter your weight and reps to find your 1RM for any lift.">
+  <meta property="og:image" content="https://helmfit.com/assets/images/helm-app-icon.png">
+  <meta property="og:site_name" content="Helm">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="One Rep Max (1RM) Calculator | Helm">
+  <meta name="twitter:description" content="Calculate your estimated one-rep max using the Brzycki formula. Enter your weight and reps to find your 1RM for any lift.">
+  <meta name="twitter:image" content="https://helmfit.com/assets/images/helm-app-icon.png">
+
+  <link rel="icon" type="image/png" href="../assets/images/helm-app-icon.png">
+  <link rel="stylesheet" href="../assets/css/style.css">
+
+  <!-- JSON-LD Article Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "One Rep Max (1RM) Calculator",
+    "description": "Calculate your estimated one-rep max using the Epley formula. Enter your weight and reps to find your 1RM for any lift.",
+    "author": {
+      "@type": "Organization",
+      "name": "Helm"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Helm",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://helmfit.com/assets/images/helm-app-icon.png"
+      }
+    },
+    "datePublished": "2026-03-31",
+    "dateModified": "2026-03-31",
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://helmfit.com/blog/one-rep-max-calculator.html"
+    },
+    "image": "https://helmfit.com/assets/images/helm-app-icon.png"
+  }
+  </script>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════
+       NAVIGATION
+       ═══════════════════════════════════════════════════ -->
+  <header class="nav">
+    <div class="nav__inner">
+      <a href="../index.html" class="nav__logo">
+        <img src="../assets/images/helm-app-icon.png" alt="Helm app icon" width="36" height="36">
+        Helm
+      </a>
+
+      <nav class="nav__links">
+        <a href="../index.html#features" class="nav__link">Features</a>
+        <a href="../index.html#import" class="nav__link">Import</a>
+        <a href="../index.html#compare" class="nav__link">Compare</a>
+        <a href="./" class="nav__link">Blog</a>
+        <a href="../index.html#cta" class="nav__cta">Get Notified</a>
+      </nav>
+
+      <div class="nav__burger" aria-label="Toggle menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+
+    <div class="nav__mobile">
+      <a href="../index.html#features">Features</a>
+      <a href="../index.html#import">Import</a>
+      <a href="../index.html#compare">Compare</a>
+      <a href="./">Blog</a>
+      <a href="../index.html#cta">Get Notified</a>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ═══════════════════════════════════════════════════
+         ARTICLE
+         ═══════════════════════════════════════════════════ -->
+    <article class="article">
+
+      <div class="section-header reveal" style="text-align: left; margin-bottom: var(--space-lg);">
+        <a href="./" class="t-label" style="color: var(--color-accent);">&larr; Back to Blog</a>
+        <h1 class="t-title" style="margin-top: var(--space-md);">One Rep Max (1RM) Calculator</h1>
+        <p class="t-body-lg">Estimate your one-rep max for any lift using the Epley formula.</p>
+      </div>
+
+      <!-- Calculator Widget -->
+      <div class="calculator reveal">
+        <div class="calculator__title">Calculate Your 1RM</div>
+
+        <div class="calculator__row">
+          <div class="calculator__field">
+            <label class="calculator__label" for="orm-weight">Weight Lifted</label>
+            <input class="calculator__input" type="number" id="orm-weight" placeholder="e.g. 100" min="0" step="any">
+          </div>
+          <div class="calculator__field">
+            <label class="calculator__label" for="orm-reps">Reps Performed</label>
+            <input class="calculator__input" type="number" id="orm-reps" placeholder="e.g. 5" min="1" max="30" step="1">
+          </div>
+        </div>
+
+        <div class="calculator__result">
+          <div class="calculator__result-value" id="orm-result">&mdash;</div>
+          <div class="calculator__result-label">Estimated 1RM</div>
+        </div>
+      </div>
+
+      <!-- Article Content -->
+      <h2>What Is a One Rep Max?</h2>
+      <p>Your one-rep max (1RM) is the maximum amount of weight you can lift for a single repetition of a given exercise with proper form. It is the gold standard for measuring absolute strength and serves as the foundation for most percentage-based training programs.</p>
+      <p>Knowing your 1RM is essential for programming because it lets you prescribe training loads precisely. Instead of guessing how heavy to go, you work from percentages: 70% of your 1RM for hypertrophy sets, 85% for strength work, 90%+ for peaking. Without it, you are training blind.</p>
+
+      <h2>How the Formula Works</h2>
+      <p>Rather than testing a true one-rep max every session (which is fatiguing and carries injury risk), you can estimate it from a submaximal set. The calculator above uses the <strong>Epley formula</strong>:</p>
+      <p><strong>1RM = weight &times; (1 + reps / 30)</strong></p>
+      <p>For example, if you bench press 100 kg for 5 reps, your estimated 1RM is:</p>
+      <p><strong>100 &times; (1 + 5 / 30) = 100 &times; 1.167 = 116.7 kg</strong></p>
+      <p>The formula is most accurate for sets of 10 reps or fewer. As rep counts climb beyond that, the estimate becomes less reliable because muscular endurance starts to dominate over maximal strength.</p>
+
+      <h2>Common 1RM Formulas Compared</h2>
+      <p>Several formulas exist for estimating 1RM. Each was derived from different data sets and populations, so they produce slightly different results:</p>
+      <ul>
+        <li><strong>Epley:</strong> 1RM = weight &times; (1 + reps / 30). Simple, widely used, and the formula Helm uses for in-app 1RM tracking.</li>
+        <li><strong>Brzycki:</strong> 1RM = weight &times; 36 / (37 &minus; reps). Popular in academic settings. Tends to give slightly lower estimates at higher rep ranges.</li>
+        <li><strong>Lombardi:</strong> 1RM = weight &times; reps<sup>0.10</sup>. Uses an exponential model and is sometimes preferred for trained athletes.</li>
+      </ul>
+      <p>For most practical purposes, the differences between formulas are small (within 2&ndash;5%) when reps stay under 10. The key is to pick one formula and use it consistently so you can track progress over time.</p>
+
+      <h2>How to Use Your 1RM in Programming</h2>
+      <p>Once you know your estimated 1RM, you can build structured training programs with precise intensity prescriptions:</p>
+      <ul>
+        <li><strong>Hypertrophy (60&ndash;75% of 1RM):</strong> 3&ndash;5 sets of 8&ndash;12 reps to maximize muscle growth.</li>
+        <li><strong>Strength (75&ndash;85% of 1RM):</strong> 3&ndash;5 sets of 3&ndash;6 reps to build maximal force production.</li>
+        <li><strong>Peaking (85&ndash;95% of 1RM):</strong> 1&ndash;3 sets of 1&ndash;3 reps to express peak strength before a competition or test.</li>
+      </ul>
+      <p>Recalculate your 1RM every 4&ndash;6 weeks as you get stronger, or let Helm do it automatically after every workout.</p>
+
+      <h2>How Helm Tracks 1RM Automatically</h2>
+      <p>Every time you log a set in Helm, the app calculates your estimated 1RM using the Epley formula. It tracks your best e1RM for each exercise over time, detects personal records automatically, and shows your strength trends on clear, easy-to-read charts.</p>
+      <p>No manual entry needed. Just train, log your sets, and Helm handles the rest.</p>
+
+      <!-- CTA -->
+      <div class="calculator__result" style="margin-top: var(--space-2xl);">
+        <div class="calculator__result-value" style="font-size: 1.25rem;">Track your 1RM over time with Helm</div>
+        <div class="calculator__result-label" style="margin-top: var(--space-sm);">
+          <a href="../index.html#cta" style="color: var(--color-accent); font-weight: 600;">Get notified at launch &rarr;</a>
+        </div>
+      </div>
+
+    </article>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════
+       FOOTER
+       ═══════════════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__grid">
+        <div class="footer__brand">
+          <div class="footer__logo">
+            <img src="../assets/images/helm-app-icon.png" alt="Helm" width="32" height="32">
+            Helm
+          </div>
+          <p class="footer__tagline">One app for strength, cardio, and nutrition. No ads, no fluff &mdash; just training.</p>
+        </div>
+
+        <div class="footer__col">
+          <div class="footer__col-title">Product</div>
+          <a href="../index.html#features">Features</a>
+          <a href="../index.html#import">Import Guide</a>
+          <a href="../index.html#compare">Compare</a>
+        </div>
+
+        <div class="footer__col">
+          <div class="footer__col-title">Resources</div>
+          <a href="./">Blog</a>
+        </div>
+
+        <div class="footer__col">
+          <div class="footer__col-title">Legal</div>
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+        </div>
+      </div>
+
+      <div class="footer__bottom">
+        <span>&copy; 2026 Helm. All rights reserved.</span>
+        <span>Made for lifters, by a lifter.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+
+  <!-- 1RM Calculator Script -->
+  <script>
+  (function () {
+    'use strict';
+
+    var weightInput = document.getElementById('orm-weight');
+    var repsInput = document.getElementById('orm-reps');
+    var resultDisplay = document.getElementById('orm-result');
+
+    function calculate() {
+      var weight = parseFloat(weightInput.value);
+      var reps = parseInt(repsInput.value, 10);
+
+      if (!weight || weight <= 0 || !reps || reps < 1) {
+        resultDisplay.textContent = '\u2014';
+        return;
+      }
+
+      if (reps === 1) {
+        resultDisplay.textContent = weight.toFixed(1);
+        return;
+      }
+
+      // Epley formula: 1RM = weight * (1 + reps / 30)
+      var oneRM = weight * (1 + reps / 30);
+      resultDisplay.textContent = oneRM.toFixed(1);
+    }
+
+    weightInput.addEventListener('input', calculate);
+    repsInput.addEventListener('input', calculate);
+  })();
+  </script>
+</body>
+</html>

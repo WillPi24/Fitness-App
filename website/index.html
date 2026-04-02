@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Helm — One App for Strength, Cardio, and Nutrition</title>
+  <meta name="description" content="Replace your workout tracker, run tracker, and calorie counter with one clean, ad-free app. Import from Strong, Strava, MyFitnessPal, and more.">
+
+  <link rel="canonical" href="https://helmfit.com/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://helmfit.com/">
+  <meta property="og:title" content="Helm — One App for Strength, Cardio, and Nutrition">
+  <meta property="og:description" content="Replace your workout tracker, run tracker, and calorie counter with one clean, ad-free app. Import from Strong, Strava, MyFitnessPal, and more.">
+  <meta property="og:image" content="https://helmfit.com/assets/images/helm-app-icon.png">
+  <meta property="og:site_name" content="Helm">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Helm — One App for Strength, Cardio, and Nutrition">
+  <meta name="twitter:description" content="Replace your workout tracker, run tracker, and calorie counter with one clean, ad-free app. Import from Strong, Strava, MyFitnessPal, and more.">
+  <meta name="twitter:image" content="https://helmfit.com/assets/images/helm-app-icon.png">
+
+  <link rel="icon" type="image/png" href="assets/images/helm-app-icon.png">
+  <link rel="stylesheet" href="assets/css/style.css">
+
+  <!-- JSON-LD Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "MobileApplication",
+    "name": "Helm",
+    "operatingSystem": "Android, iOS",
+    "applicationCategory": "HealthApplication",
+    "description": "Replace your workout tracker, run tracker, and calorie counter with one clean, ad-free app. Import from Strong, Strava, MyFitnessPal, and more.",
+    "offers": {
+      "@type": "Offer",
+      "price": "2.99",
+      "priceCurrency": "GBP"
+    },
+    "image": "https://helmfit.com/assets/images/helm-app-icon.png",
+    "url": "https://helmfit.com/"
+  }
+  </script>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════
+       NAVIGATION
+       ═══════════════════════════════════════════════════ -->
+  <header class="nav">
+    <div class="nav__inner">
+      <a href="/" class="nav__logo">
+        <img src="assets/images/helm-app-icon.png" alt="Helm app icon" width="36" height="36">
+        Helm
+      </a>
+
+      <nav class="nav__links">
+        <a href="#features" class="nav__link">Features</a>
+        <a href="#import" class="nav__link">Import</a>
+        <a href="#compare" class="nav__link">Compare</a>
+        <a href="blog/" class="nav__link">Blog</a>
+        <a href="#cta" class="nav__cta">Get Notified</a>
+      </nav>
+
+      <div class="nav__burger" aria-label="Toggle menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+
+    <div class="nav__mobile">
+      <a href="#features">Features</a>
+      <a href="#import">Import</a>
+      <a href="#compare">Compare</a>
+      <a href="blog/">Blog</a>
+      <a href="#cta">Get Notified</a>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ═══════════════════════════════════════════════════
+         HERO
+         ═══════════════════════════════════════════════════ -->
+    <section class="hero">
+      <div class="container">
+        <div class="hero__grid">
+          <div class="hero__content">
+            <span class="hero__eyebrow reveal">Launching Soon</span>
+            <h1 class="t-display reveal reveal-delay-1">One app.<br>Every rep, every mile, every meal.</h1>
+            <p class="hero__subtitle reveal reveal-delay-2">Stop juggling five fitness apps. Helm replaces your workout tracker, run tracker, and calorie counter with one clean, powerful tool. No ads. No fluff.</p>
+            <form class="email-form hero__form reveal reveal-delay-3" aria-label="Email signup">
+              <input type="email" class="hero__input" placeholder="you@email.com" required aria-label="Email address">
+              <button type="submit" class="btn btn--primary">Notify me</button>
+            </form>
+            <div class="hero__stats reveal reveal-delay-4">
+              <div>
+                <div class="hero__stat-value">80+</div>
+                <div class="hero__stat-label">Exercises</div>
+              </div>
+              <div>
+                <div class="hero__stat-value">21</div>
+                <div class="hero__stat-label">Micronutrients</div>
+              </div>
+              <div>
+                <div class="hero__stat-value">8</div>
+                <div class="hero__stat-label">Import formats</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hero__visual reveal reveal-delay-2">
+            <div class="hero__decoration"></div>
+            <div class="phone-mockup">
+              <div class="phone-mockup__screen" id="demo-screen">
+
+                <!-- Screen 0: Calories (first tab) -->
+                <div class="demo-screen demo-screen--active" data-demo="0">
+                  <div class="demo-page-title">Calorie tracker</div>
+                  <div class="demo-month-row"><span class="demo-month-text">Mar 2026</span><span class="demo-month-chevron">&#x25BE;</span></div>
+                  <div class="demo-week-strip">
+                    <div class="demo-day"><span class="demo-day__label">Mon</span><span class="demo-day__num">24</span></div>
+                    <div class="demo-day demo-day--has-data"><span class="demo-day__label">Tue</span><span class="demo-day__num">25</span></div>
+                    <div class="demo-day demo-day--has-data"><span class="demo-day__label">Wed</span><span class="demo-day__num">26</span></div>
+                    <div class="demo-day demo-day--has-data"><span class="demo-day__label">Thu</span><span class="demo-day__num">27</span></div>
+                    <div class="demo-day demo-day--has-data"><span class="demo-day__label">Fri</span><span class="demo-day__num">28</span></div>
+                    <div class="demo-day demo-day--selected"><span class="demo-day__label">Sat</span><span class="demo-day__num">29</span></div>
+                    <div class="demo-day"><span class="demo-day__label">Sun</span><span class="demo-day__num">30</span></div>
+                  </div>
+                  <div class="demo-card">
+                    <div class="demo-card__header">
+                      <div>
+                        <div class="demo-card__title">Daily Summary</div>
+                        <div class="demo-card__subtitle">29/03/26</div>
+                      </div>
+                      <span class="demo-gear">&#x2699;</span>
+                    </div>
+                    <div class="demo-cal-summary">
+                      <div class="demo-cal-left">
+                        <div class="demo-cal-number"><span class="demo-cal-current">0</span><span class="demo-cal-goal"> / 2400 kcal</span></div>
+                        <div class="demo-cal-bar"><div class="demo-cal-bar__fill"></div></div>
+                        <div class="demo-cal-remaining">355 kcal remaining</div>
+                      </div>
+                      <div class="demo-cal-right">
+                        <svg viewBox="0 0 100 100" class="demo-pie-svg">
+                          <circle cx="50" cy="50" r="45" fill="#E4DDD5" stroke="#4A4F55" stroke-width="1.5"/>
+                          <path class="demo-ring-protein" d="M50 5 A45 45 0 0 1 93.9 62.1 L50 50Z" fill="#E4572E" stroke="#4A4F55" stroke-width="1.5" opacity="0"/>
+                          <path class="demo-ring-carbs" d="M93.9 62.1 A45 45 0 0 1 10.2 72.5 L50 50Z" fill="#2A9D8F" stroke="#4A4F55" stroke-width="1.5" opacity="0"/>
+                          <path class="demo-ring-fat" d="M10.2 72.5 A45 45 0 0 1 50 5 L50 50Z" fill="#E9C46A" stroke="#4A4F55" stroke-width="1.5" opacity="0"/>
+                        </svg>
+                      </div>
+                    </div>
+                    <div class="demo-macro-row">
+                      <div class="demo-macro-col"><span class="demo-macro-val" style="color:#E4572E">145g</span><span class="demo-macro-label">PROTEIN</span><span class="demo-macro-pct">&bull; 28%</span></div>
+                      <div class="demo-macro-col"><span class="demo-macro-val" style="color:#2A9D8F">220g</span><span class="demo-macro-label">CARBS</span><span class="demo-macro-pct">&bull; 43%</span></div>
+                      <div class="demo-macro-col"><span class="demo-macro-val" style="color:#E9C46A">65g</span><span class="demo-macro-label">FAT</span><span class="demo-macro-pct">&bull; 29%</span></div>
+                    </div>
+                  </div>
+                  <div class="demo-card" data-anim="stagger">
+                    <div class="demo-card__header" style="margin-bottom:4px">
+                      <div class="demo-card__title">Meals</div>
+                      <span class="demo-pill demo-pill--filled">Add Meal</span>
+                    </div>
+                    <div class="demo-meal">
+                      <div class="demo-meal__left">
+                        <span class="demo-meal__name">Breakfast</span>
+                        <span class="demo-meal__cals">520 kcal</span>
+                      </div>
+                      <span class="demo-meal__trash">&#x1F5D1;</span>
+                    </div>
+                    <div class="demo-meal">
+                      <div class="demo-meal__left">
+                        <span class="demo-meal__name">Lunch</span>
+                        <span class="demo-meal__cals">680 kcal</span>
+                      </div>
+                    </div>
+                    <div class="demo-meal">
+                      <div class="demo-meal__left">
+                        <span class="demo-meal__name">Post-Workout</span>
+                        <span class="demo-meal__cals">450 kcal</span>
+                      </div>
+                    </div>
+                    <div class="demo-meal">
+                      <div class="demo-meal__left">
+                        <span class="demo-meal__name">Dinner</span>
+                        <span class="demo-meal__cals">395 kcal</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Screen 1: Workout Log -->
+                <div class="demo-screen" data-demo="1">
+                  <div class="demo-page-title">Workout logs</div>
+                  <div class="demo-month-row"><span class="demo-month-text">Mar 2026</span><span class="demo-month-chevron">&#x25BE;</span></div>
+                  <div class="demo-week-strip">
+                    <div class="demo-day"><span class="demo-day__label">Mon</span><span class="demo-day__num">24</span></div>
+                    <div class="demo-day demo-day--has-data"><span class="demo-day__label">Tue</span><span class="demo-day__num">25</span></div>
+                    <div class="demo-day"><span class="demo-day__label">Wed</span><span class="demo-day__num">26</span></div>
+                    <div class="demo-day demo-day--has-data"><span class="demo-day__label">Thu</span><span class="demo-day__num">27</span></div>
+                    <div class="demo-day"><span class="demo-day__label">Fri</span><span class="demo-day__num">28</span></div>
+                    <div class="demo-day demo-day--selected"><span class="demo-day__label">Sat</span><span class="demo-day__num">29</span></div>
+                    <div class="demo-day"><span class="demo-day__label">Sun</span><span class="demo-day__num">30</span></div>
+                  </div>
+                  <div class="demo-card">
+                    <div class="demo-card__header">
+                      <div>
+                        <div class="demo-card__title">Workout for 29/03</div>
+                        <div class="demo-card__subtitle">Track sets, reps, and load.</div>
+                      </div>
+                      <div class="demo-header-right">
+                        <span class="demo-gear">&#x2699;</span>
+                        <div class="demo-timer-block">
+                          <span class="demo-timer-label">TIMER</span>
+                          <span class="demo-timer">24:17</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="demo-exercise">
+                      <div class="demo-exercise__name">Barbell Bench Press</div>
+                      <div class="demo-set-row">
+                        <span class="demo-set__label">Set 1</span>
+                        <div class="demo-set__input"><span class="demo-set__value">80</span><span class="demo-set__suffix">kg</span></div>
+                        <div class="demo-set__input"><span class="demo-set__value">8</span><span class="demo-set__suffix">reps</span></div>
+                      </div>
+                      <div class="demo-set-row">
+                        <span class="demo-set__label">Set 2</span>
+                        <div class="demo-set__input"><span class="demo-set__value">80</span><span class="demo-set__suffix">kg</span></div>
+                        <div class="demo-set__input"><span class="demo-set__value">7</span><span class="demo-set__suffix">reps</span></div>
+                      </div>
+                      <div class="demo-set-row">
+                        <span class="demo-set__label">Set 3</span>
+                        <div class="demo-set__input"><span class="demo-set__value">75</span><span class="demo-set__suffix">kg</span></div>
+                        <div class="demo-set__input"><span class="demo-set__value">10</span><span class="demo-set__suffix">reps</span></div>
+                      </div>
+                      <div class="demo-set-actions">
+                        <span class="demo-pill demo-pill--accent">Add set</span>
+                        <span class="demo-pill demo-pill--danger">Remove</span>
+                      </div>
+                    </div>
+                    <div class="demo-exercise">
+                      <div class="demo-exercise__name">Tricep Pushdown</div>
+                      <div class="demo-set-row">
+                        <span class="demo-set__label">Set 1</span>
+                        <div class="demo-set__input"><span class="demo-set__value">25</span><span class="demo-set__suffix">kg</span></div>
+                        <div class="demo-set__input"><span class="demo-set__value">12</span><span class="demo-set__suffix">reps</span></div>
+                      </div>
+                      <div class="demo-set-row">
+                        <span class="demo-set__label">Set 2</span>
+                        <div class="demo-set__input"><span class="demo-set__value demo-type-weight"></span><span class="demo-set__suffix">kg</span></div>
+                        <div class="demo-set__input"><span class="demo-set__value demo-type-reps"></span><span class="demo-set__suffix">reps</span></div>
+                      </div>
+                      <div class="demo-set-actions">
+                        <span class="demo-pill demo-pill--accent">Add set</span>
+                        <span class="demo-pill demo-pill--danger">Remove</span>
+                      </div>
+                    </div>
+                    <div class="demo-btn demo-btn--add-exercise">Add exercise</div>
+                    <div class="demo-btn demo-btn--dark">End workout</div>
+                  </div>
+                  <div class="demo-pr" data-anim="pop">
+                    <span class="demo-pr__icon">&#x1F3C6;</span>
+                    <span class="demo-pr__text">New PR! Bench 80kg &times; 8</span>
+                  </div>
+                </div>
+
+                <!-- Screen: Cardio -->
+                <div class="demo-screen" data-demo="2">
+                  <div class="demo-page-title">Cardio tracker</div>
+                  <div class="demo-month-row"><span class="demo-month-text">Mar 2026</span><span class="demo-month-chevron">&#x25BE;</span></div>
+                  <div class="demo-week-strip">
+                    <div class="demo-day"><span class="demo-day__label">Mon</span><span class="demo-day__num">24</span></div>
+                    <div class="demo-day demo-day--has-data"><span class="demo-day__label">Tue</span><span class="demo-day__num">25</span></div>
+                    <div class="demo-day"><span class="demo-day__label">Wed</span><span class="demo-day__num">26</span></div>
+                    <div class="demo-day"><span class="demo-day__label">Thu</span><span class="demo-day__num">27</span></div>
+                    <div class="demo-day demo-day--has-data"><span class="demo-day__label">Fri</span><span class="demo-day__num">28</span></div>
+                    <div class="demo-day demo-day--selected"><span class="demo-day__label">Sat</span><span class="demo-day__num">29</span></div>
+                    <div class="demo-day"><span class="demo-day__label">Sun</span><span class="demo-day__num">30</span></div>
+                  </div>
+                  <div class="demo-segmented demo-segmented--accent-soft">
+                    <div class="demo-segment demo-segment--active">Outdoor</div>
+                    <div class="demo-segment">Indoor</div>
+                  </div>
+                  <div class="demo-card">
+                    <div class="demo-card__header">
+                      <div class="demo-card__title">Running</div>
+                      <span class="demo-badge demo-badge--live">LIVE</span>
+                    </div>
+                    <div class="demo-map demo-map--real">
+                      <svg class="demo-map__city" viewBox="0 0 256 140">
+                        <!-- Background -->
+                        <rect width="256" height="140" fill="#E8E4DE"/>
+                        <!-- Park -->
+                        <rect x="160" y="8" width="50" height="35" rx="4" fill="#D4DBC8"/>
+                        <rect x="10" y="95" width="35" height="30" rx="3" fill="#D4DBC8"/>
+                        <!-- Water -->
+                        <path d="M 0 130 Q 60 115, 120 125 T 256 118 L 256 140 L 0 140 Z" fill="#C8D8E0"/>
+                        <!-- Major roads -->
+                        <line x1="0" y1="52" x2="256" y2="52" stroke="#FAFAF8" stroke-width="5"/>
+                        <line x1="0" y1="90" x2="256" y2="90" stroke="#FAFAF8" stroke-width="4"/>
+                        <line x1="80" y1="0" x2="80" y2="140" stroke="#FAFAF8" stroke-width="5"/>
+                        <line x1="155" y1="0" x2="155" y2="140" stroke="#FAFAF8" stroke-width="4"/>
+                        <!-- Minor roads -->
+                        <line x1="0" y1="25" x2="256" y2="25" stroke="#F0ECE6" stroke-width="2"/>
+                        <line x1="0" y1="72" x2="256" y2="72" stroke="#F0ECE6" stroke-width="2"/>
+                        <line x1="0" y1="110" x2="256" y2="110" stroke="#F0ECE6" stroke-width="2"/>
+                        <line x1="35" y1="0" x2="35" y2="140" stroke="#F0ECE6" stroke-width="2"/>
+                        <line x1="115" y1="0" x2="115" y2="140" stroke="#F0ECE6" stroke-width="2"/>
+                        <line x1="195" y1="0" x2="195" y2="140" stroke="#F0ECE6" stroke-width="2"/>
+                        <line x1="230" y1="0" x2="230" y2="140" stroke="#F0ECE6" stroke-width="2"/>
+                        <!-- Buildings (subtle blocks) -->
+                        <rect x="40" y="6" width="30" height="14" rx="2" fill="#DDD8D0"/>
+                        <rect x="88" y="6" width="22" height="14" rx="2" fill="#DDD8D0"/>
+                        <rect x="88" y="28" width="20" height="18" rx="2" fill="#DDD8D0"/>
+                        <rect x="120" y="28" width="28" height="18" rx="2" fill="#DDD8D0"/>
+                        <rect x="5" y="30" width="24" height="16" rx="2" fill="#DDD8D0"/>
+                        <rect x="40" y="58" width="32" height="10" rx="2" fill="#DDD8D0"/>
+                        <rect x="88" y="56" width="20" height="12" rx="2" fill="#DDD8D0"/>
+                        <rect x="120" y="56" width="28" height="10" rx="2" fill="#DDD8D0"/>
+                        <rect x="162" y="56" width="26" height="10" rx="2" fill="#DDD8D0"/>
+                        <rect x="200" y="28" width="24" height="18" rx="2" fill="#DDD8D0"/>
+                        <rect x="5" y="76" width="28" height="10" rx="2" fill="#DDD8D0"/>
+                        <rect x="88" y="76" width="20" height="10" rx="2" fill="#DDD8D0"/>
+                        <rect x="162" y="76" width="26" height="10" rx="2" fill="#DDD8D0"/>
+                        <rect x="200" y="58" width="24" height="10" rx="2" fill="#DDD8D0"/>
+                        <rect x="200" y="76" width="24" height="10" rx="2" fill="#DDD8D0"/>
+                        <!-- Route -->
+                        <path class="demo-route" d="M 20 108 L 35 108 L 35 90 L 80 90 L 80 52 L 115 52 L 115 25 L 155 25 L 155 52 L 195 52 L 195 72 L 230 72 L 230 90" stroke="#E4572E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0"/>
+                        <!-- Runner dot -->
+                        <circle class="demo-runner-glow" cx="20" cy="108" r="8" fill="#E4572E" opacity="0.2"/>
+                        <circle class="demo-runner" cx="20" cy="108" r="4" fill="#E4572E"/>
+                      </svg>
+                    </div>
+                    <div class="demo-run-stats">
+                      <div class="demo-run-stat">
+                        <span class="demo-run-stat__value" data-count="5.2">0.0</span>
+                        <span class="demo-run-stat__unit">km</span>
+                      </div>
+                      <div class="demo-run-stat">
+                        <span class="demo-run-stat__value">4:52</span>
+                        <span class="demo-run-stat__unit">/km pace</span>
+                      </div>
+                      <div class="demo-run-stat">
+                        <span class="demo-run-stat__value" data-count="25">0</span>
+                        <span class="demo-run-stat__unit">min</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="demo-card" data-anim="stagger">
+                    <div class="demo-card__subtitle" style="margin-bottom:4px">Split times</div>
+                    <div class="demo-split"><span>KM 1</span><span>4:48</span></div>
+                    <div class="demo-split"><span>KM 2</span><span>4:55</span></div>
+                    <div class="demo-split"><span>KM 3</span><span>4:50</span></div>
+                    <div class="demo-split"><span>KM 4</span><span>4:58</span></div>
+                    <div class="demo-split"><span>KM 5</span><span>4:49</span></div>
+                  </div>
+                </div>
+
+                <!-- Screen 3: Progress -->
+                <div class="demo-screen" data-demo="3">
+                  <div class="demo-page-title">Progress</div>
+                  <div class="demo-segmented demo-segmented--bordered">
+                    <div class="demo-segment demo-segment--active">Workouts</div>
+                    <div class="demo-segment">Cardio</div>
+                  </div>
+                  <div class="demo-card">
+                    <div class="demo-card__subtitle" style="margin-bottom:6px">Snapshot</div>
+                    <div class="demo-stat-grid">
+                      <div class="demo-stat-box"><span class="demo-stat-box__val">142</span><span class="demo-stat-box__label">WORKOUTS</span></div>
+                      <div class="demo-stat-box"><span class="demo-stat-box__val">3,280</span><span class="demo-stat-box__label">TOTAL SETS</span></div>
+                      <div class="demo-stat-box"><span class="demo-stat-box__val">412k</span><span class="demo-stat-box__label">VOLUME (KG)</span></div>
+                    </div>
+                    <div class="demo-stat-grid demo-stat-grid--row2">
+                      <div class="demo-stat-box"><span class="demo-stat-box__val">52m</span><span class="demo-stat-box__label">AVG DURATION</span></div>
+                      <div class="demo-stat-box"><span class="demo-stat-box__val">8</span><span class="demo-stat-box__label">PRS THIS MO</span></div>
+                      <div class="demo-stat-box"><span class="demo-stat-box__val">+2.3%</span><span class="demo-stat-box__label">STRENGTH</span></div>
+                    </div>
+                  </div>
+                  <div class="demo-card">
+                    <div class="demo-card__subtitle">Bench Press e1RM</div>
+                    <svg viewBox="0 0 200 80" class="demo-chart-svg">
+                      <polyline class="demo-chart-line" points="10,68 35,62 60,55 85,48 110,42 135,34 160,28 185,20" fill="none" stroke="#E4572E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <circle class="demo-chart-dot" cx="185" cy="20" r="3.5" fill="#E4572E"/>
+                    </svg>
+                  </div>
+                  <div class="demo-card">
+                    <div class="demo-card__subtitle" style="margin-bottom:4px">Best lifts</div>
+                    <div class="demo-lift-row"><span class="demo-lift-name">Squat</span><span class="demo-lift-val">140kg</span><span class="demo-lift-delta">+12</span></div>
+                    <div class="demo-lift-row"><span class="demo-lift-name">Bench</span><span class="demo-lift-val">100kg</span><span class="demo-lift-delta">+8</span></div>
+                    <div class="demo-lift-row"><span class="demo-lift-name">Deadlift</span><span class="demo-lift-val">180kg</span><span class="demo-lift-delta">+15</span></div>
+                  </div>
+                </div>
+
+                <!-- Tab Bar -->
+                <div class="demo-tab-bar">
+                  <div class="demo-tab demo-tab--active" data-tab="0">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-6.22-8.56"/></svg>
+                    <span>Calories</span>
+                  </div>
+                  <div class="demo-tab" data-tab="1">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4z"/></svg>
+                    <span>Log</span>
+                  </div>
+                  <div class="demo-tab" data-tab="2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
+                    <span>Cardio</span>
+                  </div>
+                  <div class="demo-tab" data-tab="3">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    <span>Progress</span>
+                  </div>
+                  <div class="demo-tab" data-tab="-1">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span>Account</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════
+         PROBLEM
+         ═══════════════════════════════════════════════════ -->
+    <section class="problem section" id="problem">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="t-label">The problem</span>
+          <h2 class="t-title">The problem with fitness apps today</h2>
+        </div>
+
+        <div class="problem__grid">
+          <div class="problem__item reveal reveal-delay-1">
+            <div class="problem__icon">&#x1F4F1;</div>
+            <h3 class="problem__item-title">Fragmented</h3>
+            <p class="problem__item-text">3&ndash;5 separate apps just to track your workouts, runs, and meals. Nothing talks to each other.</p>
+          </div>
+          <div class="problem__item reveal reveal-delay-2">
+            <div class="problem__icon">&#x1F4E2;</div>
+            <h3 class="problem__item-title">Cluttered</h3>
+            <p class="problem__item-text">Ads, social feeds, gamification, badges. You came to train, not scroll.</p>
+          </div>
+          <div class="problem__item reveal reveal-delay-3">
+            <div class="problem__icon">&#x1F512;</div>
+            <h3 class="problem__item-title">Locked In</h3>
+            <p class="problem__item-text">Your data is trapped inside each app. Want to switch? Start from scratch.</p>
+          </div>
+        </div>
+
+        <div class="problem__solution reveal">
+          <h3 class="problem__solution-title">Helm does it all. One app, zero compromises.</h3>
+          <p class="problem__solution-text">Strength, cardio, and nutrition in a single interface &mdash; built for focus.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════
+         FEATURES
+         ═══════════════════════════════════════════════════ -->
+    <section class="section" id="features">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="t-label">Features</span>
+          <h2 class="t-title">Everything you need, nothing you don't</h2>
+        </div>
+
+        <div class="features__grid">
+          <!-- Strength Training -->
+          <div class="card feature-card reveal reveal-delay-1">
+            <div class="feature-card__icon">&#x1F3CB;</div>
+            <span class="feature-card__number">01</span>
+            <h3 class="feature-card__title">Strength Training</h3>
+            <p class="feature-card__desc">Log every set with precision. Helm tracks your progress and spots PRs so you can focus on lifting.</p>
+            <ul class="feature-card__list">
+              <li>80+ exercises with custom additions</li>
+              <li>Workout templates and quick-start</li>
+              <li>Automatic PR detection</li>
+              <li>Estimated 1RM calculations</li>
+              <li>Weekly muscle heatmap</li>
+              <li>Meet simulator for powerlifters</li>
+            </ul>
+          </div>
+
+          <!-- Cardio -->
+          <div class="card feature-card reveal reveal-delay-2">
+            <div class="feature-card__icon">&#x1F3C3;</div>
+            <span class="feature-card__number">02</span>
+            <h3 class="feature-card__title">Cardio</h3>
+            <p class="feature-card__desc">Run, cycle, or walk with live GPS tracking and real-time voice coaching to keep you on pace.</p>
+            <ul class="feature-card__list">
+              <li>GPS tracking with Kalman filtering</li>
+              <li>Pace keeper with voice cues</li>
+              <li>Route mapping and history</li>
+              <li>Race predictor for goal setting</li>
+            </ul>
+          </div>
+
+          <!-- Nutrition -->
+          <div class="card feature-card reveal reveal-delay-1">
+            <div class="feature-card__icon">&#x1F34E;</div>
+            <span class="feature-card__number">03</span>
+            <h3 class="feature-card__title">Nutrition</h3>
+            <p class="feature-card__desc">Track calories and macros in seconds. Helm goes deeper with 21 micronutrients so nothing slips through.</p>
+            <ul class="feature-card__list">
+              <li>Fast meal logging</li>
+              <li>Barcode scanning</li>
+              <li>USDA food database</li>
+              <li>21 micronutrients tracked</li>
+            </ul>
+          </div>
+
+          <!-- Body Tracking -->
+          <div class="card feature-card reveal reveal-delay-2">
+            <div class="feature-card__icon">&#x1F4CA;</div>
+            <span class="feature-card__number">04</span>
+            <h3 class="feature-card__title">Body Tracking</h3>
+            <p class="feature-card__desc">See the full picture with weight trends, measurements, and progress photos organized by pose.</p>
+            <ul class="feature-card__list">
+              <li>Weight trends with smoothing</li>
+              <li>8+ body measurements</li>
+              <li>Progress photos with competition poses</li>
+              <li>Visual comparison timeline</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════
+         IMPORT
+         ═══════════════════════════════════════════════════ -->
+    <section class="import section" id="import">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="t-label">Import</span>
+          <h2 class="t-title">Already tracking elsewhere? Bring everything with you.</h2>
+          <p class="t-body-lg">One-tap import from the apps you already use. No data left behind.</p>
+        </div>
+
+        <div class="import__grid reveal">
+          <div class="import__item">Strong</div>
+          <div class="import__item">Hevy</div>
+          <div class="import__item">Strava</div>
+          <div class="import__item">Garmin</div>
+          <div class="import__item">MyFitnessPal</div>
+          <div class="import__item">Cronometer</div>
+          <div class="import__item">Fitbod</div>
+          <div class="import__item">FitNotes</div>
+        </div>
+
+        <div class="import__arrow reveal" aria-hidden="true">&#x2193;</div>
+
+        <div class="import__destination reveal">
+          <p class="import__destination-text">One tap. All your data in Helm.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════
+         TRAINING FOCUS
+         ═══════════════════════════════════════════════════ -->
+    <section class="section" id="focus">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="t-label">Training Focus</span>
+          <h2 class="t-title">Built for how YOU train</h2>
+          <p class="t-body-lg">Toggle features on or off to match your training style. Helm adapts to you &mdash; not the other way around.</p>
+        </div>
+
+        <div class="focus__grid reveal">
+          <div class="focus__item">
+            <div class="focus__item-icon">&#x1F3CB;</div>
+            <div class="focus__item-name">Strength</div>
+            <p class="focus__item-desc">Powerlifting, meet prep, 1RM tracking, and barbell-focused templates.</p>
+          </div>
+          <div class="focus__item">
+            <div class="focus__item-icon">&#x1F3C3;</div>
+            <div class="focus__item-name">Cardio</div>
+            <p class="focus__item-desc">GPS runs, pace targets, voice coaching, and race-day predictions.</p>
+          </div>
+          <div class="focus__item">
+            <div class="focus__item-icon">&#x1F4AA;</div>
+            <div class="focus__item-name">Bodybuilding</div>
+            <p class="focus__item-desc">Volume tracking, muscle heatmaps, progress photos, and measurement logs.</p>
+          </div>
+          <div class="focus__item">
+            <div class="focus__item-icon">&#x2B50;</div>
+            <div class="focus__item-name">General</div>
+            <p class="focus__item-desc">A balanced setup with everything enabled. Perfect for all-round fitness.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════
+         ANTI-FEATURES
+         ═══════════════════════════════════════════════════ -->
+    <section class="anti section" id="compare">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="t-label">Philosophy</span>
+          <h2 class="t-title">What Helm doesn't have</h2>
+          <p class="t-body-lg">We cut everything that doesn't help you train better.</p>
+        </div>
+
+        <div class="anti__grid">
+          <div class="anti__item reveal reveal-delay-1">
+            <div class="anti__icon">&#x1F6AB;</div>
+            <h3 class="anti__item-title">No Ads</h3>
+            <p class="anti__item-text">Zero banner ads, pop-ups, or sponsored content. Ever.</p>
+          </div>
+          <div class="anti__item reveal reveal-delay-2">
+            <div class="anti__icon">&#x1F4F5;</div>
+            <h3 class="anti__item-title">No Social Feed</h3>
+            <p class="anti__item-text">No timelines, no likes, no followers. This is a training tool, not a social network.</p>
+          </div>
+          <div class="anti__item reveal reveal-delay-3">
+            <div class="anti__icon">&#x1F3C6;</div>
+            <h3 class="anti__item-title">No Leaderboards</h3>
+            <p class="anti__item-text">Your only competition is yesterday's you. No public rankings or challenges.</p>
+          </div>
+          <div class="anti__item reveal reveal-delay-1">
+            <div class="anti__icon">&#x1F513;</div>
+            <h3 class="anti__item-title">Simple, Honest Pricing</h3>
+            <p class="anti__item-text">&pound;2.99/month or &pound;29.99/year. Every feature included. No tiers, no upsells, no surprises.</p>
+          </div>
+          <div class="anti__item reveal reveal-delay-2">
+            <div class="anti__icon">&#x1F6E1;</div>
+            <h3 class="anti__item-title">No Data Selling</h3>
+            <p class="anti__item-text">Your data stays on your device. We don't collect, sell, or share it.</p>
+          </div>
+          <div class="anti__item reveal reveal-delay-3">
+            <div class="anti__icon">&#x1F511;</div>
+            <h3 class="anti__item-title">No Account Required to Start</h3>
+            <p class="anti__item-text">Open the app and start training. Sign up later if you want cloud backup.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════
+         CTA
+         ═══════════════════════════════════════════════════ -->
+    <section class="cta-section section" id="cta">
+      <div class="container">
+        <div class="cta-section__box reveal">
+          <h2 class="t-title">Ready to simplify your training?</h2>
+          <p class="t-body-lg">From &pound;2.99/month. Launching soon.</p>
+          <form class="email-form cta-section__form" aria-label="Email signup">
+            <input type="email" placeholder="you@email.com" required aria-label="Email address">
+            <button type="submit" class="btn btn--primary">Notify me</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════
+       FOOTER
+       ═══════════════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__grid">
+        <div class="footer__brand">
+          <div class="footer__logo">
+            <img src="assets/images/helm-app-icon.png" alt="Helm" width="32" height="32">
+            Helm
+          </div>
+          <p class="footer__tagline">One app for strength, cardio, and nutrition. No ads, no fluff &mdash; just training.</p>
+        </div>
+
+        <div class="footer__col">
+          <div class="footer__col-title">Product</div>
+          <a href="#features">Features</a>
+          <a href="#import">Import Guide</a>
+          <a href="#compare">Compare</a>
+        </div>
+
+        <div class="footer__col">
+          <div class="footer__col-title">Resources</div>
+          <a href="blog/">Blog</a>
+        </div>
+
+        <div class="footer__col">
+          <div class="footer__col-title">Legal</div>
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+        </div>
+      </div>
+
+      <div class="footer__bottom">
+        <span>&copy; 2026 Helm. All rights reserved.</span>
+        <span>Made for lifters, by a lifter.</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Sticky Mobile CTA -->
+  <div class="sticky-cta">
+    <div class="sticky-cta__inner">
+      <span class="sticky-cta__text">Get notified at launch</span>
+      <a href="#cta" class="btn btn--primary">Notify me</a>
+    </div>
+  </div>
+
+  <script src="assets/js/main.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/motion@latest/dist/motion.js"></script>
+  <script src="assets/js/demo.js"></script>
+</body>
+</html>
