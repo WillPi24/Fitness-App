@@ -54,6 +54,7 @@ export function AccountScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark, toggleColorMode } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const switchTrackOff = isDark ? '#4B5563' : '#B8ADA0';
   const { user, updateProfile, setFocus, signOut } = useUserStore();
   const { workouts, importWorkouts } = useWorkoutStore();
   const { runs, importRuns } = useRunStore();
@@ -436,8 +437,9 @@ export function AccountScreen() {
             <Switch
               value={isDark}
               onValueChange={toggleColorMode}
-              trackColor={{ false: colors.border, true: colors.accent }}
+              trackColor={{ false: switchTrackOff, true: colors.accent }}
               thumbColor="#FFFFFF"
+              ios_backgroundColor={switchTrackOff}
             />
           </View>
         </Card>

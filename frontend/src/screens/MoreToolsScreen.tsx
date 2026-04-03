@@ -25,11 +25,12 @@ const screenLabels: Record<FeatureDefinition['screen'], string> = {
 const groupOrder: FeatureDefinition['screen'][] = ['Log', 'Cardio', 'Progress', 'Account'];
 
 export function MoreToolsScreen({ onBack }: MoreToolsScreenProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { user, toggleFeature } = useUserStore();
   const enabledFeatures = user?.enabledFeatures ?? [];
+  const switchTrackOff = isDark ? '#4B5563' : '#B8ADA0';
 
   const grouped = groupOrder
     .map((screen) => ({
@@ -74,8 +75,9 @@ export function MoreToolsScreen({ onBack }: MoreToolsScreenProps) {
                   <Switch
                     value={isEnabled}
                     onValueChange={() => toggleFeature(feature.id)}
-                    trackColor={{ false: colors.border, true: colors.accent }}
+                    trackColor={{ false: switchTrackOff, true: colors.accent }}
                     thumbColor="#fff"
+                    ios_backgroundColor={switchTrackOff}
                   />
                 </View>
               );

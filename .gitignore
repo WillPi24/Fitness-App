@@ -44,3 +44,6 @@ yarn-error.*
 /android
 frontend/ios
 frontend/android
+
+# Wrangler / Miniflare local state
+website/workers/events-worker/.wrangler/
