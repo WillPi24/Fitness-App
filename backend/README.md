@@ -4,10 +4,10 @@ AWS serverless backend for the Helm fitness app.
 
 ## Architecture
 
-- **Cognito** — email/password user authentication
-- **DynamoDB** — single-table key-value store (syncs AsyncStorage data)
-- **API Gateway** — REST API with Cognito JWT authorizer
-- **Lambda** — single Node.js function handling all CRUD routes
+- **Cognito** - email/password user authentication
+- **DynamoDB** - single-table key-value store (syncs AsyncStorage data)
+- **API Gateway** - REST API with Cognito JWT authorizer
+- **Lambda** - single Node.js function handling all CRUD routes
 
 ## API Endpoints
 

@@ -25,8 +25,8 @@ export async function collectEvents(env) {
 
   const results = await Promise.allSettled([
     // Tribe Events Calendar API sources
-    fetchTribeEvents('https://www.uspa.net', 'uspa', 'powerlifting'),
-    fetchTribeEvents('https://www.powerliftingamerica.com', 'plamerica', 'powerlifting'),
+    fetchTribeEvents('https://www.uspa.net', 'uspa', 'powerlifting', 'US'),
+    fetchTribeEvents('https://powerlifting-america.com', 'plamerica', 'powerlifting', 'US'),
     fetchTribeEvents('https://www.ifbb.com', 'ifbb', 'bodybuilding'),
 
     // HTML scrapers

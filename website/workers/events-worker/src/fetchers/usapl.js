@@ -7,6 +7,7 @@ import { normalizeEvent, normalizeDate } from '../lib/normalize.js';
 
 const CALENDAR_URL = 'https://www.usapowerlifting.com/calendar/';
 const USER_AGENT = 'HelmFitnessApp/1.0 (events-collector)';
+const REQUEST_TIMEOUT_MS = 20000;
 
 /**
  * Parse USAPL calendar page for events.
@@ -15,7 +16,7 @@ const USER_AGENT = 'HelmFitnessApp/1.0 (events-collector)';
  */
 export async function fetchUSAPL() {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
     const resp = await fetch(CALENDAR_URL, {

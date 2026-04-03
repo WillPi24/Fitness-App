@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════
-   HELM — Marketing Website Design System
+   HELM - Marketing Website Design System
    helmfit.com
    ═══════════════════════════════════════════════════ */
 
@@ -557,23 +557,37 @@ button, input {
 
 .hero__stats {
   display: flex;
-  gap: var(--space-xl);
+  flex-wrap: wrap;
+  gap: var(--space-md);
   margin-top: var(--space-2xl);
   padding-top: var(--space-xl);
   border-top: 1px solid var(--color-border);
 }
 
+.hero__stat {
+  min-width: 150px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(253, 232, 218, 0.45) 0%, rgba(247, 243, 238, 0.95) 100%);
+  border: 1px solid rgba(228, 87, 46, 0.14);
+  box-shadow: 0 2px 10px rgba(14, 17, 22, 0.04);
+}
+
 .hero__stat-value {
   font-weight: 700;
-  font-size: 1.5rem;
-  letter-spacing: -0.02em;
+  font-size: 1rem;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
   color: var(--color-text);
 }
 
 .hero__stat-label {
   font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--color-muted);
-  margin-top: 2px;
+  margin-top: 6px;
 }
 
 /* Phone Mockup */
@@ -669,6 +683,11 @@ button, input {
 
   .hero__stats {
     justify-content: center;
+  }
+
+  .hero__stat {
+    min-width: 0;
+    flex: 1 1 160px;
   }
 
   .hero__visual {

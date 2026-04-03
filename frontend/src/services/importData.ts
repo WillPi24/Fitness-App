@@ -344,7 +344,7 @@ export function parseStrongCSV(csvString: string, sourceUnit: WeightUnit = 'kg')
 
   if (dateIdx === -1 || exerciseIdx === -1) return [];
 
-  // Strong header just says "Weight" — caller must provide the source unit
+  // Strong header just says "Weight" - caller must provide the source unit
   const needsConversion = sourceUnit === 'lbs';
 
   // Group rows by workout (Date + Workout Name)
@@ -490,7 +490,7 @@ export function parseHevyCSV(csvString: string): WorkoutSession[] {
       const sets: WorkoutSet[] = [];
 
       for (const row of exRows) {
-        // Skip warmup sets if desired — we include all sets
+        // Skip warmup sets if desired - we include all sets
         const weight = weightIdx >= 0 ? parseFloat(row[weightIdx]) : 0;
         const reps = repsIdx >= 0 ? parseInt(row[repsIdx], 10) : 0;
 

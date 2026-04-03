@@ -128,105 +128,43 @@ function extractJsonLd(html) {
  */
 async function parseSquarespaceEvents(html) {
   const events = [];
-  let current = null;
-  let captureTitle = false;
-  let captureDate = false;
-  let captureLocation = false;
+  const articlePattern = /<article class="eventlist-event eventlist-event--upcoming[\s\S]*?<\/article>/gi;
 
-  const res = new Response(html);
-  const parsed = new HTMLRewriter()
-    // Squarespace event containers
-    .on('.eventlist-event, .sqs-event, article[class*="event"], [data-type="events"] article', {
-      element() {
-        if (current && current.name) {
-          events.push(current);
-        }
-        current = { name: '', startDate: '', url: '', venue: '', city: '' };
-      },
-    })
-    // Event title
-    .on('.eventlist-title a, .eventlist-title, h1.eventlist-title a, h2 a[href*="event"]', {
-      element(el) {
-        if (!current) return;
-        const href = el.getAttribute('href');
-        if (href) {
-          // Make absolute URL if relative
-          current.url = href.startsWith('http')
-            ? href
-            : `https://www.ukbff.co.uk${href}`;
-        }
-        captureTitle = true;
-      },
-      text(text) {
-        if (captureTitle && current) {
-          current.name += text.text;
-          if (text.lastInTextNode) captureTitle = false;
-        }
-      },
-    })
-    // Event date (Squarespace uses time elements with datetime attributes)
-    .on('.event-date, .eventlist-meta-date, time.event-date, time[datetime], .eventlist-datetag', {
-      element(el) {
-        if (!current) return;
-        const dt = el.getAttribute('datetime');
-        if (dt && !current.startDate) {
-          current.startDate = dt;
-        }
-        captureDate = true;
-      },
-      text(text) {
-        if (captureDate && current && !current.startDate) {
-          const d = normalizeDate(text.text.trim());
-          if (d) current.startDate = d;
-        }
-        if (text.lastInTextNode) captureDate = false;
-      },
-    })
-    // Squarespace date tag parts (day/month/year rendered separately)
-    .on('.eventlist-datetag-startdate .eventlist-datetag-startdate--month, .eventlist-datetag-startdate--day, .eventlist-datetag-startdate--year', {
-      element() {
-        captureDate = true;
-      },
-      text(text) {
-        if (captureDate && current) {
-          // Accumulate date parts
-          if (!current._dateParts) current._dateParts = '';
-          current._dateParts += ' ' + text.text.trim();
-          if (text.lastInTextNode) captureDate = false;
-        }
-      },
-    })
-    // Event location
-    .on('.eventlist-meta-address, .event-location, .eventlist-meta-address-line', {
-      element() {
-        captureLocation = true;
-      },
-      text(text) {
-        if (captureLocation && current) {
-          if (!current.venue) current.venue = '';
-          current.venue += text.text;
-          if (text.lastInTextNode) captureLocation = false;
-        }
-      },
-    })
-    .transform(res);
+  let match;
+  while ((match = articlePattern.exec(html)) !== null) {
+    const article = match[0];
+    const name = cleanText(
+      extractMatch(article, /<h1 class="eventlist-title">\s*<a [^>]*>([\s\S]*?)<\/a>/i) ||
+      extractMatch(article, /alt="([^"]+)"/i)
+    );
+    const startDate = normalizeDate(
+      extractMatch(article, /<time class="event-date" datetime="([^"]+)"/i) ||
+      cleanText(extractMatch(article, /<li class="eventlist-meta-item eventlist-meta-date[\s\S]*?<time[^>]*>([\s\S]*?)<\/time>/i))
+    );
+    const url = absoluteUrl(
+      extractMatch(article, /<h1 class="eventlist-title">\s*<a href="([^"]+)"/i) ||
+      extractMatch(article, /<a href="([^"]+\?format=ical)"[^>]*class="eventlist-meta-export-ical"/i)
+    );
+    const venue = cleanVenue(
+      extractMatch(article, /<li class="eventlist-meta-item eventlist-meta-address[\s\S]*?>([\s\S]*?)<\/li>/i)
+    );
+    const location = parseGoogleCalendarLocation(
+      extractMatch(article, /<a href="([^"]*google\.com\/calendar\/event\?[^"]*)"/i)
+    );
 
-  await parsed.text();
+    if (!name || !startDate) continue;
 
-  if (current && current.name) {
-    events.push(current);
+    events.push({
+      name,
+      startDate,
+      url,
+      venue: venue || location.venue || '',
+      address: location.address || '',
+      city: location.city || '',
+    });
   }
 
-  // Post-process: convert accumulated date parts to proper dates
-  for (const ev of events) {
-    if (!ev.startDate && ev._dateParts) {
-      const d = normalizeDate(ev._dateParts.trim());
-      if (d) ev.startDate = d;
-    }
-    delete ev._dateParts;
-  }
-
-  return events.filter((e) => e.name.trim());
+  return events;
 }
 
 /**
@@ -271,10 +209,15 @@ function parseIcal(icalText) {
   if (dtend) result.endDate = normalizeIcalDate(dtend);
 
   const location = extractIcalProp(icalText, 'LOCATION');
-  if (location) result.venue = location.replace(/\\,/g, ',').replace(/\\n/g, ', ');
+  if (location) {
+    const parsedLocation = parseStructuredLocation(decodeIcalText(location));
+    if (parsedLocation.venue) result.venue = parsedLocation.venue;
+    if (parsedLocation.address) result.address = parsedLocation.address;
+    if (parsedLocation.city) result.city = parsedLocation.city;
+  }
 
   const summary = extractIcalProp(icalText, 'SUMMARY');
-  if (summary) result.name = summary;
+  if (summary) result.name = decodeIcalText(summary);
 
   return Object.keys(result).length > 0 ? result : null;
 }
@@ -284,30 +227,10 @@ function parseIcal(icalText) {
  * Handles properties with parameters like DTSTART;VALUE=DATE:20260315
  */
 function extractIcalProp(text, prop) {
-  // Match PROP:value or PROP;params:value
-  const regex = new RegExp(`^${prop}[;:](.*)$`, 'mi');
-  const match = text.match(regex);
-  if (!match) return null;
-
-  let value = match[1];
-  // If there were parameters (semicolon), extract value after the last colon
-  if (match[0].includes(';')) {
-    const colonIdx = value.indexOf(':');
-    if (colonIdx !== -1) {
-      value = value.slice(colonIdx + 1);
-    }
-  }
-
-  // Handle line folding (lines starting with space or tab are continuations)
-  const foldPattern = new RegExp(`^${prop}[;:][^\r\n]*(?:\r?\n[ \t][^\r\n]*)*`, 'mi');
-  const foldMatch = text.match(foldPattern);
-  if (foldMatch) {
-    value = foldMatch[0]
-      .replace(new RegExp(`^${prop}[;:][^:\r\n]*:?`), '')
-      .replace(/\r?\n[ \t]/g, '');
-  }
-
-  return value.trim();
+  const unfolded = text.replace(/\r?\n[ \t]/g, '');
+  const regex = new RegExp(`^${prop}(?:;[^:\\r\\n]+)*:([^\\r\\n]*)$`, 'mi');
+  const match = unfolded.match(regex);
+  return match ? match[1].trim() : null;
 }
 
 /**
@@ -344,4 +267,83 @@ function extractEventsRegex(html) {
   }
 
   return events;
+}
+
+function extractMatch(text, regex) {
+  const match = text.match(regex);
+  return match ? match[1] : '';
+}
+
+function cleanText(text) {
+  return stripHtml(text || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cleanVenue(text) {
+  return cleanText(text).replace(/\(map\)\s*$/i, '').trim();
+}
+
+function absoluteUrl(url) {
+  if (!url) return '';
+  return url.startsWith('http') ? url : `https://www.ukbff.co.uk${url}`;
+}
+
+function parseGoogleCalendarLocation(rawUrl) {
+  if (!rawUrl) return {};
+
+  try {
+    const decodedHref = rawUrl.replace(/&amp;/g, '&');
+    const url = new URL(decodedHref);
+    const location = url.searchParams.get('location');
+    if (!location) return {};
+
+    return parseStructuredLocation(decodeURIComponent(location));
+  } catch {
+    return {};
+  }
+}
+
+function decodeIcalText(value) {
+  return (value || '')
+    .replace(/\\n/g, ', ')
+    .replace(/\\,/g, ',')
+    .replace(/\\;/g, ';')
+    .replace(/&amp\\?;/g, '&')
+    .trim();
+}
+
+function parseStructuredLocation(rawLocation) {
+  const parts = cleanText(rawLocation)
+    .split(',')
+    .map((part) => cleanText(part))
+    .filter(Boolean);
+  const usefulParts = parts.filter((part) => !/^united kingdom$/i.test(part));
+  const venue = usefulParts[0] || '';
+  const addressParts = usefulParts.slice(1);
+
+  let city = '';
+  for (let i = addressParts.length - 1; i >= 0; i -= 1) {
+    const part = addressParts[i];
+    if (/^(england|scotland|wales|northern ireland)$/i.test(part)) continue;
+    const cityWithPostcode = part.match(/^(.*\S)\s+([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})$/i);
+    if (cityWithPostcode) {
+      city = cityWithPostcode[1];
+      break;
+    }
+    if (looksLikeUkPostcode(part)) continue;
+    city = part;
+    break;
+  }
+
+  return {
+    venue,
+    address: addressParts.join(', '),
+    city,
+  };
+}
+
+function looksLikeUkPostcode(part) {
+  return /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(part) ||
+    /^[A-Z]{1,2}\d[A-Z\d]?$/i.test(part);
 }

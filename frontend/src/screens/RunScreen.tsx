@@ -6,7 +6,7 @@ try {
   MapLibreGL = require('@maplibre/maplibre-react-native').default;
   MapLibreGL.setAccessToken(null);
 } catch {
-  // Native module not available (e.g. Expo Go) — map features disabled
+  // Native module not available (e.g. Expo Go) - map features disabled
 }
 import {
   ActivityIndicator,
@@ -1104,7 +1104,7 @@ export function RunScreen() {
                 <Pressable style={styles.fullMapClose} onPress={() => setFullMapRunId(null)}>
                   <Feather name="x" size={22} color={colors.text} />
                 </Pressable>
-                <Text style={styles.fullMapTitle}>{runActivity} — {formatShortDate(parseISODate(run.date))}</Text>
+                <Text style={styles.fullMapTitle}>{runActivity} - {formatShortDate(parseISODate(run.date))}</Text>
               </View>
               <View style={[styles.fullMapStats, { paddingBottom: insets.bottom + spacing.md }]}>
                 <View style={styles.fullMapStat}>

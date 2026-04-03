@@ -239,7 +239,7 @@ export function mapStrongExercise(strongName: string): string {
     return directMatch;
   }
 
-  // Tier 2: Pattern transform — extract equipment from parentheses
+  // Tier 2: Pattern transform - extract equipment from parentheses
   const parenMatch = trimmed.match(/^(.+?)\s*\((.+?)\)$/);
   if (parenMatch) {
     const exercisePart = parenMatch[1].trim();
@@ -267,6 +267,6 @@ export function mapStrongExercise(strongName: string): string {
     }
   }
 
-  // No match — return original name
+  // No match - return original name
   return trimmed;
 }

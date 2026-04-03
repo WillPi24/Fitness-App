@@ -719,7 +719,7 @@ export function ProgressScreen() {
     let totalDistanceM = 0;
     let totalDurationMs = 0;
 
-    // Best (lowest) pace per month — one value per session, not aggregated
+    // Best (lowest) pace per month - one value per session, not aggregated
     const monthlyBestPace: Array<number | null> = new Array(cardioMonthStarts.length).fill(null);
 
     runs.forEach((run) => {
@@ -894,7 +894,7 @@ export function ProgressScreen() {
                 </View>
                 <View style={styles.snapshotGrid}>
                   <View style={styles.snapshotItem}>
-                    <Text style={styles.snapshotValue}>{progress.avgDurationThisMonth ? `${progress.avgDurationThisMonth}m` : '—'}</Text>
+                    <Text style={styles.snapshotValue}>{progress.avgDurationThisMonth ? `${progress.avgDurationThisMonth}m` : '-'}</Text>
                     <Text style={styles.snapshotLabel}>Avg duration this month</Text>
                     {progress.avgDurationPreviousMonth > 0 ? (
                       <Text style={styles.snapshotDelta}>
@@ -910,7 +910,7 @@ export function ProgressScreen() {
                     </Text>
                   </View>
                   <View style={styles.snapshotItem}>
-                    <Text style={styles.snapshotValue}>{progress.avgStrengthChange !== 0 ? `${formatSigned(progress.avgStrengthChange)}%` : '—'}</Text>
+                    <Text style={styles.snapshotValue}>{progress.avgStrengthChange !== 0 ? `${formatSigned(progress.avgStrengthChange)}%` : '-'}</Text>
                     <Text style={styles.snapshotLabel}>Strength this month</Text>
                     {progress.avgStrengthChange !== 0 ? (
                       <Text style={styles.snapshotDelta}>
@@ -979,7 +979,7 @@ export function ProgressScreen() {
                               {formatSigned(Math.round(trend.deltaPercent))}%)
                             </Text>
                             <PressableGraph
-                              title={`${trend.exercise} — Estimated 1RM`}
+                              title={`${trend.exercise} - Estimated 1RM`}
                               data={trend.points.map(v => v !== null ? toDisplayWeight(v, weightUnit) : null)}
                               labels={progress.monthLabels}
                               valueSuffix={weightUnit}
@@ -1065,7 +1065,7 @@ export function ProgressScreen() {
                         {formatSigned(trend.delta)} vs last month, {trend.total} total sets
                       </Text>
                       <PressableGraph
-                        title={`${trend.bodyPart} — Sets`}
+                        title={`${trend.bodyPart} - Sets`}
                         data={trend.values}
                         labels={progress.monthLabels}
                         startLabel={progress.startLabel}
@@ -1178,7 +1178,7 @@ export function ProgressScreen() {
                     <Text style={styles.snapshotValue}>
                       {cardioProgress.currentMonth.bestPace !== null
                         ? `${cardioProgress.currentMonth.bestPace}`
-                        : '—'}
+                        : '-'}
                     </Text>
                     <Text style={styles.snapshotLabel}>Best pace (min/km)</Text>
                     {cardioProgress.currentMonth.bestPace !== null && cardioProgress.previousMonth.bestPace !== null ? (

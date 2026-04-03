@@ -1,286 +1,402 @@
-# Helm Events Finder — System Documentation
+# Helm Events Finder - System Documentation
 
 ## What This Is
 
-An automated competition/event aggregation system that collects upcoming powerlifting meets, bodybuilding shows, and running races from 10 free data sources, stores them in Cloudflare KV, and serves them via a public API. The website has a search page where users can filter events by type, country, and location.
+An automated competition/event aggregation system that collects upcoming powerlifting meets, bodybuilding shows, and running races from free public data sources, stores them in Cloudflare KV, and serves them via a public API.
 
-This is a key differentiator for Helm — no fitness app currently does this well.
+The marketing site has an events page at [website/events.html](../../events.html) where users can filter by type and country.
+
+## Current Status - April 2026
+
+What is done:
+
+- The Cloudflare Worker is built and deployed as `helm-events`.
+- A real KV namespace has been created and bound:
+  - `EVENTS_KV = b50fc998715d4975a7674bc4ed232ac6`
+- The worker route is configured in [wrangler.toml](./wrangler.toml):
+  - `helmfit.com/api/*`
+- The cron is configured:
+  - `0 6 * * 1` (every Monday at 06:00 UTC)
+- The events page exists in [website/events.html](../../events.html).
+- The main website navigation has been updated to include `Events`.
+- The local page supports `?api=...` overrides for testing against any API host.
+
+Recent fixes completed:
+
+- Powerlifting America now uses the correct domain and is collecting again.
+- British Powerlifting now scrapes the current listing pages instead of the old `/calendar/` route.
+- UKBFF parsing was fixed:
+  - upcoming event extraction is stable
+  - folded ICS `SUMMARY` and `LOCATION` lines are parsed correctly
+  - venue/address/city parsing is much cleaner
+- Parkrun country mapping was corrected against the live source payload, so UK and US events are no longer mixed together.
+- The frontend filter logic was fixed so stale requests do not overwrite the latest selected filter state.
+
+What is not finished yet:
+
+- `helmfit.com` is not publicly resolving / serving the website yet.
+- The website itself has not been deployed/published yet.
+- Because the site is not live on the same domain, the deployed route `https://helmfit.com/api/events` is not currently usable from a normal browser session.
+
+Practical consequence:
+
+- The code is in a commit-ready state.
+- The remaining work to make the system work online is deployment/domain work, not major application code work.
 
 ## Why Cloudflare Workers + KV
 
 We evaluated AWS Lambda + DynamoDB (the existing backend stack) and Cloudflare Workers + KV. We chose Cloudflare because:
 
-- **The website is already on Cloudflare Pages** — everything stays in one platform
-- **Completely free** — Workers free tier gives 100,000 requests/day, KV gives 100,000 reads/day and 1,000 writes/day. The events system uses a fraction of this.
-- **No AWS deployment needed** — the AWS backend hasn't been deployed yet, and this feature doesn't need Cognito auth or the existing DynamoDB table
-- **Simpler architecture** — one Worker handles both the weekly cron (data collection) and the API (serving events). No API Gateway, no IAM roles, no SAM template.
-- **Global edge** — KV is replicated globally, so reads are fast from anywhere
+- The website and API fit naturally on the same edge platform
+- The Worker can handle both the weekly collector and the public API
+- KV is simple and fast for precomputed event lists
+- The cost profile is effectively zero at this scale
+- No separate API Gateway / IAM / Lambda deployment is needed for this feature
 
 ## Architecture
 
-```
+```text
 Weekly Cron (Monday 6am UTC)
-  │
-  ▼
-Cloudflare Worker (events-collector)
-  │
-  ├── API Fetchers (reliable, structured JSON, no maintenance)
-  │   ├── USPA ──────────────────┐
-  │   ├── Powerlifting America ──┤  WordPress "The Events Calendar" REST API
-  │   ├── IFBB ──────────────────┘  (same JSON format, one shared fetcher)
-  │   ├── RPS (RSS 2.0 feed, manual XML parsing)
-  │   └── Parkrun (static GeoJSON with GPS coordinates)
-  │
-  └── HTML Scrapers (5 specific pages, isolated, try/catch per source)
-      ├── USAPL (usapowerlifting.com/calendar/)
-      ├── NPC (npcnewsonline.com/schedule/)
-      ├── IFBB Pro (ifbbpro.com schedule)
-      ├── British Powerlifting (britishpowerlifting.org/calendar/)
-      └── UKBFF (ukbff.co.uk/events + per-event iCal)
-  │
-  ▼ normalize + deduplicate + filter past events + sort by date
-  │
-  ▼
-Cloudflare KV (helm-events namespace)
-  Keys: events:{type}:{country} → JSON array of events
-  Key:  meta:last-fetch → timestamp + per-source success/failure
-  │
-  ▼
-Public API: GET /api/events?type=powerlifting&country=US&lat=51.5&lon=-0.12&radius=50
-  │
-  ▼
-website/events.html — search page with filter pills + event cards
+  |
+  v
+Cloudflare Worker (`helm-events`)
+  |
+  |-- API / feed fetchers
+  |   |-- USPA
+  |   |-- Powerlifting America
+  |   |-- IFBB
+  |   |-- RPS
+  |   `-- Parkrun
+  |
+  `-- HTML scrapers
+      |-- USAPL
+      |-- NPC
+      |-- IFBB Pro
+      |-- British Powerlifting
+      `-- UKBFF
+  |
+  v normalize + deduplicate + filter past events + sort by date
+  |
+  v
+Cloudflare KV (`EVENTS_KV`)
+  |-- events:powerlifting:US
+  |-- events:powerlifting:GB
+  |-- events:bodybuilding:US
+  |-- events:bodybuilding:GB
+  |-- events:running:US
+  |-- events:running:GB
+  |-- events:all:US
+  |-- events:all:GB
+  `-- meta:last-fetch
+  |
+  v
+Public API: GET /api/events
+  |
+  v
+website/events.html
 ```
 
-## Data Sources — Detailed Breakdown
+## Data Sources
 
-### Layer 1: Real APIs (no scraping, very reliable, no maintenance)
+### Structured APIs / feeds
 
-| Source | Sport | URL | Format | Coverage | Notes |
-|--------|-------|-----|--------|----------|-------|
-| **USPA** | Powerlifting | `uspa.net/wp-json/tribe/events/v1/events` | JSON REST API | US | Hundreds of meets. No auth. Paginated. |
-| **Powerlifting America** | Powerlifting | `powerlifting-america.com/wp-json/tribe/events/v1/events` | JSON REST API | US | 89+ upcoming events. Same format as USPA. |
-| **IFBB** | Bodybuilding | `ifbb.com/wp-json/tribe/events/v1/events` | JSON REST API | Global | 59 upcoming amateur bodybuilding events. Europe, Asia, Africa, Americas. |
-| **RPS** | Powerlifting | `meets.revolutionpowerlifting.com/feed/` | RSS 2.0 XML | US | Revolution Powerlifting Syndicate meets. |
-| **Parkrun** | Running | `images.parkrun.com/events.json` | GeoJSON | Global (21 countries) | 2,869 weekly events. Has exact GPS coordinates. Filtered to US/GB. |
+| Source | Sport | URL / Pattern | Format | Coverage | Notes |
+|---|---|---|---|---|---|
+| USPA | Powerlifting | `uspa.net/wp-json/tribe/events/v1/events` | JSON | US | WordPress "The Events Calendar" API |
+| Powerlifting America | Powerlifting | `powerlifting-america.com/wp-json/tribe/events/v1/events` | JSON | US | Same format as USPA |
+| IFBB | Bodybuilding | `ifbb.com/wp-json/tribe/events/v1/events` | JSON | Global | Amateur bodybuilding coverage |
+| RPS | Powerlifting | `meets.revolutionpowerlifting.com/feed/` | RSS | US | Revolution Powerlifting Syndicate |
+| Parkrun | Running | `images.parkrun.com/events.json` | GeoJSON | Global | Filtered to US/GB in this system |
 
-All three WordPress sources (USPA, Powerlifting America, IFBB) use the identical "The Events Calendar" plugin, so one shared fetcher function (`tribe-events.js`) handles all three.
+### HTML / page scrapers
 
-### Layer 2: HTML Scrapers (5 specific pages, for gaps in API coverage)
+| Source | Sport | URL / Pattern | Country | Notes |
+|---|---|---|---|---|
+| USAPL | Powerlifting | `usapowerlifting.com/calendar/` | US | No API |
+| NPC | Bodybuilding | `npcnewsonline.com/schedule/` | US | No API |
+| IFBB Pro | Bodybuilding | IFBB Pro schedule page | US / Global | No stable public API |
+| British Powerlifting | Powerlifting | `britishpowerlifting.org/upcoming-championships/` + `.../upcoming-events-competitions/` | GB | Rewritten to current site structure |
+| UKBFF | Bodybuilding | `ukbff.co.uk/events` | GB | Squarespace events page + per-event ICS |
 
-| Source | Sport | URL | Country | Why Scraped |
-|--------|-------|-----|---------|-------------|
-| **USAPL** | Powerlifting | `usapowerlifting.com/calendar/` | US | Biggest US PL federation, no API |
-| **NPC** | Bodybuilding | `npcnewsonline.com/schedule/` | US | Dominant US amateur bodybuilding, no API |
-| **IFBB Pro** | Bodybuilding | IFBB Pro schedule page | US/Global | Professional bodybuilding, no API |
-| **British Powerlifting** | Powerlifting | `britishpowerlifting.org/calendar/` | GB | THE UK powerlifting federation, no API |
-| **UKBFF** | Bodybuilding | `ukbff.co.uk/events` | GB | UK bodybuilding federation, Squarespace site |
-
-Scrapers use Cloudflare's built-in **HTMLRewriter** (not cheerio — too large for Workers' 1MB bundle limit). Each scraper is isolated in its own file. If one fails, it doesn't affect the other 9 sources. Failed sources are logged in the `meta:last-fetch` KV entry.
-
-### Not Yet Integrated (future, needs free API keys)
+### Not Yet Integrated
 
 | Source | Sport | Why Deferred |
-|--------|-------|-------------|
-| **RunSignUp** | Running | Excellent US running API, but requires API key registration at runsignup.com/API/ApiKeys |
-| **ACTIVE.com** | Running/Multi | Global events with GPS coordinates, requires API key at developer.active.com |
-
-These can be added later with minimal code changes — the fetcher pattern is already established.
+|---|---|---|
+| RunSignUp | Running | Requires API key registration |
+| ACTIVE.com | Running / Multi-sport | Requires API key registration |
 
 ## Coverage Summary
 
 | Country | Powerlifting | Bodybuilding | Running |
-|---------|-------------|--------------|---------|
-| **US** | Excellent (USPA + PL America + RPS + USAPL) | Good (IFBB + NPC + IFBB Pro) | Good (Parkrun, more with RunSignUp later) |
-| **UK** | Good (British Powerlifting) | Good (IFBB + UKBFF) | Excellent (Parkrun) |
-| **Europe** | Partial (IFBB only) | Good (IFBB) | Good (Parkrun) |
+|---|---|---|---|
+| US | Excellent (USPA + Powerlifting America + RPS + USAPL) | Good (IFBB + NPC + IFBB Pro) | Good (Parkrun) |
+| GB | Good (British Powerlifting) | Good (IFBB + UKBFF) | Excellent (Parkrun) |
+| Europe | Partial (IFBB only) | Good (IFBB) | Partial (Parkrun, but not exposed yet outside US/GB) |
 
 ## KV Storage Design
 
-Cloudflare KV is a global key-value store. Events are stored as pre-built JSON arrays grouped by type and country:
+Events are stored as prebuilt arrays grouped by type and country:
 
+```text
+events:powerlifting:US
+events:powerlifting:GB
+events:bodybuilding:US
+events:bodybuilding:GB
+events:running:US
+events:running:GB
+events:all:US
+events:all:GB
+meta:last-fetch
 ```
-events:powerlifting:US  → [{...}, {...}, ...]    # All upcoming US powerlifting meets
-events:powerlifting:GB  → [{...}, {...}, ...]    # All upcoming UK powerlifting meets
-events:bodybuilding:US  → [{...}, {...}, ...]
-events:bodybuilding:GB  → [{...}, {...}, ...]
-events:running:US       → [{...}, {...}, ...]
-events:running:GB       → [{...}, {...}, ...]
-events:all:US           → [{...}, {...}, ...]    # All types combined
-events:all:GB           → [{...}, {...}, ...]
-meta:last-fetch         → { timestamp, sources: { uspa: {ok, count}, ... } }
-```
 
-This design means API reads are a single KV GET — no database queries, no filtering at read time (except optional geo-filtering and date freshness checks). Writes happen once per week during the cron job.
-
-## Event Schema
-
-Each event object stored in KV:
+`meta:last-fetch` currently stores:
 
 ```json
 {
-  "id": "a1b2c3d4e5f6g7h8",
+  "timestamp": "2026-04-03T15:04:29.494Z",
+  "totalEvents": 1983,
+  "sourceCounts": {
+    "uspa": 125,
+    "plamerica": 89,
+    "ifbb": 59
+  },
+  "byCountry": {
+    "US": 1410,
+    "GB": 573
+  }
+}
+```
+
+## Event Schema
+
+Each event object stored in KV looks like this:
+
+```json
+{
+  "eventId": "a1b2c3d4e5f6g7h8",
   "source": "uspa",
   "type": "powerlifting",
   "name": "USPA Texas State Championship",
-  "date": "2026-05-15",
+  "startDate": "2026-05-15",
   "endDate": "2026-05-16",
   "venue": "Austin Convention Center",
+  "address": "500 E Cesar Chavez St",
   "city": "Austin",
   "state": "TX",
   "country": "US",
   "lat": 30.2632,
   "lon": -97.7394,
-  "federation": "USPA",
-  "url": "https://uspa.net/events/texas-state-2026"
+  "url": "https://uspa.net/events/texas-state-2026",
+  "description": ""
 }
 ```
 
-The `id` is a SHA-256 hash of `source|name|date`, used for deduplication across weekly runs.
+`eventId` is a SHA-256 hash of `source|name|startDate`.
 
 ## API Specification
 
-```
+```text
 GET /api/events
 ```
 
 | Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
+|---|---|---|---|
 | `type` | string | `all` | `powerlifting`, `bodybuilding`, `running`, or `all` |
 | `country` | string | `US` | ISO 3166-1 alpha-2: `US`, `GB` |
-| `lat` | number | — | Latitude for proximity filtering |
-| `lon` | number | — | Longitude for proximity filtering |
-| `radius` | number | `100` | Miles (only used with lat/lon) |
-| `limit` | number | `50` | Max results (capped at 200) |
+| `lat` | number | - | Latitude for proximity filtering |
+| `lon` | number | - | Longitude for proximity filtering |
+| `radius` | number | `100` | Miles, only used with `lat` + `lon` |
+| `limit` | number | `100` | Max results, capped at `500` |
 
-**Response:**
+Example response:
+
 ```json
 {
   "events": [...],
-  "count": 42
+  "count": 42,
+  "total": 159,
+  "filters": {
+    "type": "powerlifting",
+    "country": "US",
+    "limit": 100
+  },
+  "meta": {
+    "lastFetch": "2026-04-03T15:04:29.494Z",
+    "totalEvents": 1983
+  }
 }
 ```
 
-No authentication required — events are public data. CORS enabled for all origins.
+Notes:
+
+- No authentication required
+- CORS is enabled
+- Radius filtering only works for events that already have coordinates
 
 ## File Structure
 
-```
+```text
 website/
   workers/
     events-worker/
-      wrangler.toml              # Cloudflare Worker config (cron schedule, KV binding)
-      package.json               # Dev dependency: wrangler
+      wrangler.toml
+      package.json
       src/
-        index.js                 # Entry: routes scheduled→collector, /api/events→API
-        collector.js             # Orchestrates all fetchers, writes to KV
-        api.js                   # Reads KV, filters, returns JSON
+        index.js
+        collector.js
+        api.js
         fetchers/
-          tribe-events.js        # Shared: USPA + PL America + IFBB (WordPress REST API)
-          rps.js                 # RSS feed parser
-          parkrun.js             # GeoJSON parser
-          usapl.js               # HTML scraper (HTMLRewriter)
-          npc.js                 # HTML scraper
-          ifbbpro.js             # HTML scraper
-          britishpl.js           # HTML scraper
-          ukbff.js               # HTML scraper + iCal parser
+          tribe-events.js
+          rps.js
+          parkrun.js
+          usapl.js
+          npc.js
+          ifbbpro.js
+          britishpl.js
+          ukbff.js
         lib/
-          normalize.js           # Event normalization + SHA-256 ID generation
-          geo.js                 # Haversine distance calculation
-          cors.js                # CORS headers
-  events.html                    # Search page
-  assets/js/events.js            # Client-side filter + rendering
+          normalize.js
+          geo.js
+          cors.js
+  events.html
+  assets/js/events.js
 ```
 
-## Scraper Resilience
+## Scraper / Fetcher Resilience
 
-Each scraper:
-- Wrapped in `try/catch` — returns empty array on failure, never crashes the collector
-- Uses `AbortController` with 10-second timeout per HTTP request
-- Sets `User-Agent: HelmFitnessApp/1.0 (events-collector)`
-- Run via `Promise.allSettled` — one failing source doesn't affect the other 9
-- Multiple parsing strategies per scraper (JSON-LD first, HTMLRewriter second, regex fallback)
+Each source is isolated and failure-tolerant:
 
-When a scraper fails:
-- The failure is logged in `meta:last-fetch` KV entry
-- Previously cached events for that source remain in KV (the collector only adds/updates, never deletes)
-- Users still see events from the last successful fetch
+- wrapped in `try/catch`
+- run via `Promise.allSettled`
+- uses request timeouts
+- uses explicit `User-Agent: HelmFitnessApp/1.0 (events-collector)`
+- returns `[]` on failure instead of crashing the whole collector
 
-**Expected maintenance:** Federation websites redesign maybe once a year. When a scraper breaks, check `meta:last-fetch` to see which source failed, then update the CSS selectors/parsing logic in the relevant fetcher file. Typically 30-60 minutes of work per breakage.
+When a source fails:
 
-## Geocoding
+- the collector still completes
+- that source contributes zero events for that run
+- coverage is reduced until the fetcher is fixed
 
-Events from some sources (especially scrapers) may not have GPS coordinates. The system uses **OpenStreetMap Nominatim** (free, no API key) to geocode addresses:
+This already paid off during development:
 
-- Called only for events missing `lat`/`lon`
-- Rate limited to 1 request per 1.1 seconds (Nominatim policy)
-- Optional — events without coordinates still appear in type/country queries, just excluded from radius-based filtering
-- ~50-100 geocode calls per weekly run
+- Powerlifting America had to be corrected to a working domain
+- British Powerlifting had to be rewritten against new listing pages
+- UKBFF needed a parser fix for folded ICS fields
+- Parkrun country mapping had drifted from the live source payload
+
+## Geo Filtering
+
+The API supports optional radius filtering via `lat`, `lon`, and `radius`.
+
+Current implementation:
+
+- no geocoding service is implemented
+- only sources that already provide coordinates can participate in radius queries
+- events without coordinates still appear in normal type/country queries
 
 ## Cost
 
-**$0 per month.** Everything is within Cloudflare's free tier:
+At the current scale, this should stay effectively within Cloudflare free-tier usage.
 
-| Resource | Usage | Free Tier Limit |
-|----------|-------|----------------|
-| Worker requests (API) | ~100-1,000/day | 100,000/day |
-| Worker invocations (cron) | 1/week | Unlimited |
-| KV reads | ~100-1,000/day | 100,000/day |
-| KV writes | ~10-20/week | 1,000/day |
-| KV storage | ~1-5 MB | 1 GB |
+Main cost drivers:
 
-## Next Steps to Deploy
+- one weekly collector run
+- low-volume public API reads
+- KV reads for precomputed event arrays
+- small KV write volume once per weekly refresh
 
-### Prerequisites
-1. Cloudflare account (already have for Pages hosting)
-2. Node.js installed
-3. Install Wrangler CLI: `npm install -g wrangler`
+## Deployment Status And Remaining Work
 
-### Deployment Steps
+### Already Completed
+
+1. Worker dependencies installed.
+2. Wrangler auth completed.
+3. KV namespace created and bound.
+4. Worker deployed successfully.
+5. Route configured:
+   - `helmfit.com/api/*`
+6. Local testing completed for:
+   - scheduled collection
+   - API responses
+   - website filter UI
+7. Main website nav updated to include `Events`.
+
+### Remaining To Get It Working Online
+
+1. Make `helmfit.com` publicly resolve and serve the website.
+   - This is the main blocker right now.
+   - Until the domain/site is live, `https://helmfit.com/api/events` is not reachable from a normal browser session.
+
+2. Deploy/publish the website itself.
+   - The events page is already built.
+   - It expects same-origin `/api/events` once the site is live on the domain.
+
+3. Verify the live route after DNS/site deployment.
+   - `https://helmfit.com/api/events?country=US&limit=1`
+   - `https://helmfit.com/events.html`
+
+4. Run one post-launch sanity check.
+   - confirm cron still writes KV
+   - confirm `US` and `GB` filters work
+   - confirm `powerlifting`, `bodybuilding`, and `running` all return data
+
+### Optional Before Public Launch
+
+1. Expose a temporary `workers.dev` URL if you want a public API host before the main site is live.
+2. Add basic alerting/log capture for source failures.
+3. Clean up minor remaining HTML entities in some source titles if desired.
+
+## Local Testing Notes
+
+### Test with a local worker
+
+Run the worker:
 
 ```bash
-# 1. Login to Cloudflare
-wrangler login
-
-# 2. Navigate to the worker directory
 cd website/workers/events-worker
-
-# 3. Install dev dependencies
-npm install
-
-# 4. Create the KV namespace (one-time)
-npx wrangler kv:namespace create "EVENTS_KV"
-# This outputs: { binding = "EVENTS_KV", id = "abc123..." }
-# Copy the id value
-
-# 5. Update wrangler.toml with the namespace ID
-# Replace YOUR_KV_NAMESPACE_ID with the actual ID from step 4
-
-# 6. Deploy the worker
-npx wrangler deploy
-
-# 7. Test the collector manually (triggers the cron)
-npx wrangler dev
-# Then in another terminal:
-curl "http://localhost:8787/api/events?type=powerlifting&country=US"
-
-# 8. Set up routing in Cloudflare dashboard
-# Go to your helmfit.com domain → Workers Routes
-# Add route: helmfit.com/api/* → helm-events worker
+npx wrangler dev --test-scheduled --port 8787
 ```
 
-### After Deployment
+Trigger collection:
 
-1. **Verify data collection** — check KV in the Cloudflare dashboard to see if events are populated
-2. **Test the events page** — open helmfit.com/events.html and verify events load
-3. **Monitor** — check `meta:last-fetch` in KV to see which sources succeeded/failed
-4. **Add Events link to nav** — update nav bar across all website pages to include Events
+```bash
+curl "http://localhost:8787/__scheduled?cron=0+6+*+*+1"
+```
 
-### Future Enhancements
+Serve the website:
 
-1. **Add RunSignUp API** — register for free key at runsignup.com/API/ApiKeys, add the fetcher
-2. **Add ACTIVE.com API** — register at developer.active.com, add the fetcher
-3. **More countries** — add AU, IE, DE, NZ by expanding parkrun filtering and adding federation scrapers
-4. **Email alerts** — set up a Cloudflare Worker to email on scraper failures (or use a webhook to Slack/Discord)
-5. **In-app integration** — add an Events screen in the React Native app that calls the same API
-6. **User submissions** — add a form on the events page for users/organizers to submit events not caught by the automated system
+```bash
+cd website
+python3 -m http.server 8000
+```
+
+Open:
+
+```text
+http://localhost:8000/events.html?api=http://localhost:8787
+```
+
+Important:
+
+- every time `wrangler dev` restarts, the local KV store resets
+- after each restart you must trigger `/__scheduled` again before local events will appear
+
+### Test the website locally without a local worker
+
+That only works if you have a publicly reachable API host.
+
+Once `helmfit.com` is live, you can test the local static site against the live API with:
+
+```text
+http://localhost:8000/events.html?api=https://helmfit.com
+```
+
+## Future Enhancements
+
+1. Add RunSignUp API.
+2. Add ACTIVE.com API.
+3. Expand beyond `US` / `GB`.
+4. Add scraper failure alerting.
+5. Add in-app integration in the React Native app.
+6. Add user/organizer event submissions.

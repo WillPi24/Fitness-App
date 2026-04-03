@@ -209,7 +209,7 @@ export function ProgressPhotos() {
                 <Text style={styles.compareHint}>
                   Select 2 photos to compare ({comparePhotos.length}/2)
                   {comparePhotos.length === 2 ? (
-                    <Text onPress={viewComparison} style={{ color: colors.accent }}> — View</Text>
+                    <Text onPress={viewComparison} style={{ color: colors.accent }}> - View</Text>
                   ) : null}
                 </Text>
               ) : null}

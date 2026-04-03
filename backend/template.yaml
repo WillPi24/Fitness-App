@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Helm fitness app backend — Cognito auth, DynamoDB storage, API Gateway + Lambda sync API
+Description: Helm fitness app backend - Cognito auth, DynamoDB storage, API Gateway + Lambda sync API
 
 Parameters:
   Stage:
@@ -19,7 +19,7 @@ Globals:
 
 Resources:
   # ──────────────────────────────────────────────
-  # Cognito — email / password authentication
+  # Cognito - email / password authentication
   # ──────────────────────────────────────────────
   UserPool:
     Type: AWS::Cognito::UserPool
@@ -63,7 +63,7 @@ Resources:
         RefreshToken: days
 
   # ──────────────────────────────────────────────
-  # DynamoDB — single-table key-value store
+  # DynamoDB - single-table key-value store
   # Each row = one AsyncStorage key for one user
   #
   # PK: userId  (Cognito sub)
@@ -90,7 +90,7 @@ Resources:
         PointInTimeRecoveryEnabled: true
 
   # ──────────────────────────────────────────────
-  # API Gateway — REST API with Cognito authorizer
+  # API Gateway - REST API with Cognito authorizer
   # ──────────────────────────────────────────────
   Api:
     Type: AWS::Serverless::Api
@@ -108,7 +108,7 @@ Resources:
             UserPoolArn: !GetAtt UserPool.Arn
 
   # ──────────────────────────────────────────────
-  # Lambda — sync function (single handler, all routes)
+  # Lambda - sync function (single handler, all routes)
   # ──────────────────────────────────────────────
   SyncFunction:
     Type: AWS::Serverless::Function

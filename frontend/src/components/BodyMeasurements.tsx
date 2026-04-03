@@ -46,7 +46,7 @@ export function BodyMeasurements({ weightUnit }: BodyMeasurementsProps) {
         map[entry.type] = { value: entry.valueCm, date: entry.date };
       }
     }
-    // Recalculate properly — sort once
+    // Recalculate properly - sort once
     const sorted = [...measurements].sort((a, b) => b.timestamp - a.timestamp);
     const result: Partial<Record<MeasurementType, { value: number; date: string }>> = {};
     for (const entry of sorted) {
@@ -89,7 +89,7 @@ export function BodyMeasurements({ weightUnit }: BodyMeasurementsProps) {
           >
             <Text style={styles.typeName}>{type}</Text>
             <Text style={styles.typeValue}>
-              {latest ? `${toDisplayLength(latest.value, weightUnit)} ${lu}` : '—'}
+              {latest ? `${toDisplayLength(latest.value, weightUnit)} ${lu}` : '-'}
             </Text>
             <Pressable
               style={styles.addSmall}

@@ -11,7 +11,7 @@ const client = new DynamoDBClient({});
 const db = DynamoDBDocumentClient.from(client);
 const TABLE = process.env.DATA_TABLE;
 
-// Valid data keys — must match the AsyncStorage keys used by the mobile app.
+// Valid data keys - must match the AsyncStorage keys used by the mobile app.
 const VALID_KEYS = new Set([
   'userProfile',
   'workouts',
@@ -41,7 +41,7 @@ function getUserId(event) {
   return event.requestContext?.authorizer?.claims?.sub ?? null;
 }
 
-// GET /data — return all stored keys for the authenticated user.
+// GET /data - return all stored keys for the authenticated user.
 async function getAll(userId) {
   const result = await db.send(
     new QueryCommand({
@@ -59,7 +59,7 @@ async function getAll(userId) {
   return response(200, { items });
 }
 
-// GET /data/{key} — return a single key.
+// GET /data/{key} - return a single key.
 async function getItem(userId, dataKey) {
   if (!VALID_KEYS.has(dataKey)) {
     return response(400, { error: `Invalid data key: ${dataKey}` });
@@ -79,7 +79,7 @@ async function getItem(userId, dataKey) {
   return response(200, { key: dataKey, data: JSON.parse(result.Item.data) });
 }
 
-// PUT /data/{key} — upsert a key with a JSON body.
+// PUT /data/{key} - upsert a key with a JSON body.
 async function putItem(userId, dataKey, body) {
   if (!VALID_KEYS.has(dataKey)) {
     return response(400, { error: `Invalid data key: ${dataKey}` });
@@ -113,7 +113,7 @@ async function putItem(userId, dataKey, body) {
   return response(200, { key: dataKey, updatedAt: Date.now() });
 }
 
-// DELETE /data/{key} — remove a key.
+// DELETE /data/{key} - remove a key.
 async function deleteItem(userId, dataKey) {
   if (!VALID_KEYS.has(dataKey)) {
     return response(400, { error: `Invalid data key: ${dataKey}` });

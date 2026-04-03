@@ -1,225 +1,138 @@
 /**
- * Scraper for British Powerlifting (GBPF) calendar.
- * https://www.britishpowerlifting.org/calendar/
- * British Powerlifting uses a WordPress-based site.
+ * Scraper for British Powerlifting upcoming championships and events.
+ * The old /calendar route currently redirects to a news post, while the real
+ * event listings live on dedicated page-builder pages.
  */
 
 import { fetchTribeEvents } from './tribe-events.js';
 import { normalizeEvent, normalizeDate, stripHtml } from '../lib/normalize.js';
 
 const BASE_URL = 'https://www.britishpowerlifting.org';
-const CALENDAR_URL = 'https://www.britishpowerlifting.org/calendar/';
+const LISTING_URLS = [
+  'https://www.britishpowerlifting.org/upcoming-championships/',
+  'https://www.britishpowerlifting.org/upcoming-events-competitions/',
+];
 const USER_AGENT = 'HelmFitnessApp/1.0 (events-collector)';
+const REQUEST_TIMEOUT_MS = 15000;
 
 export async function fetchBritishPL() {
   try {
     // Strategy 1: Try Tribe Events Calendar API
-    const tribeEvents = await fetchTribeEvents(BASE_URL, 'britishpl', 'powerlifting');
+    const tribeEvents = await fetchTribeEvents(BASE_URL, 'britishpl', 'powerlifting', 'GB');
     if (tribeEvents.length > 0) {
-      // Override country to GB for all events
       return tribeEvents.map((e) => ({ ...e, country: 'GB' }));
     }
 
-    // Strategy 2: Scrape the calendar page
-    return await scrapeCalendar();
+    // Strategy 2: Scrape the real listing pages
+    return await scrapeListingPages();
   } catch (err) {
     console.error('[britishpl] Fetch error:', err.message);
     return [];
   }
 }
 
-async function scrapeCalendar() {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+async function scrapeListingPages() {
+  const allEvents = [];
 
-  try {
-    const resp = await fetch(CALENDAR_URL, {
-      headers: { 'User-Agent': USER_AGENT },
-      signal: controller.signal,
-    });
+  for (const url of LISTING_URLS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    if (!resp.ok) {
-      console.error(`[britishpl] Page returned ${resp.status}`);
-      return [];
-    }
-
-    const html = await resp.text();
-    const events = [];
-
-    // Try JSON-LD
-    const jsonLdEvents = extractJsonLd(html);
-    if (jsonLdEvents.length > 0) {
-      for (const ev of jsonLdEvents) {
-        const normalized = await normalizeEvent({
-          source: 'britishpl',
-          type: 'powerlifting',
-          name: ev.name || '',
-          startDate: ev.startDate || '',
-          endDate: ev.endDate || '',
-          venue: ev.location?.name || '',
-          city: ev.location?.address?.addressLocality || '',
-          state: ev.location?.address?.addressRegion || '',
-          country: 'GB',
-          url: ev.url || CALENDAR_URL,
-          description: ev.description || '',
-        });
-        events.push(normalized);
-      }
-      return events;
-    }
-
-    // HTMLRewriter parsing
-    const parsedEvents = await parseCalendarHtml(html);
-    for (const ev of parsedEvents) {
-      const normalized = await normalizeEvent({
-        source: 'britishpl',
-        type: 'powerlifting',
-        ...ev,
-        country: 'GB',
+    try {
+      const resp = await fetch(url, {
+        headers: { 'User-Agent': USER_AGENT },
+        signal: controller.signal,
       });
-      events.push(normalized);
-    }
 
-    // Regex fallback
-    if (events.length === 0) {
-      const regexEvents = extractEventsRegex(html);
-      for (const ev of regexEvents) {
+      if (!resp.ok) {
+        console.error(`[britishpl] Page returned ${resp.status}: ${url}`);
+        continue;
+      }
+
+      const html = await resp.text();
+      const parsedEvents = extractContentRowCards(html);
+
+      for (const ev of parsedEvents) {
         const normalized = await normalizeEvent({
           source: 'britishpl',
           type: 'powerlifting',
           ...ev,
           country: 'GB',
         });
-        events.push(normalized);
+        allEvents.push(normalized);
       }
-    }
-
-    return events;
-  } catch (err) {
-    console.error('[britishpl] Scrape error:', err.message);
-    return [];
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function extractJsonLd(html) {
-  const events = [];
-  const pattern = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-  let match;
-  while ((match = pattern.exec(html)) !== null) {
-    try {
-      const data = JSON.parse(match[1]);
-      const items = Array.isArray(data) ? data : [data];
-      for (const item of items) {
-        if (item['@type'] === 'Event') events.push(item);
-        if (item['@graph']) {
-          for (const node of item['@graph']) {
-            if (node['@type'] === 'Event') events.push(node);
-          }
-        }
-      }
-    } catch {
-      // skip
+    } catch (err) {
+      console.error(`[britishpl] Scrape error for ${url}:`, err.message);
+    } finally {
+      clearTimeout(timeout);
     }
   }
-  return events;
+
+  return allEvents;
 }
 
-async function parseCalendarHtml(html) {
+function extractContentRowCards(html) {
   const events = [];
-  let current = null;
-  let captureTitle = false;
-  let captureDate = false;
-  let captureVenue = false;
-
-  const res = new Response(html);
-  const parsed = new HTMLRewriter()
-    .on('.tribe-events-calendar-list__event, .tribe-common-g-row, .type-tribe_events, .event-item, article[class*="event"]', {
-      element() {
-        if (current && current.name) {
-          events.push(current);
-        }
-        current = { name: '', startDate: '', url: '', venue: '', city: '' };
-      },
-    })
-    .on('.tribe-events-calendar-list__event-title a, .tribe-events-list-event-title a, h2 a, h3 a', {
-      element(el) {
-        if (!current) return;
-        const href = el.getAttribute('href');
-        if (href) current.url = href;
-        captureTitle = true;
-      },
-      text(text) {
-        if (captureTitle && current) {
-          current.name += text.text;
-          if (text.lastInTextNode) captureTitle = false;
-        }
-      },
-    })
-    .on('[datetime], time, .tribe-event-schedule-details', {
-      element(el) {
-        if (!current) return;
-        const dt = el.getAttribute('datetime');
-        if (dt && !current.startDate) {
-          current.startDate = dt;
-        }
-        captureDate = true;
-      },
-      text(text) {
-        if (captureDate && current && !current.startDate) {
-          const d = normalizeDate(text.text.trim());
-          if (d) current.startDate = d;
-        }
-        if (text.lastInTextNode) captureDate = false;
-      },
-    })
-    .on('.tribe-events-calendar-list__event-venue, .tribe-venue, .event-venue', {
-      element() {
-        captureVenue = true;
-      },
-      text(text) {
-        if (captureVenue && current) {
-          current.venue += text.text;
-          if (text.lastInTextNode) captureVenue = false;
-        }
-      },
-    })
-    .transform(res);
-
-  await parsed.text();
-
-  if (current && current.name) {
-    events.push(current);
-  }
-
-  return events.filter((e) => e.name.trim());
-}
-
-function extractEventsRegex(html) {
-  const events = [];
-  // Look for date patterns near event names
-  // UK date format: "DD Month YYYY" or "D Month YYYY"
-  const text = stripHtml(html);
-  const pattern =
-    /(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})\s*[-\u2013\u2014:.]?\s*([A-Z][^\n]{5,80})/gi;
+  const cardPattern = /<a[^>]+href="([^"]+)"[^>]+class="content_row_card"[^>]*>([\s\S]*?)<\/a>/gi;
   let match;
-  while ((match = pattern.exec(text)) !== null) {
-    events.push({
-      name: match[2].trim(),
-      startDate: match[1],
-    });
-  }
 
-  // Also try "Month DD, YYYY" format
-  const usPattern =
-    /((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})\s*[-\u2013\u2014:.]?\s*([A-Z][^\n]{5,80})/gi;
-  while ((match = usPattern.exec(text)) !== null) {
+  while ((match = cardPattern.exec(html)) !== null) {
+    const [, href, cardHtml] = match;
+    const titleMatch = cardHtml.match(/<h5[^>]*>([\s\S]*?)<\/h5>/i);
+    const dateMatch = cardHtml.match(/<p[^>]+class="dates"[^>]*>([\s\S]*?)<\/p>/i);
+    const title = titleMatch ? stripHtml(titleMatch[1]) : '';
+    const dateRange = dateMatch ? stripHtml(dateMatch[1]) : '';
+    const parsedDates = parseBritishDateRange(dateRange);
+
+    if (!title || !parsedDates.startDate) {
+      continue;
+    }
+
     events.push({
-      name: match[2].trim(),
-      startDate: match[1],
+      name: title,
+      startDate: parsedDates.startDate,
+      endDate: parsedDates.endDate,
+      url: href.startsWith('http') ? href : `${BASE_URL}${href}`,
     });
   }
 
   return events;
+}
+
+function parseBritishDateRange(raw) {
+  const cleaned = raw.replace(/\s+/g, ' ').trim();
+
+  const fullRange = cleaned.match(
+    /^(\d{1,2})\s+([A-Za-z]{3,9})\s*-\s*(\d{1,2})\s+([A-Za-z]{3,9}),\s*(\d{4})$/
+  );
+  if (fullRange) {
+    const [, startDay, startMonth, endDay, endMonth, year] = fullRange;
+    return {
+      startDate: normalizeDate(`${startDay} ${startMonth} ${year}`),
+      endDate: normalizeDate(`${endDay} ${endMonth} ${year}`),
+    };
+  }
+
+  const sameMonthRange = cleaned.match(
+    /^(\d{1,2})\s*-\s*(\d{1,2})\s+([A-Za-z]{3,9}),\s*(\d{4})$/
+  );
+  if (sameMonthRange) {
+    const [, startDay, endDay, month, year] = sameMonthRange;
+    return {
+      startDate: normalizeDate(`${startDay} ${month} ${year}`),
+      endDate: normalizeDate(`${endDay} ${month} ${year}`),
+    };
+  }
+
+  const singleDate = cleaned.match(/^(\d{1,2})\s+([A-Za-z]{3,9}),?\s*(\d{4})$/);
+  if (singleDate) {
+    const [, day, month, year] = singleDate;
+    const date = normalizeDate(`${day} ${month} ${year}`);
+    return { startDate: date, endDate: date };
+  }
+
+  return {
+    startDate: normalizeDate(cleaned),
+    endDate: normalizeDate(cleaned),
+  };
 }

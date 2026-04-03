@@ -121,7 +121,7 @@ export function MeetSimulator({
             ))}
           </View>
           <Text style={styles.liftBest}>
-            Best: {bestPerLift[lift] > 0 ? `${bestPerLift[lift]} ${weightUnit}` : '—'}
+            Best: {bestPerLift[lift] > 0 ? `${bestPerLift[lift]} ${weightUnit}` : '-'}
           </Text>
         </View>
       ))}

@@ -8,17 +8,16 @@ import { normalizeEvent } from '../lib/normalize.js';
 const EVENTS_URL = 'https://images.parkrun.com/events.json';
 const USER_AGENT = 'HelmFitnessApp/1.0 (events-collector)';
 
-// parkrun countrycode to ISO 3166-1 alpha-2
-const PARKRUN_COUNTRY_MAP = {
-  97: 'US',
-  3: 'GB',
-  4: 'AU',
-  14: 'NZ',
-  23: 'IE',
-  31: 'ZA',
-  32: 'CA',
-  65: 'FR',
-  82: 'DE',
+// Map current parkrun country hostnames to ISO 3166-1 alpha-2.
+const PARKRUN_HOST_COUNTRY_MAP = {
+  'www.parkrun.org.uk': 'GB',
+  'www.parkrun.us': 'US',
+};
+
+// Fallbacks if the `countries` object is missing from the payload.
+const FALLBACK_COUNTRY_HOSTS = {
+  97: 'www.parkrun.org.uk',
+  98: 'www.parkrun.us',
 };
 
 // Only collect events for these countries
@@ -58,7 +57,12 @@ export async function fetchParkrun() {
 
     for (const feature of features) {
       const props = feature.properties || {};
-      const countryCode = PARKRUN_COUNTRY_MAP[props.countrycode];
+      const countryInfo =
+        data.countries?.[String(props.countrycode)] ||
+        data.countries?.[props.countrycode] ||
+        null;
+      const countryHost = countryInfo?.url || FALLBACK_COUNTRY_HOSTS[props.countrycode] || '';
+      const countryCode = PARKRUN_HOST_COUNTRY_MAP[countryHost] || null;
 
       if (!countryCode || !ALLOWED_COUNTRIES.has(countryCode)) continue;
 
@@ -77,7 +81,7 @@ export async function fetchParkrun() {
         lat: lat != null ? lat : null,
         lon: lon != null ? lon : null,
         url: props.eventname
-          ? `https://www.parkrun.${countryCode === 'US' ? 'us' : countryCode.toLowerCase()}/${props.eventname}`
+          ? `https://${countryHost}/${props.eventname}`
           : null,
         description: `Weekly parkrun 5k at ${props.EventLongName || props.eventname || 'unknown location'}`,
       });

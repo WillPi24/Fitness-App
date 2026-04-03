@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════
-   HELM — Phone Demo Walkthrough
+   HELM - Phone Demo Walkthrough
    Animated autoplay using Motion library
    ═══════════════════════════════════════════════════ */
 

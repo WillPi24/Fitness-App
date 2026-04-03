@@ -23,7 +23,7 @@ export function WelcomeScreen({ onSignUp, onLogin }: WelcomeScreenProps) {
       <View style={[styles.content, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + spacing.xl }]}>
         <View style={styles.hero}>
           <Text style={styles.appName}>Helm</Text>
-          <Text style={styles.tagline}>Track your workouts, nutrition, and progress — all in one place.</Text>
+          <Text style={styles.tagline}>Track your workouts, nutrition, and progress - all in one place.</Text>
         </View>
         <View style={styles.logoContainer}>
           <Image source={APP_LOGO} style={styles.logo} resizeMode="contain" />
