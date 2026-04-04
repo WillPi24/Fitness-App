@@ -102,6 +102,40 @@ function createPieSlicePath(centerX: number, centerY: number, radius: number, st
   return `M ${centerX} ${centerY} L ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y} Z`;
 }
 
+function formatServingDisplay(amount: number | string, unit: string) {
+  return unit === 'g' || unit === 'ml' ? `${amount}${unit}` : `${amount} ${unit}`;
+}
+
+function getServingWeight(
+  amount: number,
+  unit: string,
+  countGramsPerUnit?: number,
+  countUnitLabel?: string
+) {
+  if (countGramsPerUnit && countUnitLabel && unit === countUnitLabel) {
+    return amount * countGramsPerUnit;
+  }
+  return amount;
+}
+
+function getFoodSelectionValues(food: FoodSearchResult) {
+  const supportsCountServing = Boolean(food.countGramsPerUnit && food.countUnitLabel);
+  const servingSize = supportsCountServing ? 1 : food.servingSize > 0 ? food.servingSize : 100;
+  const servingUnit = supportsCountServing ? food.countUnitLabel! : food.servingUnit;
+  const servingWeight = getServingWeight(
+    servingSize,
+    servingUnit,
+    food.countGramsPerUnit,
+    food.countUnitLabel
+  );
+
+  return {
+    servingSize,
+    servingUnit,
+    servingScale: servingWeight / 100,
+  };
+}
+
 export function CalorieScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -142,6 +176,7 @@ export function CalorieScreen() {
   const [entryModalOpen, setEntryModalOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const [barcodeLookupOpen, setBarcodeLookupOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [goalInput, setGoalInput] = useState(String(dailyGoal));
   const [quickCalories, setQuickCalories] = useState('');
@@ -184,6 +219,8 @@ export function CalorieScreen() {
         fat: number;
         micronutrients: FoodItem['micronutrients'];
         hasMicronutrientData: boolean;
+        countGramsPerUnit?: number;
+        countUnitLabel?: string;
       }
     | {
         source: 'saved';
@@ -199,6 +236,8 @@ export function CalorieScreen() {
         fat: number;
         micronutrients: SavedMealFood['micronutrients'];
         hasMicronutrientData: boolean;
+        countGramsPerUnit?: number;
+        countUnitLabel?: string;
       }
     | null
   >(null);
@@ -214,8 +253,10 @@ export function CalorieScreen() {
   const [editBaseProtein, setEditBaseProtein] = useState<number | null>(null);
   const [editBaseCarbs, setEditBaseCarbs] = useState<number | null>(null);
   const [editBaseFat, setEditBaseFat] = useState<number | null>(null);
+  const [editServingUnitInput, setEditServingUnitInput] = useState('g');
   const confirmFadeAnim = useRef(new Animated.Value(0)).current;
   const searchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const barcodeScanInFlightRef = useRef(false);
 
   const selectedDateObj = useMemo(() => parseISODate(selectedDate), [selectedDate]);
   const monthLabel = useMemo(() => formatMonthYear(selectedDateObj), [selectedDateObj]);
@@ -430,19 +471,18 @@ export function CalorieScreen() {
     setFoodPickerOpen(true);
   };
 
-  const handleSelectSearchResult = async (food: FoodSearchResult) => {
-    const servingSize = food.servingSize > 0 ? food.servingSize : 100;
-    const servingScale = servingSize / 100;
+  const applyFoodSelectionToDraft = (food: FoodSearchResult) => {
+    const { servingSize, servingUnit, servingScale } = getFoodSelectionValues(food);
     const scaledMicronutrients = scaleMicronutrients(normalizeMicronutrients(food.micronutrients), servingScale);
+
     updateDraftEntry('name', food.name);
     updateDraftEntry('calories', String(Math.round(food.calories * servingScale)));
     updateDraftEntry('protein', String(Math.round(food.protein * servingScale)));
     updateDraftEntry('carbs', String(Math.round(food.carbs * servingScale)));
     updateDraftEntry('fat', String(Math.round(food.fat * servingScale)));
     updateDraftEntry('servingSize', String(servingSize));
-    updateDraftEntry('servingUnit', food.servingUnit);
+    updateDraftEntry('servingUnit', servingUnit);
     updateDraftEntry('servings', '1');
-    // Store base values per 100 units for recalculation.
     updateDraftEntry('baseCalories', food.calories);
     updateDraftEntry('baseProtein', food.protein);
     updateDraftEntry('baseCarbs', food.carbs);
@@ -450,6 +490,14 @@ export function CalorieScreen() {
     updateDraftEntry('micronutrients', { ...scaledMicronutrients });
     updateDraftEntry('baseMicronutrients', { ...food.micronutrients });
     updateDraftEntry('hasMicronutrientData', food.hasMicronutrientData);
+    updateDraftEntry('countGramsPerUnit', food.countGramsPerUnit);
+    updateDraftEntry('countUnitLabel', food.countUnitLabel);
+
+    return servingScale;
+  };
+
+  const handleSelectSearchResult = async (food: FoodSearchResult) => {
+    const servingScale = applyFoodSelectionToDraft(food);
     setFoodPickerOpen(false);
     setEntryModalOpen(true);
 
@@ -469,17 +517,24 @@ export function CalorieScreen() {
 
   const handleOpenScanner = () => {
     setFoodPickerOpen(false);
+    barcodeScanInFlightRef.current = false;
+    setBarcodeLookupOpen(false);
     setScannerOpen(true);
     setScanned(false);
   };
 
   const handleBarcodeScan = async (barcode: string) => {
-    if (scanned) return;
+    if (scanned || barcodeScanInFlightRef.current) return;
+    barcodeScanInFlightRef.current = true;
     setScanned(true);
+    setBarcodeLookupOpen(true);
     setScannerOpen(false);
     const success = await populateFromBarcode(barcode);
-    setEntryModalOpen(true);
-    if (!success) {
+    setBarcodeLookupOpen(false);
+    if (success) {
+      setEntryModalOpen(true);
+    } else {
+      barcodeScanInFlightRef.current = false;
       setScanned(false);
     }
   };
@@ -487,6 +542,7 @@ export function CalorieScreen() {
   const handleManualEntry = () => {
     setFoodPickerOpen(false);
     setScannerOpen(false);
+    setBarcodeLookupOpen(false);
     setEntryModalOpen(true);
   };
 
@@ -522,24 +578,7 @@ export function CalorieScreen() {
   }, [updateDraftEntry]);
 
   const handleSelectSuggestion = async (food: FoodSearchResult) => {
-    const servingSize = food.servingSize > 0 ? food.servingSize : 100;
-    const servingScale = servingSize / 100;
-    const scaledMicronutrients = scaleMicronutrients(normalizeMicronutrients(food.micronutrients), servingScale);
-    updateDraftEntry('name', food.name);
-    updateDraftEntry('calories', String(Math.round(food.calories * servingScale)));
-    updateDraftEntry('protein', String(Math.round(food.protein * servingScale)));
-    updateDraftEntry('carbs', String(Math.round(food.carbs * servingScale)));
-    updateDraftEntry('fat', String(Math.round(food.fat * servingScale)));
-    updateDraftEntry('servingSize', String(servingSize));
-    updateDraftEntry('servingUnit', food.servingUnit);
-    // Store base values per 100 units for recalculation.
-    updateDraftEntry('baseCalories', food.calories);
-    updateDraftEntry('baseProtein', food.protein);
-    updateDraftEntry('baseCarbs', food.carbs);
-    updateDraftEntry('baseFat', food.fat);
-    updateDraftEntry('micronutrients', { ...scaledMicronutrients });
-    updateDraftEntry('baseMicronutrients', { ...food.micronutrients });
-    updateDraftEntry('hasMicronutrientData', food.hasMicronutrientData);
+    const servingScale = applyFoodSelectionToDraft(food);
 
     if (!food.hasMicronutrientData) {
       const hydrated = await resolveFoodMicronutrients(food);
@@ -563,6 +602,8 @@ export function CalorieScreen() {
       return;
     }
     saveFoodEntry(selectedDate);
+    barcodeScanInFlightRef.current = false;
+    setBarcodeLookupOpen(false);
     setEntryModalOpen(false);
     setScanned(false);
     setCurrentMealId(null);
@@ -573,6 +614,8 @@ export function CalorieScreen() {
   const handleCancelEntry = () => {
     cancelDraftEntry();
     setIsHydratingMicronutrients(false);
+    barcodeScanInFlightRef.current = false;
+    setBarcodeLookupOpen(false);
     setEntryModalOpen(false);
     setScannerOpen(false);
     setFoodPickerOpen(false);
@@ -584,13 +627,16 @@ export function CalorieScreen() {
     setShowSuggestions(false);
   };
 
-  const handleServingSizeChange = (value: string) => {
+  const recalculateDraftNutrition = (value: string, unit: string) => {
     updateDraftEntry('servingSize', value);
+    updateDraftEntry('servingUnit', unit);
 
-    // Recalculate macros if we have base values (food was selected from database)
     if (draftEntry?.baseCalories !== undefined) {
       const newSize = Number(value) || 0;
-      const multiplier = newSize / 100;
+      const multiplier =
+        draftEntry.countGramsPerUnit && draftEntry.countUnitLabel && unit === draftEntry.countUnitLabel
+          ? (newSize * draftEntry.countGramsPerUnit) / 100
+          : newSize / 100;
 
       updateDraftEntry('calories', String(Math.round(draftEntry.baseCalories * multiplier)));
       updateDraftEntry('protein', String(Math.round(draftEntry.baseProtein! * multiplier)));
@@ -600,6 +646,32 @@ export function CalorieScreen() {
         updateDraftEntry('micronutrients', scaleMicronutrients(draftEntry.baseMicronutrients, multiplier));
       }
     }
+  };
+
+  const handleServingSizeChange = (value: string) => {
+    recalculateDraftNutrition(value, draftEntry?.servingUnit || 'g');
+  };
+
+  const handleDraftServingModeChange = (mode: 'weight' | 'count') => {
+    if (!draftEntry?.countGramsPerUnit || !draftEntry.countUnitLabel) {
+      return;
+    }
+
+    const currentSize = Number(draftEntry.servingSize) || 0;
+    if (mode === 'count') {
+      const nextSize =
+        draftEntry.servingUnit === draftEntry.countUnitLabel
+          ? draftEntry.servingSize
+          : String(Math.round((currentSize / draftEntry.countGramsPerUnit) * 10) / 10 || 1);
+      recalculateDraftNutrition(nextSize, draftEntry.countUnitLabel);
+      return;
+    }
+
+    const nextSize =
+      draftEntry.servingUnit === 'g'
+        ? draftEntry.servingSize
+        : String(Math.round(currentSize * draftEntry.countGramsPerUnit) || draftEntry.countGramsPerUnit);
+    recalculateDraftNutrition(nextSize, 'g');
   };
 
   const handleDeleteFood = (mealId: string, foodId: string) => {
@@ -692,7 +764,13 @@ export function CalorieScreen() {
             return food;
           }
 
-          const per100Scale = food.servingSize > 0 ? 100 / food.servingSize : 1;
+          const servingWeight = getServingWeight(
+            food.servingSize,
+            food.servingUnit,
+            food.countGramsPerUnit,
+            food.countUnitLabel
+          );
+          const per100Scale = servingWeight > 0 ? 100 / servingWeight : 1;
           const hydrationSeed: FoodSearchResult = {
             id: `saved-${food.id}`,
             name: food.name,
@@ -704,6 +782,8 @@ export function CalorieScreen() {
             servingUnit: food.servingUnit,
             micronutrients: normalizeMicronutrients(food.micronutrients),
             hasMicronutrientData: false,
+            countGramsPerUnit: food.countGramsPerUnit,
+            countUnitLabel: food.countUnitLabel,
           };
 
           try {
@@ -711,7 +791,7 @@ export function CalorieScreen() {
             if (!hydrated.hasMicronutrientData) {
               return food;
             }
-            const servingScale = food.servingSize > 0 ? food.servingSize / 100 : 1;
+            const servingScale = servingWeight > 0 ? servingWeight / 100 : 1;
             const scaledMicronutrients = scaleMicronutrients(
               normalizeMicronutrients(hydrated.micronutrients),
               servingScale
@@ -784,8 +864,7 @@ export function CalorieScreen() {
   };
 
   const handleSelectFoodForSavedMeal = (food: FoodSearchResult) => {
-    const servingSize = food.servingSize > 0 ? food.servingSize : 100;
-    const servingScale = servingSize / 100;
+    const { servingSize, servingUnit, servingScale } = getFoodSelectionValues(food);
     const scaledMicronutrients = scaleMicronutrients(normalizeMicronutrients(food.micronutrients), servingScale);
     const newFood: SavedMealFood = {
       id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
@@ -795,10 +874,12 @@ export function CalorieScreen() {
       carbs: Math.round(food.carbs * servingScale),
       fat: Math.round(food.fat * servingScale),
       servingSize,
-      servingUnit: food.servingUnit,
+      servingUnit,
       servings: 1,
       micronutrients: { ...scaledMicronutrients },
       hasMicronutrientData: food.hasMicronutrientData,
+      countGramsPerUnit: food.countGramsPerUnit,
+      countUnitLabel: food.countUnitLabel,
     };
     setSavedMealFoods((prev) => [...prev, newFood]);
     setEditingFoodTarget({
@@ -815,6 +896,8 @@ export function CalorieScreen() {
       fat: newFood.fat,
       micronutrients: { ...scaledMicronutrients },
       hasMicronutrientData: newFood.hasMicronutrientData,
+      countGramsPerUnit: newFood.countGramsPerUnit,
+      countUnitLabel: newFood.countUnitLabel,
     });
     setEditNameInput(newFood.name);
     setEditBrandInput(newFood.brand || '');
@@ -822,13 +905,20 @@ export function CalorieScreen() {
     setEditProteinInput(String(newFood.protein));
     setEditCarbsInput(String(newFood.carbs));
     setEditFatInput(String(newFood.fat));
-    const per100Scale = newFood.servingSize > 0 ? newFood.servingSize / 100 : 1;
+    const baseServingWeight = getServingWeight(
+      newFood.servingSize,
+      newFood.servingUnit,
+      newFood.countGramsPerUnit,
+      newFood.countUnitLabel
+    );
+    const per100Scale = baseServingWeight > 0 ? baseServingWeight / 100 : 1;
     setEditBaseCalories(per100Scale > 0 ? newFood.calories / per100Scale : null);
     setEditBaseProtein(per100Scale > 0 ? newFood.protein / per100Scale : null);
     setEditBaseCarbs(per100Scale > 0 ? newFood.carbs / per100Scale : null);
     setEditBaseFat(per100Scale > 0 ? newFood.fat / per100Scale : null);
     setEditServingSizeInput(String(newFood.servingSize));
     setEditServingsInput(String(newFood.servings));
+    setEditServingUnitInput(newFood.servingUnit);
     setAddingFoodToSavedMeal(false);
     setSearchQuery('');
     setSearchResults([]);
@@ -891,6 +981,8 @@ export function CalorieScreen() {
       fat: food.fat,
       micronutrients: { ...food.micronutrients },
       hasMicronutrientData: food.hasMicronutrientData,
+      countGramsPerUnit: food.countGramsPerUnit,
+      countUnitLabel: food.countUnitLabel,
     });
     setEditNameInput(food.name);
     setEditBrandInput(food.brand || '');
@@ -904,6 +996,7 @@ export function CalorieScreen() {
     setEditBaseFat(null);
     setEditServingSizeInput(String(food.servingSize));
     setEditServingsInput(String(food.servings));
+    setEditServingUnitInput(food.servingUnit);
   };
 
   const openSavedFoodEditor = (food: SavedMealFood) => {
@@ -921,6 +1014,8 @@ export function CalorieScreen() {
       fat: food.fat,
       micronutrients: { ...food.micronutrients },
       hasMicronutrientData: food.hasMicronutrientData,
+      countGramsPerUnit: food.countGramsPerUnit,
+      countUnitLabel: food.countUnitLabel,
     });
     setEditNameInput(food.name);
     setEditBrandInput(food.brand || '');
@@ -928,13 +1023,20 @@ export function CalorieScreen() {
     setEditProteinInput(String(food.protein));
     setEditCarbsInput(String(food.carbs));
     setEditFatInput(String(food.fat));
-    const per100Scale = food.servingSize > 0 ? food.servingSize / 100 : 1;
+    const baseServingWeight = getServingWeight(
+      food.servingSize,
+      food.servingUnit,
+      food.countGramsPerUnit,
+      food.countUnitLabel
+    );
+    const per100Scale = baseServingWeight > 0 ? baseServingWeight / 100 : 1;
     setEditBaseCalories(per100Scale > 0 ? food.calories / per100Scale : null);
     setEditBaseProtein(per100Scale > 0 ? food.protein / per100Scale : null);
     setEditBaseCarbs(per100Scale > 0 ? food.carbs / per100Scale : null);
     setEditBaseFat(per100Scale > 0 ? food.fat / per100Scale : null);
     setEditServingSizeInput(String(food.servingSize));
     setEditServingsInput(String(food.servings));
+    setEditServingUnitInput(food.servingUnit);
   };
 
   const closeFoodEditor = () => {
@@ -951,9 +1053,10 @@ export function CalorieScreen() {
     setEditBaseFat(null);
     setEditServingSizeInput('');
     setEditServingsInput('');
+    setEditServingUnitInput('g');
   };
 
-  const handleEditServingSizeChange = (value: string) => {
+  const recalculateEditNutrition = (value: string, unit: string) => {
     setEditServingSizeInput(value);
 
     // Mirror one-off meal behavior: serving-size changes recalculate nutrition from a fixed base.
@@ -962,7 +1065,15 @@ export function CalorieScreen() {
     }
 
     const newSize = Number(value) || 0;
-    const multiplier = newSize / 100;
+    const multiplier =
+      editingFoodTarget.countGramsPerUnit && editingFoodTarget.countUnitLabel
+        ? getServingWeight(
+            newSize,
+            unit,
+            editingFoodTarget.countGramsPerUnit,
+            editingFoodTarget.countUnitLabel
+          ) / 100
+        : newSize / 100;
 
     if (editBaseCalories !== null) {
       setEditCaloriesInput(String(Math.round(editBaseCalories * multiplier)));
@@ -976,6 +1087,32 @@ export function CalorieScreen() {
     if (editBaseFat !== null) {
       setEditFatInput(String(Math.round(editBaseFat * multiplier)));
     }
+  };
+
+  const handleEditServingSizeChange = (value: string) => {
+    recalculateEditNutrition(value, editServingUnitInput);
+  };
+
+  const handleEditServingModeChange = (mode: 'weight' | 'count') => {
+    if (!editingFoodTarget?.countGramsPerUnit || !editingFoodTarget.countUnitLabel) {
+      return;
+    }
+
+    const currentSize = Number(editServingSizeInput) || 0;
+    const nextUnit = mode === 'count' ? editingFoodTarget.countUnitLabel : 'g';
+    const nextSize =
+      mode === 'count'
+        ? editServingUnitInput === editingFoodTarget.countUnitLabel
+          ? editServingSizeInput
+          : String(Math.round((currentSize / editingFoodTarget.countGramsPerUnit) * 10) / 10 || 1)
+        : editServingUnitInput === 'g'
+        ? editServingSizeInput
+        : String(
+            Math.round(currentSize * editingFoodTarget.countGramsPerUnit) || editingFoodTarget.countGramsPerUnit
+          );
+
+    setEditServingUnitInput(nextUnit);
+    recalculateEditNutrition(nextSize, nextUnit);
   };
 
   useEffect(() => {
@@ -997,7 +1134,14 @@ export function CalorieScreen() {
   const parsedEditCarbs = Number(editCarbsInput);
   const parsedEditFat = Number(editFatInput);
   const draftServingUnit = draftEntry?.servingUnit || 'g';
-  const editingServingUnit = editingFoodTarget?.servingUnit || 'g';
+  const draftHasCountServing = Boolean(draftEntry?.countGramsPerUnit && draftEntry?.countUnitLabel);
+  const draftIsCountMode = draftHasCountServing && draftServingUnit === draftEntry?.countUnitLabel;
+  const editingServingUnit = editingFoodTarget ? editServingUnitInput || editingFoodTarget.servingUnit : 'g';
+  const editingHasCountServing = Boolean(
+    editingFoodTarget?.countGramsPerUnit && editingFoodTarget?.countUnitLabel
+  );
+  const editingIsCountMode =
+    editingHasCountServing && editingServingUnit === editingFoodTarget?.countUnitLabel;
   const hasValidEditQuantity =
     Number.isFinite(parsedEditServingSize) &&
     parsedEditServingSize > 0 &&
@@ -1023,11 +1167,26 @@ export function CalorieScreen() {
     }
 
     if (editingFoodTarget.source === 'meal') {
-      const currentTotalGrams = Math.max(
-        editingFoodTarget.servingSize * editingFoodTarget.servings,
+      const currentServingWeight = Math.max(
+        getServingWeight(
+          editingFoodTarget.servingSize,
+          editingFoodTarget.servingUnit,
+          editingFoodTarget.countGramsPerUnit,
+          editingFoodTarget.countUnitLabel
+        ),
         1
       );
-      const newTotalGrams = parsedEditServingSize * parsedEditServings;
+      const currentTotalGrams = Math.max(
+        currentServingWeight * editingFoodTarget.servings,
+        1
+      );
+      const newTotalGrams =
+        getServingWeight(
+          parsedEditServingSize,
+          editingServingUnit,
+          editingFoodTarget.countGramsPerUnit,
+          editingFoodTarget.countUnitLabel
+        ) * parsedEditServings;
       const totalScale = newTotalGrams / currentTotalGrams;
 
       const calories = Math.round(editingFoodTarget.calories * totalScale);
@@ -1047,9 +1206,12 @@ export function CalorieScreen() {
         protein,
         carbs,
         fat,
+        servingUnit: editingServingUnit,
         micronutrients,
         hasMicronutrientData:
           editingFoodTarget.hasMicronutrientData && Object.values(micronutrients).some((value) => value > 0),
+        countGramsPerUnit: editingFoodTarget.countGramsPerUnit,
+        countUnitLabel: editingFoodTarget.countUnitLabel,
         previewCalories: calories,
         previewProtein: protein,
         previewCarbs: carbs,
@@ -1057,8 +1219,22 @@ export function CalorieScreen() {
       };
     }
 
-    const currentServingSize = Math.max(editingFoodTarget.servingSize, 1);
-    const perServingScale = parsedEditServingSize / currentServingSize;
+    const currentServingWeight = Math.max(
+      getServingWeight(
+        editingFoodTarget.servingSize,
+        editingFoodTarget.servingUnit,
+        editingFoodTarget.countGramsPerUnit,
+        editingFoodTarget.countUnitLabel
+      ),
+      1
+    );
+    const perServingScale =
+      getServingWeight(
+        parsedEditServingSize,
+        editingServingUnit,
+        editingFoodTarget.countGramsPerUnit,
+        editingFoodTarget.countUnitLabel
+      ) / currentServingWeight;
 
     const calories = Math.round(parsedEditCalories);
     const protein = Math.round(parsedEditProtein);
@@ -1077,9 +1253,12 @@ export function CalorieScreen() {
       protein,
       carbs,
       fat,
+      servingUnit: editingServingUnit,
       micronutrients,
       hasMicronutrientData:
         editingFoodTarget.hasMicronutrientData && Object.values(micronutrients).some((value) => value > 0),
+      countGramsPerUnit: editingFoodTarget.countGramsPerUnit,
+      countUnitLabel: editingFoodTarget.countUnitLabel,
       previewCalories: Math.round(calories * parsedEditServings),
       previewProtein: Math.round(protein * parsedEditServings),
       previewCarbs: Math.round(carbs * parsedEditServings),
@@ -1087,6 +1266,7 @@ export function CalorieScreen() {
     };
   }, [
     editingFoodTarget,
+    editingServingUnit,
     isEditFoodInputValid,
     parsedEditServingSize,
     parsedEditServings,
@@ -1104,6 +1284,7 @@ export function CalorieScreen() {
     if (editingFoodTarget.source === 'meal') {
       updateFoodItem(selectedDate, editingFoodTarget.mealId, editingFoodTarget.foodId, {
         servingSize: editedFoodPreview.servingSize,
+        servingUnit: editedFoodPreview.servingUnit,
         servings: editedFoodPreview.servings,
         calories: editedFoodPreview.calories,
         protein: editedFoodPreview.protein,
@@ -1111,6 +1292,8 @@ export function CalorieScreen() {
         fat: editedFoodPreview.fat,
         micronutrients: editedFoodPreview.micronutrients,
         hasMicronutrientData: editedFoodPreview.hasMicronutrientData,
+        countGramsPerUnit: editedFoodPreview.countGramsPerUnit,
+        countUnitLabel: editedFoodPreview.countUnitLabel,
       });
     } else {
       const trimmedName = editNameInput.trim();
@@ -1123,6 +1306,7 @@ export function CalorieScreen() {
                 name: trimmedName,
                 brand: trimmedBrand || undefined,
                 servingSize: editedFoodPreview.servingSize,
+                servingUnit: editedFoodPreview.servingUnit,
                 servings: editedFoodPreview.servings,
                 calories: editedFoodPreview.calories,
                 protein: editedFoodPreview.protein,
@@ -1130,6 +1314,8 @@ export function CalorieScreen() {
                 fat: editedFoodPreview.fat,
                 micronutrients: editedFoodPreview.micronutrients,
                 hasMicronutrientData: editedFoodPreview.hasMicronutrientData,
+                countGramsPerUnit: editedFoodPreview.countGramsPerUnit,
+                countUnitLabel: editedFoodPreview.countUnitLabel,
               }
             : food
         )
@@ -1441,6 +1627,48 @@ export function CalorieScreen() {
                   )}
 
                   <Text style={styles.formSectionTitle}>Adjust quantity</Text>
+                  {editingHasCountServing ? (
+                    <View style={styles.formGroup}>
+                      <Text style={styles.formLabel}>Measure By</Text>
+                      <View style={styles.measureToggle}>
+                        <Pressable
+                          style={[
+                            styles.measureToggleButton,
+                            !editingIsCountMode ? styles.measureToggleButtonActive : null,
+                          ]}
+                          onPress={() => handleEditServingModeChange('weight')}
+                        >
+                          <Text
+                            style={[
+                              styles.measureToggleText,
+                              !editingIsCountMode ? styles.measureToggleTextActive : null,
+                            ]}
+                          >
+                            Weight
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          style={[
+                            styles.measureToggleButton,
+                            editingIsCountMode ? styles.measureToggleButtonActive : null,
+                          ]}
+                          onPress={() => handleEditServingModeChange('count')}
+                        >
+                          <Text
+                            style={[
+                              styles.measureToggleText,
+                              editingIsCountMode ? styles.measureToggleTextActive : null,
+                            ]}
+                          >
+                            Quantity
+                          </Text>
+                        </Pressable>
+                      </View>
+                      <Text style={styles.measureToggleHint}>
+                        1 {editingFoodTarget.countUnitLabel} is about {editingFoodTarget.countGramsPerUnit}g
+                      </Text>
+                    </View>
+                  ) : null}
                   <View style={styles.formRow}>
                     <View style={styles.formGroupHalf}>
                       <Text style={styles.formLabel}>{`Serving Size (${editingServingUnit})`}</Text>
@@ -1448,7 +1676,7 @@ export function CalorieScreen() {
                         style={styles.formInput}
                         value={editServingSizeInput}
                         onChangeText={handleEditServingSizeChange}
-                        placeholder="100"
+                        placeholder={editingIsCountMode ? '1' : '100'}
                         placeholderTextColor={colors.muted}
                         keyboardType="decimal-pad"
                       />
@@ -1612,8 +1840,10 @@ export function CalorieScreen() {
                     </Text>
                     <Text style={styles.searchResultMacros}>
                       {food.calories} kcal | P: {food.protein}g | C: {food.carbs}g | F: {food.fat}g |{' '}
-                      {food.servingSize}
-                      {food.servingUnit}
+                      {formatServingDisplay(
+                        food.countGramsPerUnit ? 1 : food.servingSize,
+                        food.countUnitLabel ?? food.servingUnit
+                      )}
                     </Text>
                   </View>
                 </Pressable>
@@ -1665,6 +1895,15 @@ export function CalorieScreen() {
             <Pressable style={styles.secondaryButton} onPress={handleManualEntry}>
               <Text style={styles.secondaryButtonText}>Enter Manually</Text>
             </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={barcodeLookupOpen} transparent animationType="fade">
+        <View style={styles.lookupBackdrop}>
+          <View style={styles.lookupModalCard}>
+            <ActivityIndicator color={colors.accent} size="large" />
+            <Text style={styles.loadingText}>Looking up product...</Text>
           </View>
         </View>
       </Modal>
@@ -1725,8 +1964,11 @@ export function CalorieScreen() {
                                   {food.name}
                                 </Text>
                                 <Text style={styles.suggestionMacros}>
-                                  {food.calories} kcal | P: {food.protein}g | {food.servingSize}
-                                  {food.servingUnit}
+                                  {food.calories} kcal | P: {food.protein}g |{' '}
+                                  {formatServingDisplay(
+                                    food.countGramsPerUnit ? 1 : food.servingSize,
+                                    food.countUnitLabel ?? food.servingUnit
+                                  )}
                                 </Text>
                               </View>
                             </Pressable>
@@ -1801,6 +2043,49 @@ export function CalorieScreen() {
                     </View>
                   </View>
 
+                  {draftHasCountServing ? (
+                    <View style={styles.formGroup}>
+                      <Text style={styles.formLabel}>Measure By</Text>
+                      <View style={styles.measureToggle}>
+                        <Pressable
+                          style={[
+                            styles.measureToggleButton,
+                            !draftIsCountMode ? styles.measureToggleButtonActive : null,
+                          ]}
+                          onPress={() => handleDraftServingModeChange('weight')}
+                        >
+                          <Text
+                            style={[
+                              styles.measureToggleText,
+                              !draftIsCountMode ? styles.measureToggleTextActive : null,
+                            ]}
+                          >
+                            Weight
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          style={[
+                            styles.measureToggleButton,
+                            draftIsCountMode ? styles.measureToggleButtonActive : null,
+                          ]}
+                          onPress={() => handleDraftServingModeChange('count')}
+                        >
+                          <Text
+                            style={[
+                              styles.measureToggleText,
+                              draftIsCountMode ? styles.measureToggleTextActive : null,
+                            ]}
+                          >
+                            Quantity
+                          </Text>
+                        </Pressable>
+                      </View>
+                      <Text style={styles.measureToggleHint}>
+                        1 {draftEntry?.countUnitLabel} is about {draftEntry?.countGramsPerUnit}g
+                      </Text>
+                    </View>
+                  ) : null}
+
                   <View style={styles.formRow}>
                     <View style={styles.formGroupHalf}>
                       <Text style={styles.formLabel}>{`Serving Size (${draftServingUnit})`}</Text>
@@ -1808,7 +2093,7 @@ export function CalorieScreen() {
                         style={styles.formInput}
                         value={draftEntry?.servingSize || ''}
                         onChangeText={handleServingSizeChange}
-                        placeholder="100"
+                        placeholder={draftIsCountMode ? '1' : '100'}
                         placeholderTextColor={colors.muted}
                         keyboardType="numeric"
                       />
@@ -2084,8 +2369,11 @@ export function CalorieScreen() {
                         </Text>
                         <Text style={styles.searchResultMacros}>
                           {food.calories} kcal | P: {food.protein}g | C: {food.carbs}g | F:{' '}
-                          {food.fat}g | {food.servingSize}
-                          {food.servingUnit}
+                          {food.fat}g |{' '}
+                          {formatServingDisplay(
+                            food.countGramsPerUnit ? 1 : food.servingSize,
+                            food.countUnitLabel ?? food.servingUnit
+                          )}
                         </Text>
                       </View>
                     </Pressable>
@@ -2803,6 +3091,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: 'rgba(27, 31, 36, 0.6)',
     justifyContent: 'flex-end',
   },
+  lookupBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(27, 31, 36, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
   calendarModal: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
@@ -3009,6 +3304,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.xl,
   },
+  lookupModalCard: {
+    width: '100%',
+    maxWidth: 320,
+    minWidth: 220,
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   loadingText: {
     ...typography.body,
     color: colors.muted,
@@ -3044,6 +3352,36 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surface,
     ...typography.body,
     color: colors.text,
+  },
+  measureToggle: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  measureToggleButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+  },
+  measureToggleButtonActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  measureToggleText: {
+    ...typography.label,
+    color: colors.muted,
+  },
+  measureToggleTextActive: {
+    color: '#fff',
+  },
+  measureToggleHint: {
+    ...typography.body,
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: spacing.xs,
   },
   readOnlyInput: {
     backgroundColor: colors.accentSoft,
@@ -3468,9 +3806,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   savedMealTotalsMacros: {
     ...typography.body,
     color: colors.muted,
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
   },
   addFoodToSavedMealContainer: {
     flex: 1,

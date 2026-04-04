@@ -17,46 +17,65 @@ export type FoodSearchResult = {
   servingUnit: string;
   micronutrients: Micronutrients;
   hasMicronutrientData: boolean;
+  countGramsPerUnit?: number;
+  countUnitLabel?: string;
 };
 
 const USDA_API_URL = 'https://api.nal.usda.gov/fdc/v1/foods/search';
 const USDA_FOOD_DETAILS_URL = 'https://api.nal.usda.gov/fdc/v1/food';
 
-const COUNT_BASED_SERVING_PRESETS: Array<{ pattern: RegExp; grams: number }> = [
-  { pattern: /\bapple\b/, grams: 182 },
-  { pattern: /\bbanana\b/, grams: 118 },
-  { pattern: /\borange\b/, grams: 131 },
-  { pattern: /\bpear\b/, grams: 178 },
-  { pattern: /\bkiwi\b/, grams: 75 },
-  { pattern: /\bpeach\b/, grams: 150 },
-  { pattern: /\bplum\b/, grams: 66 },
-  { pattern: /\bapricot\b/, grams: 35 },
-  { pattern: /\bgrapefruit\b/, grams: 246 },
-  { pattern: /\blemon\b/, grams: 84 },
-  { pattern: /\blime\b/, grams: 67 },
-  { pattern: /\bavocado\b/, grams: 150 },
-  { pattern: /\begg\b/, grams: 50 },
-  { pattern: /\bbagel\b/, grams: 95 },
-  { pattern: /\bcroissant\b/, grams: 57 },
-  { pattern: /\bmuffin\b/, grams: 113 },
-  { pattern: /\bdoughnut\b/, grams: 75 },
-  { pattern: /\bscone\b/, grams: 61 },
-  { pattern: /\bpotato\b/, grams: 173 },
-  { pattern: /\bsweet potato\b/, grams: 130 },
-  { pattern: /\btomato\b/, grams: 123 },
-  { pattern: /\bonion\b/, grams: 110 },
-  { pattern: /\bcucumber\b/, grams: 301 },
-  { pattern: /\bpepper\b/, grams: 119 },
-  { pattern: /\bcarrot\b/, grams: 61 },
-  { pattern: /\bchicken breast\b/, grams: 174 },
-  { pattern: /\bchicken thigh\b/, grams: 109 },
-  { pattern: /\bdrumstick\b/, grams: 71 },
-  { pattern: /\bchicken wing\b/, grams: 85 },
-  { pattern: /\bsteak\b/, grams: 227 },
-  { pattern: /\bfillet\b/, grams: 154 },
-  { pattern: /\bwrap\/tortilla\b/, grams: 62 },
-  { pattern: /\bpitta bread\b/, grams: 60 },
+type CountServingPreset = {
+  pattern: RegExp;
+  grams: number;
+  label: string;
+};
+
+const COUNT_BASED_SERVING_PRESETS: CountServingPreset[] = [
+  { pattern: /\bapple\b/, grams: 182, label: 'apple' },
+  { pattern: /\bbanana\b/, grams: 118, label: 'banana' },
+  { pattern: /\borange\b/, grams: 131, label: 'orange' },
+  { pattern: /\bpear\b/, grams: 178, label: 'pear' },
+  { pattern: /\bkiwi\b/, grams: 75, label: 'kiwi' },
+  { pattern: /\bmango\b/, grams: 200, label: 'mango' },
+  { pattern: /\bpeach\b/, grams: 150, label: 'peach' },
+  { pattern: /\bplum\b/, grams: 66, label: 'plum' },
+  { pattern: /\bapricot\b/, grams: 35, label: 'apricot' },
+  { pattern: /\bgrapefruit\b/, grams: 246, label: 'grapefruit' },
+  { pattern: /\blemon\b/, grams: 84, label: 'lemon' },
+  { pattern: /\blime\b/, grams: 67, label: 'lime' },
+  { pattern: /\bavocado\b/, grams: 150, label: 'avocado' },
+  { pattern: /\begg\b/, grams: 50, label: 'egg' },
+  { pattern: /\bbagel\b/, grams: 95, label: 'bagel' },
+  { pattern: /\bcroissant\b/, grams: 57, label: 'croissant' },
+  { pattern: /\bmuffin\b/, grams: 113, label: 'muffin' },
+  { pattern: /\bdoughnut\b/, grams: 75, label: 'doughnut' },
+  { pattern: /\bscone\b/, grams: 61, label: 'scone' },
+  { pattern: /\btomato\b/, grams: 123, label: 'tomato' },
+  { pattern: /\bonion\b/, grams: 110, label: 'onion' },
+  { pattern: /\bcucumber\b/, grams: 301, label: 'cucumber' },
+  { pattern: /\bpepper\b/, grams: 119, label: 'pepper' },
+  { pattern: /\bcarrot\b/, grams: 61, label: 'carrot' },
+  { pattern: /\bchicken breast\b/, grams: 174, label: 'breast' },
+  { pattern: /\bchicken thigh\b/, grams: 109, label: 'thigh' },
+  { pattern: /\bdrumstick\b/, grams: 71, label: 'drumstick' },
+  { pattern: /\bchicken wing\b/, grams: 85, label: 'wing' },
+  { pattern: /\bsteak\b/, grams: 227, label: 'steak' },
+  { pattern: /\bfillet\b/, grams: 154, label: 'fillet' },
+  { pattern: /\bwrap\/tortilla\b/, grams: 62, label: 'wrap' },
+  { pattern: /\bpitta bread\b/, grams: 60, label: 'pitta' },
 ];
+
+export function getCountServingInfo(name: string): { gramsPerUnit: number; unitLabel: string } | null {
+  const nameLower = name.toLowerCase();
+  const match = COUNT_BASED_SERVING_PRESETS.find((preset) => preset.pattern.test(nameLower));
+  if (!match) {
+    return null;
+  }
+  return {
+    gramsPerUnit: match.grams,
+    unitLabel: match.label,
+  };
+}
 
 function normalizeServingUnit(unit?: string): string | null {
   const normalizedUnit = (unit || '').trim().toLowerCase();
@@ -103,10 +122,9 @@ function inferDefaultServingSize(name: string, servingUnit: 'g' | 'ml', apiServi
     return 100;
   }
 
-  const nameLower = name.toLowerCase();
-  const match = COUNT_BASED_SERVING_PRESETS.find((preset) => preset.pattern.test(nameLower));
+  const match = getCountServingInfo(name);
   if (match) {
-    return match.grams;
+    return match.gramsPerUnit;
   }
 
   return 100;
@@ -145,6 +163,7 @@ export function searchSimpleFoods(query: string): FoodSearchResult[] {
 
   return scored.slice(0, 15).map(({ food }, index) => {
     const servingUnit = food.servingUnit ?? 'g';
+    const countServing = getCountServingInfo(food.name);
     return {
       id: `simple-${index}-${food.name.replace(/\s+/g, '-').toLowerCase()}`,
       name: food.name,
@@ -156,6 +175,8 @@ export function searchSimpleFoods(query: string): FoodSearchResult[] {
       servingUnit,
       micronutrients: createEmptyMicronutrients(),
       hasMicronutrientData: false,
+      countGramsPerUnit: countServing?.gramsPerUnit,
+      countUnitLabel: countServing?.unitLabel,
     };
   });
 }
@@ -341,6 +362,7 @@ export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
     return data.foods.slice(0, 15).map((food) => {
       const micronutrients = micronutrientsFromUSDA(food.foodNutrients || []);
       const servingUnit = resolveUSDAServingUnit(food);
+      const countServing = getCountServingInfo(food.description);
       return {
         id: `usda-${food.fdcId}`,
         name: food.brandName ? `${food.description} (${food.brandName})` : food.description,
@@ -352,6 +374,8 @@ export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
         servingUnit,
         micronutrients,
         hasMicronutrientData: hasMicronutrients(micronutrients),
+        countGramsPerUnit: countServing?.gramsPerUnit,
+        countUnitLabel: countServing?.unitLabel,
       };
     });
   } catch (error) {

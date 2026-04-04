@@ -8,6 +8,7 @@ import {
   normalizeMicronutrients,
   scaleMicronutrients,
 } from '../nutrition/micronutrients';
+import { FoodSearchResult, getCountServingInfo, hydrateFoodMicronutrients } from '../services/foodSearch';
 
 export type FoodItem = {
   id: string;
@@ -23,6 +24,8 @@ export type FoodItem = {
   servings: number;
   micronutrients: Micronutrients;
   hasMicronutrientData: boolean;
+  countGramsPerUnit?: number;
+  countUnitLabel?: string;
   timestamp: number;
 };
 
@@ -58,6 +61,8 @@ export type DraftFoodEntry = {
   baseCarbs?: number;
   baseFat?: number;
   baseMicronutrients?: Micronutrients;
+  countGramsPerUnit?: number;
+  countUnitLabel?: string;
 };
 
 export type SavedMealFood = {
@@ -73,6 +78,8 @@ export type SavedMealFood = {
   servings: number;
   micronutrients: Micronutrients;
   hasMicronutrientData: boolean;
+  countGramsPerUnit?: number;
+  countUnitLabel?: string;
 };
 
 export type SavedMeal = {
@@ -102,6 +109,7 @@ type CalorieContextValue = {
     foodId: string,
     updates: {
       servingSize: number;
+      servingUnit: string;
       servings: number;
       calories: number;
       protein: number;
@@ -109,6 +117,8 @@ type CalorieContextValue = {
       fat: number;
       micronutrients: Micronutrients;
       hasMicronutrientData: boolean;
+      countGramsPerUnit?: number;
+      countUnitLabel?: string;
     }
   ) => void;
   // Saved meals
@@ -152,6 +162,51 @@ function toFiniteNumber(value: unknown): number {
   return 0;
 }
 
+function parseOpenFoodFactsCountServing(product: {
+  product_name?: unknown;
+  serving_size?: unknown;
+  serving_quantity?: unknown;
+}): { gramsPerUnit: number; unitLabel: string } | null {
+  const servingSize =
+    typeof product.serving_size === 'string' && product.serving_size.trim().length > 0
+      ? product.serving_size.trim()
+      : null;
+  const servingQuantity = toFiniteNumber(product.serving_quantity);
+
+  if (!servingSize || servingQuantity <= 0) {
+    return null;
+  }
+
+  const countMatch = servingSize.match(/^(\d+(?:[.,]\d+)?)\s+([a-z][a-z\s-]*?)(?:\s*\(|$)/i);
+  if (!countMatch) {
+    return null;
+  }
+
+  const count = Number(countMatch[1].replace(',', '.'));
+  const rawLabel = countMatch[2]?.trim().toLowerCase();
+  if (!Number.isFinite(count) || count <= 0 || !rawLabel) {
+    return null;
+  }
+
+  const singularLabel = rawLabel.replace(/\s+/g, ' ').replace(/s$/, '');
+  if (!singularLabel) {
+    return null;
+  }
+
+  return {
+    gramsPerUnit: Math.round((servingQuantity / count) * 10) / 10,
+    unitLabel: singularLabel,
+  };
+}
+
+function mergeMicronutrients(primary: Micronutrients, enrichment: Micronutrients): Micronutrients {
+  const merged = createEmptyMicronutrients();
+  MICRONUTRIENT_KEYS.forEach((key) => {
+    merged[key] = primary[key] > 0 ? primary[key] : enrichment[key];
+  });
+  return merged;
+}
+
 function createDraftEntry(targetMealId: string): DraftFoodEntry {
   return {
     id: generateId(),
@@ -173,6 +228,8 @@ function createDraftEntry(targetMealId: string): DraftFoodEntry {
     baseCarbs: undefined,
     baseFat: undefined,
     baseMicronutrients: undefined,
+    countGramsPerUnit: undefined,
+    countUnitLabel: undefined,
   };
 }
 
@@ -189,6 +246,8 @@ function normalizeFoodItem(food: FoodItem): FoodItem {
     micronutrients?: Partial<Micronutrients>;
     hasMicronutrientData?: boolean;
     servingUnit?: unknown;
+    countGramsPerUnit?: unknown;
+    countUnitLabel?: unknown;
   };
   const micronutrients = normalizeMicronutrients(raw.micronutrients);
   return {
@@ -200,6 +259,8 @@ function normalizeFoodItem(food: FoodItem): FoodItem {
       typeof raw.hasMicronutrientData === 'boolean'
         ? raw.hasMicronutrientData
         : hasMicronutrients(micronutrients),
+    countGramsPerUnit: typeof raw.countGramsPerUnit === 'number' ? raw.countGramsPerUnit : undefined,
+    countUnitLabel: typeof raw.countUnitLabel === 'string' ? raw.countUnitLabel : undefined,
   };
 }
 
@@ -222,6 +283,8 @@ function normalizeSavedMealFood(food: SavedMealFood): SavedMealFood {
     micronutrients?: Partial<Micronutrients>;
     hasMicronutrientData?: boolean;
     servingUnit?: unknown;
+    countGramsPerUnit?: unknown;
+    countUnitLabel?: unknown;
   };
   const micronutrients = normalizeMicronutrients(raw.micronutrients);
   return {
@@ -233,6 +296,8 @@ function normalizeSavedMealFood(food: SavedMealFood): SavedMealFood {
       typeof raw.hasMicronutrientData === 'boolean'
         ? raw.hasMicronutrientData
         : hasMicronutrients(micronutrients),
+    countGramsPerUnit: typeof raw.countGramsPerUnit === 'number' ? raw.countGramsPerUnit : undefined,
+    countUnitLabel: typeof raw.countUnitLabel === 'string' ? raw.countUnitLabel : undefined,
   };
 }
 
@@ -249,6 +314,8 @@ function normalizeDraftEntry(entry: DraftFoodEntry): DraftFoodEntry {
     baseMicronutrients?: Partial<Micronutrients>;
     hasMicronutrientData?: boolean;
     servingUnit?: unknown;
+    countGramsPerUnit?: unknown;
+    countUnitLabel?: unknown;
   };
   const micronutrients = normalizeMicronutrients(raw.micronutrients);
   return {
@@ -263,6 +330,8 @@ function normalizeDraftEntry(entry: DraftFoodEntry): DraftFoodEntry {
     baseMicronutrients: raw.baseMicronutrients
       ? normalizeMicronutrients(raw.baseMicronutrients)
       : undefined,
+    countGramsPerUnit: typeof raw.countGramsPerUnit === 'number' ? raw.countGramsPerUnit : undefined,
+    countUnitLabel: typeof raw.countUnitLabel === 'string' ? raw.countUnitLabel : undefined,
   };
 }
 
@@ -270,7 +339,11 @@ function isFoodItem(value: unknown): value is FoodItem {
   if (!value || typeof value !== 'object') {
     return false;
   }
-  const item = value as FoodItem & { servingUnit?: unknown };
+  const item = value as FoodItem & {
+    servingUnit?: unknown;
+    countGramsPerUnit?: unknown;
+    countUnitLabel?: unknown;
+  };
   return (
     typeof item.id === 'string' &&
     typeof item.name === 'string' &&
@@ -281,6 +354,8 @@ function isFoodItem(value: unknown): value is FoodItem {
     typeof item.servingSize === 'number' &&
     (item.servingUnit === undefined || typeof item.servingUnit === 'string') &&
     typeof item.servings === 'number' &&
+    (item.countGramsPerUnit === undefined || typeof item.countGramsPerUnit === 'number') &&
+    (item.countUnitLabel === undefined || typeof item.countUnitLabel === 'string') &&
     typeof item.timestamp === 'number'
   );
 }
@@ -330,7 +405,9 @@ function isDraftFoodEntry(value: unknown): value is DraftFoodEntry {
     typeof entry.targetMealId === 'string' &&
     (entry.micronutrients === undefined || isMicronutrients(entry.micronutrients)) &&
     (entry.baseMicronutrients === undefined || isMicronutrients(entry.baseMicronutrients)) &&
-    (entry.hasMicronutrientData === undefined || typeof entry.hasMicronutrientData === 'boolean')
+    (entry.hasMicronutrientData === undefined || typeof entry.hasMicronutrientData === 'boolean') &&
+    ((entry as DraftFoodEntry).countGramsPerUnit === undefined || typeof (entry as DraftFoodEntry).countGramsPerUnit === 'number') &&
+    ((entry as DraftFoodEntry).countUnitLabel === undefined || typeof (entry as DraftFoodEntry).countUnitLabel === 'string')
   );
 }
 
@@ -338,7 +415,11 @@ function isSavedMealFood(value: unknown): value is SavedMealFood {
   if (!value || typeof value !== 'object') {
     return false;
   }
-  const food = value as SavedMealFood & { servingUnit?: unknown };
+  const food = value as SavedMealFood & {
+    servingUnit?: unknown;
+    countGramsPerUnit?: unknown;
+    countUnitLabel?: unknown;
+  };
   return (
     typeof food.id === 'string' &&
     typeof food.name === 'string' &&
@@ -348,7 +429,9 @@ function isSavedMealFood(value: unknown): value is SavedMealFood {
     typeof food.fat === 'number' &&
     typeof food.servingSize === 'number' &&
     (food.servingUnit === undefined || typeof food.servingUnit === 'string') &&
-    typeof food.servings === 'number'
+    typeof food.servings === 'number' &&
+    (food.countGramsPerUnit === undefined || typeof food.countGramsPerUnit === 'number') &&
+    (food.countUnitLabel === undefined || typeof food.countUnitLabel === 'string')
   );
 }
 
@@ -599,8 +682,36 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       const proteinPer100g = Math.round(toFiniteNumber(nutriments.proteins_100g));
       const carbsPer100g = Math.round(toFiniteNumber(nutriments.carbohydrates_100g));
       const fatPer100g = Math.round(toFiniteNumber(nutriments.fat_100g));
-      const micronutrients = micronutrientsFromOpenFoodFacts(nutriments as Record<string, unknown>);
-      const hasMicronutrientData = hasMicronutrients(micronutrients);
+      const openFoodFactsMicronutrients = micronutrientsFromOpenFoodFacts(nutriments as Record<string, unknown>);
+
+      let micronutrients = openFoodFactsMicronutrients;
+      let hasMicronutrientData = hasMicronutrients(micronutrients);
+      const countServing =
+        parseOpenFoodFactsCountServing(product) ??
+        (typeof product.product_name === 'string' ? getCountServingInfo(product.product_name) : null);
+      const defaultServingSize = countServing ? '1' : '100';
+      const defaultServingUnit = countServing?.unitLabel ?? 'g';
+
+      if (typeof product.product_name === 'string' && product.product_name.trim().length > 0) {
+        const hydrationCandidate: FoodSearchResult = {
+          id: `barcode-${barcode}`,
+          name: product.brands ? `${product.product_name} (${product.brands})` : product.product_name,
+          calories: caloriesPer100g,
+          protein: proteinPer100g,
+          carbs: carbsPer100g,
+          fat: fatPer100g,
+          servingSize: 100,
+          servingUnit: 'g',
+          micronutrients: createEmptyMicronutrients(),
+          hasMicronutrientData: false,
+        };
+
+        const hydrated = await hydrateFoodMicronutrients(hydrationCandidate);
+        if (hydrated.hasMicronutrientData) {
+          micronutrients = mergeMicronutrients(openFoodFactsMicronutrients, hydrated.micronutrients);
+          hasMicronutrientData = hasMicronutrients(micronutrients);
+        }
+      }
 
       setDraftEntry((prev) => {
         if (!prev) {
@@ -615,8 +726,8 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
           protein: String(proteinPer100g),
           carbs: String(carbsPer100g),
           fat: String(fatPer100g),
-          servingSize: '100',
-          servingUnit: 'g',
+          servingSize: defaultServingSize,
+          servingUnit: defaultServingUnit,
           micronutrients,
           hasMicronutrientData,
           baseCalories: caloriesPer100g,
@@ -624,6 +735,8 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
           baseCarbs: carbsPer100g,
           baseFat: fatPer100g,
           baseMicronutrients: micronutrients,
+          countGramsPerUnit: countServing?.gramsPerUnit,
+          countUnitLabel: countServing?.unitLabel,
         };
       });
 
@@ -679,6 +792,8 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       servings,
       micronutrients: scaledMicronutrients,
       hasMicronutrientData: draftEntry.hasMicronutrientData && hasMicronutrients(scaledMicronutrients),
+      countGramsPerUnit: draftEntry.countGramsPerUnit,
+      countUnitLabel: draftEntry.countUnitLabel,
       timestamp: Date.now(),
     };
 
@@ -755,6 +870,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
     foodId: string,
     updates: {
       servingSize: number;
+      servingUnit: string;
       servings: number;
       calories: number;
       protein: number;
@@ -762,6 +878,8 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       fat: number;
       micronutrients: Micronutrients;
       hasMicronutrientData: boolean;
+      countGramsPerUnit?: number;
+      countUnitLabel?: string;
     }
   ) => {
     if (!Number.isFinite(updates.servings) || updates.servings <= 0) {
@@ -789,6 +907,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
                         return {
                           ...food,
                           servingSize: updates.servingSize,
+                          servingUnit: updates.servingUnit,
                           servings: updates.servings,
                           calories: Math.round(updates.calories),
                           protein: Math.round(updates.protein),
@@ -796,6 +915,8 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
                           fat: Math.round(updates.fat),
                           micronutrients: normalizeMicronutrients(updates.micronutrients),
                           hasMicronutrientData: updates.hasMicronutrientData,
+                          countGramsPerUnit: updates.countGramsPerUnit,
+                          countUnitLabel: updates.countUnitLabel,
                         };
                       }),
                     }
@@ -876,6 +997,8 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
         servings: food.servings,
         micronutrients: totalMicronutrients,
         hasMicronutrientData: food.hasMicronutrientData && hasMicronutrients(totalMicronutrients),
+        countGramsPerUnit: food.countGramsPerUnit,
+        countUnitLabel: food.countUnitLabel,
         timestamp: Date.now(),
       };
     });
