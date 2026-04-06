@@ -32,7 +32,14 @@ import {
   scaleMicronutrients,
 } from '../nutrition/micronutrients';
 import { FoodSearchResult, hydrateFoodMicronutrients, searchFoods, searchSimpleFoods } from '../services/foodSearch';
-import { CalorieDay, FoodItem, Meal, SavedMeal, SavedMealFood, useCalorieStore } from '../store/calorieStore';
+import {
+  CalorieDay,
+  FoodItem,
+  Meal,
+  SavedMeal,
+  SavedMealFood,
+  useCalorieStore,
+} from '../store/calorieStore';
 import { useTheme } from '../store/themeStore';
 import { spacing, typography } from '../theme';
 import type { ThemeColors } from '../theme';
@@ -175,8 +182,10 @@ export function CalorieScreen() {
   const [foodPickerOpen, setFoodPickerOpen] = useState(false);
   const [entryModalOpen, setEntryModalOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerSessionKey, setScannerSessionKey] = useState(0);
   const [scanned, setScanned] = useState(false);
   const [barcodeLookupOpen, setBarcodeLookupOpen] = useState(false);
+  const [barcodeFailureMessage, setBarcodeFailureMessage] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [goalInput, setGoalInput] = useState(String(dailyGoal));
   const [quickCalories, setQuickCalories] = useState('');
@@ -519,6 +528,8 @@ export function CalorieScreen() {
     setFoodPickerOpen(false);
     barcodeScanInFlightRef.current = false;
     setBarcodeLookupOpen(false);
+    setBarcodeFailureMessage(null);
+    setScannerSessionKey((prev) => prev + 1);
     setScannerOpen(true);
     setScanned(false);
   };
@@ -529,13 +540,16 @@ export function CalorieScreen() {
     setScanned(true);
     setBarcodeLookupOpen(true);
     setScannerOpen(false);
-    const success = await populateFromBarcode(barcode);
+    const result = await populateFromBarcode(barcode);
     setBarcodeLookupOpen(false);
-    if (success) {
+    if (result.success) {
+      barcodeScanInFlightRef.current = false;
+      setScanned(false);
       setEntryModalOpen(true);
     } else {
       barcodeScanInFlightRef.current = false;
       setScanned(false);
+      setBarcodeFailureMessage(result.message);
     }
   };
 
@@ -543,6 +557,7 @@ export function CalorieScreen() {
     setFoodPickerOpen(false);
     setScannerOpen(false);
     setBarcodeLookupOpen(false);
+    setBarcodeFailureMessage(null);
     setEntryModalOpen(true);
   };
 
@@ -604,6 +619,7 @@ export function CalorieScreen() {
     saveFoodEntry(selectedDate);
     barcodeScanInFlightRef.current = false;
     setBarcodeLookupOpen(false);
+    setBarcodeFailureMessage(null);
     setEntryModalOpen(false);
     setScanned(false);
     setCurrentMealId(null);
@@ -616,6 +632,7 @@ export function CalorieScreen() {
     setIsHydratingMicronutrients(false);
     barcodeScanInFlightRef.current = false;
     setBarcodeLookupOpen(false);
+    setBarcodeFailureMessage(null);
     setEntryModalOpen(false);
     setScannerOpen(false);
     setFoodPickerOpen(false);
@@ -659,6 +676,7 @@ export function CalorieScreen() {
 
     const currentSize = Number(draftEntry.servingSize) || 0;
     if (mode === 'count') {
+      updateDraftEntry('servings', '1');
       const nextSize =
         draftEntry.servingUnit === draftEntry.countUnitLabel
           ? draftEntry.servingSize
@@ -1882,6 +1900,8 @@ export function CalorieScreen() {
             </View>
           ) : (
             <CameraView
+              key={scannerSessionKey}
+              active={scannerOpen}
               style={styles.camera}
               barcodeScannerSettings={{
                 barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128'],
@@ -1904,6 +1924,26 @@ export function CalorieScreen() {
           <View style={styles.lookupModalCard}>
             <ActivityIndicator color={colors.accent} size="large" />
             <Text style={styles.loadingText}>Looking up product...</Text>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={barcodeFailureMessage !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setBarcodeFailureMessage(null)}
+      >
+        <View style={styles.lookupBackdrop}>
+          <View style={styles.lookupModalCard}>
+            <Text style={styles.modalTitle}>Barcode Scan Failed</Text>
+            <Text style={styles.failureMessage}>{barcodeFailureMessage}</Text>
+            <Pressable
+              style={[styles.primaryButton, styles.failureButton]}
+              onPress={() => setBarcodeFailureMessage(null)}
+            >
+              <Text style={styles.primaryButtonText}>OK</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -2086,30 +2126,44 @@ export function CalorieScreen() {
                     </View>
                   ) : null}
 
-                  <View style={styles.formRow}>
-                    <View style={styles.formGroupHalf}>
-                      <Text style={styles.formLabel}>{`Serving Size (${draftServingUnit})`}</Text>
+                  {draftIsCountMode ? (
+                    <View style={styles.formGroup}>
+                      <Text style={styles.formLabel}>Amount</Text>
                       <TextInput
                         style={styles.formInput}
                         value={draftEntry?.servingSize || ''}
                         onChangeText={handleServingSizeChange}
-                        placeholder={draftIsCountMode ? '1' : '100'}
-                        placeholderTextColor={colors.muted}
-                        keyboardType="numeric"
-                      />
-                    </View>
-                    <View style={styles.formGroupHalf}>
-                      <Text style={styles.formLabel}>Servings</Text>
-                      <TextInput
-                        style={styles.formInput}
-                        value={draftEntry?.servings || ''}
-                        onChangeText={(v) => updateDraftEntry('servings', v)}
                         placeholder="1"
                         placeholderTextColor={colors.muted}
                         keyboardType="numeric"
                       />
                     </View>
-                  </View>
+                  ) : (
+                    <View style={styles.formRow}>
+                      <View style={styles.formGroupHalf}>
+                        <Text style={styles.formLabel}>{`Serving Size (${draftServingUnit})`}</Text>
+                        <TextInput
+                          style={styles.formInput}
+                          value={draftEntry?.servingSize || ''}
+                          onChangeText={handleServingSizeChange}
+                          placeholder="100"
+                          placeholderTextColor={colors.muted}
+                          keyboardType="numeric"
+                        />
+                      </View>
+                      <View style={styles.formGroupHalf}>
+                        <Text style={styles.formLabel}>Servings</Text>
+                        <TextInput
+                          style={styles.formInput}
+                          value={draftEntry?.servings || ''}
+                          onChangeText={(v) => updateDraftEntry('servings', v)}
+                          placeholder="1"
+                          placeholderTextColor={colors.muted}
+                          keyboardType="numeric"
+                        />
+                      </View>
+                    </View>
+                  )}
 
                   {isHydratingMicronutrients ? (
                     <View style={styles.micronutrientLoadingRow}>
@@ -3320,6 +3374,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   loadingText: {
     ...typography.body,
     color: colors.muted,
+  },
+  failureMessage: {
+    ...typography.body,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  failureButton: {
+    marginTop: spacing.xs,
+    alignSelf: 'stretch',
+    alignItems: 'center',
   },
   formGroup: {
     marginBottom: spacing.md,

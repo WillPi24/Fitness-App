@@ -89,6 +89,10 @@ export type SavedMeal = {
   createdAt: number;
 };
 
+export type BarcodeLookupResult =
+  | { success: true }
+  | { success: false; message: string };
+
 type CalorieContextValue = {
   calorieDays: CalorieDay[];
   draftEntry: DraftFoodEntry | null;
@@ -99,7 +103,7 @@ type CalorieContextValue = {
   removeMeal: (date: string, mealId: string) => void;
   startNewEntry: (mealId: string) => void;
   updateDraftEntry: <K extends keyof DraftFoodEntry>(field: K, value: DraftFoodEntry[K]) => void;
-  populateFromBarcode: (barcode: string) => Promise<boolean>;
+  populateFromBarcode: (barcode: string) => Promise<BarcodeLookupResult>;
   saveFoodEntry: (date: string) => void;
   cancelDraftEntry: () => void;
   removeFoodItem: (date: string, mealId: string, foodId: string) => void;
@@ -655,13 +659,14 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const populateFromBarcode = async (barcode: string): Promise<boolean> => {
+  const populateFromBarcode = async (barcode: string): Promise<BarcodeLookupResult> => {
     setIsSearching(true);
     setError(null);
 
     try {
+      const requestUrl = `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`;
       const response = await fetch(
-        `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`,
+        requestUrl,
         {
           headers: {
             'User-Agent': 'Helm - React Native - Version 1.0',
@@ -669,11 +674,43 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
         }
       );
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any;
+
+      try {
+        data = JSON.parse(responseText);
+      } catch (error) {
+        console.error('Open Food Facts barcode response was not JSON', {
+          barcode,
+          url: requestUrl,
+          status: response.status,
+          bodyPreview: responseText.slice(0, 240),
+          error,
+        });
+        return {
+          success: false,
+          message: 'The product service returned an invalid response. Please try again or enter it manually.',
+        };
+      }
+
+      if (!response.ok) {
+        console.error('Open Food Facts barcode request failed', {
+          barcode,
+          url: requestUrl,
+          status: response.status,
+          bodyPreview: responseText.slice(0, 240),
+        });
+        return {
+          success: false,
+          message: 'Unable to fetch product info right now. Please try again or enter it manually.',
+        };
+      }
 
       if (data.status !== 1 || !data.product) {
-        setError('Product not found. Try manual entry.');
-        return false;
+        return {
+          success: false,
+          message: 'Product not found. Try manual entry.',
+        };
       }
 
       const { product } = data;
@@ -740,11 +777,13 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
         };
       });
 
-      return true;
+      return { success: true };
     } catch (err) {
       console.error('Failed to fetch product', err);
-      setError('Unable to fetch product info. Check your connection.');
-      return false;
+      return {
+        success: false,
+        message: 'Unable to fetch product info. Check your connection.',
+      };
     } finally {
       setIsSearching(false);
     }
