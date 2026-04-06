@@ -2,7 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, Platform } from 'react-native';
 import { snapRouteToRoads } from '../services/routeSnapping';
+import {
+  type PaceKeeperCueState,
+  loadPaceKeeperSettings,
+  maybeSpeakPaceKeeperCue,
+} from '../services/paceKeeper';
+import { isNativePaceKeeperAvailable, stopNativePaceKeeper, syncNativePaceKeeper } from '../services/nativePaceKeeper';
 
 export type RunPoint = {
   latitude: number;
@@ -65,6 +72,7 @@ export type ActiveRun = {
   lastUpdatedAt: number;
   kalmanState?: GPSKalmanState;
   splits?: RunSplit[];
+  paceKeeperCueState?: PaceKeeperCueState;
 };
 
 type RunContextValue = {
@@ -86,6 +94,7 @@ type RunContextValue = {
 
 const RUNS_KEY = 'fitnessapp.runs.v1';
 const ACTIVE_RUN_KEY = 'fitnessapp.activeRun.v1';
+const APP_STATE_KEY = 'fitnessapp.appState.v1';
 const RUN_LOCATION_TASK = 'fitnessapp.runLocationTask.v1';
 const LOCATION_ACCURACY_METERS = 20;
 const MAX_SPEED_MPS = 15;
@@ -434,7 +443,11 @@ if (!TaskManager.isTaskDefined(RUN_LOCATION_TASK)) {
     }
 
     try {
-      const activeRaw = await AsyncStorage.getItem(ACTIVE_RUN_KEY);
+      const [activeRaw, runsRaw, appStateRaw] = await Promise.all([
+        AsyncStorage.getItem(ACTIVE_RUN_KEY),
+        AsyncStorage.getItem(RUNS_KEY),
+        AsyncStorage.getItem(APP_STATE_KEY),
+      ]);
       if (!activeRaw) {
         return;
       }
@@ -442,7 +455,16 @@ if (!TaskManager.isTaskDefined(RUN_LOCATION_TASK)) {
       if (!isActiveRun(parsed) || parsed.type !== 'outdoor' || parsed.isPaused) {
         return;
       }
-      const next = appendLocations(parsed, locations);
+      let next = appendLocations(parsed, locations);
+      const parsedRuns = runsRaw ? JSON.parse(runsRaw) : [];
+      const safeRuns = Array.isArray(parsedRuns) ? parsedRuns.filter(isRunSession) : [];
+      const settings = await loadPaceKeeperSettings();
+
+      if (Platform.OS === 'ios' && isNativePaceKeeperAvailable()) {
+        syncNativePaceKeeper(next, safeRuns, settings, false);
+      } else if (appStateRaw !== 'active') {
+        next = await maybeSpeakPaceKeeperCue(next, safeRuns, Date.now(), settings);
+      }
       if (next !== parsed) {
         await AsyncStorage.setItem(ACTIVE_RUN_KEY, JSON.stringify(next));
       }
@@ -457,7 +479,17 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
   const [activeRun, setActiveRun] = useState<ActiveRun | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [appState, setAppState] = useState(AppState.currentState);
   const hasLoadedRef = useRef(false);
+
+  useEffect(() => {
+    AsyncStorage.setItem(APP_STATE_KEY, AppState.currentState).catch(() => {});
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      setAppState(nextState);
+      AsyncStorage.setItem(APP_STATE_KEY, nextState).catch(() => {});
+    });
+    return () => subscription.remove();
+  }, []);
 
   const persistActiveRun = useCallback(async (next: ActiveRun | null) => {
     try {
@@ -601,6 +633,73 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!activeRun || activeRun.type !== 'outdoor' || activeRun.isPaused) {
+      return undefined;
+    }
+
+    if (Platform.OS === 'ios' && isNativePaceKeeperAvailable()) {
+      return undefined;
+    }
+
+    const tick = async () => {
+      if (AppState.currentState !== 'active') {
+        return;
+      }
+
+      try {
+        const activeRaw = await AsyncStorage.getItem(ACTIVE_RUN_KEY);
+        if (!activeRaw) {
+          return;
+        }
+        const parsed = JSON.parse(activeRaw);
+        if (!isActiveRun(parsed) || parsed.id !== activeRun.id || parsed.isPaused) {
+          return;
+        }
+
+        const settings = await loadPaceKeeperSettings();
+        const next = await maybeSpeakPaceKeeperCue(parsed, runs, Date.now(), settings);
+        if (next !== parsed) {
+          await persistActiveRun(next);
+        }
+      } catch (paceKeeperError) {
+        console.error('Failed to run pace keeper', paceKeeperError);
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [activeRun?.id, activeRun?.isPaused, activeRun?.type, runs, persistActiveRun]);
+
+  useEffect(() => {
+    if (!(Platform.OS === 'ios' && isNativePaceKeeperAvailable())) {
+      return undefined;
+    }
+
+    if (!activeRun || activeRun.type !== 'outdoor') {
+      stopNativePaceKeeper();
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const sync = async () => {
+      try {
+        const settings = await loadPaceKeeperSettings();
+        if (!cancelled) {
+          syncNativePaceKeeper(activeRun, runs, settings, appState === 'active');
+        }
+      } catch {}
+    };
+
+    sync();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeRun, runs, appState]);
+
+  useEffect(() => {
+    if (!activeRun || activeRun.type !== 'outdoor' || activeRun.isPaused) {
       return;
     }
 
@@ -652,6 +751,10 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
         isPaused: false,
         distanceMeters: 0,
         route: [],
+        paceKeeperCueState: {
+          lastTimeCueIndex: 0,
+          lastDistanceCueIndex: 0,
+        },
         lastUpdatedAt: now,
       };
 

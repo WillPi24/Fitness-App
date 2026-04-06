@@ -19,6 +19,7 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow Helm to track your run route even when the screen is locked.",
         "NSLocationAlwaysUsageDescription": "Allow Helm to track your run route even when the screen is locked.",
         "UIBackgroundModes": [
+          "audio",
           "location",
           "fetch"
         ]

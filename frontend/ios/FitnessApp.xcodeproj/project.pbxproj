@@ -11,6 +11,8 @@
 		3C6A730926E1F5764E62F222 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF8098726EF28F11D524C67 /* ExpoModulesProvider.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		4E298D382F722DFC004946D7 /* MapLibre in Frameworks */ = {isa = PBXBuildFile; productRef = B56FDB11153BB192CFF59DE1 /* MapLibre */; };
+		4E8E11E63A91A100B71A0001 /* NativePaceKeeperModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E8E11E43A91A100B71A0001 /* NativePaceKeeperModule.swift */; };
+		4E8E11E73A91A100B71A0001 /* NativePaceKeeperModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 4E8E11E53A91A100B71A0001 /* NativePaceKeeperModule.m */; };
 		5C4EDE43CBEAAF11B698B7DD /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 62B54D2897954EBAE33C3ABE /* PrivacyInfo.xcprivacy */; };
 		774AF57E1D9BEAE6CB235EFB /* libPods-FitnessApp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1EE3818460C0F829CDA29606 /* libPods-FitnessApp.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
@@ -23,6 +25,8 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = FitnessApp/Info.plist; sourceTree = "<group>"; };
 		1EE3818460C0F829CDA29606 /* libPods-FitnessApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-FitnessApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1FF8098726EF28F11D524C67 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-FitnessApp/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		4E8E11E43A91A100B71A0001 /* NativePaceKeeperModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativePaceKeeperModule.swift; path = FitnessApp/NativePaceKeeperModule.swift; sourceTree = "<group>"; };
+		4E8E11E53A91A100B71A0001 /* NativePaceKeeperModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = NativePaceKeeperModule.m; path = FitnessApp/NativePaceKeeperModule.m; sourceTree = "<group>"; };
 		62B54D2897954EBAE33C3ABE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = FitnessApp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		76E3AA1FC72036EEC831AA09 /* Pods-FitnessApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FitnessApp.release.xcconfig"; path = "Target Support Files/Pods-FitnessApp/Pods-FitnessApp.release.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = FitnessApp/SplashScreen.storyboard; sourceTree = "<group>"; };
@@ -50,6 +54,8 @@
 			isa = PBXGroup;
 			children = (
 				F11748412D0307B40044C1D9 /* AppDelegate.swift */,
+				4E8E11E43A91A100B71A0001 /* NativePaceKeeperModule.swift */,
+				4E8E11E53A91A100B71A0001 /* NativePaceKeeperModule.m */,
 				F11748442D0722820044C1D9 /* FitnessApp-Bridging-Header.h */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
@@ -337,6 +343,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
+				4E8E11E63A91A100B71A0001 /* NativePaceKeeperModule.swift in Sources */,
+				4E8E11E73A91A100B71A0001 /* NativePaceKeeperModule.m in Sources */,
 				3C6A730926E1F5764E62F222 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

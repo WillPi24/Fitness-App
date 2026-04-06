@@ -44,6 +44,11 @@ yarn-error.*
 /android
 frontend/ios
 frontend/android
+!frontend/ios/
+frontend/ios/*
+!frontend/ios/FitnessApp/
+!frontend/ios/FitnessApp/NativePaceKeeperModule.swift
+!frontend/ios/FitnessApp/NativePaceKeeperModule.m
 
 # Wrangler / Miniflare local state
 website/workers/events-worker/.wrangler/
