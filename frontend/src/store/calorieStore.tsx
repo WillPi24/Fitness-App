@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+
+import { ensurePulled, pushKey } from '../services/syncService';
 import {
   Micronutrients,
   createEmptyMicronutrients,
@@ -509,6 +511,25 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
         hasLoadedRef.current = true;
         setIsLoading(false);
       }
+
+      // Pull remote data
+      try {
+        const remote = await ensurePulled();
+        const remoteDays = remote?.['calorieDays'];
+        if (remoteDays && Array.isArray(remoteDays)) {
+          const valid = remoteDays.filter(isCalorieDay).map(normalizeCalorieDay);
+          if (valid.length > 0) setCalorieDays(valid);
+        }
+        const remoteGoal = remote?.['calorieGoal'];
+        if (typeof remoteGoal === 'number' && remoteGoal > 0) {
+          setDailyGoalState(remoteGoal);
+        }
+        const remoteMeals = remote?.['savedMeals'];
+        if (remoteMeals && Array.isArray(remoteMeals)) {
+          const valid = remoteMeals.filter(isSavedMeal).map(normalizeSavedMeal);
+          if (valid.length > 0) setSavedMeals(valid);
+        }
+      } catch {}
     };
 
     loadData();
@@ -521,6 +542,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         await AsyncStorage.setItem(CALORIE_DAYS_KEY, JSON.stringify(calorieDays));
+        pushKey('calorieDays', calorieDays).catch(() => {});
       } catch (saveError) {
         console.error('Failed to save calorie days', saveError);
         setError('Unable to save calorie history. Please try again.');
@@ -557,6 +579,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         await AsyncStorage.setItem(DAILY_GOAL_KEY, JSON.stringify(dailyGoal));
+        pushKey('calorieGoal', dailyGoal).catch(() => {});
       } catch (saveError) {
         console.error('Failed to save daily goal', saveError);
       }
@@ -572,6 +595,7 @@ export function CalorieProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         await AsyncStorage.setItem(SAVED_MEALS_KEY, JSON.stringify(savedMeals));
+        pushKey('savedMeals', savedMeals).catch(() => {});
       } catch (saveError) {
         console.error('Failed to save saved meals', saveError);
         setError('Unable to save meal templates.');

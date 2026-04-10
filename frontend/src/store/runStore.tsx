@@ -3,6 +3,8 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
+
+import { ensurePulled, pushKey } from '../services/syncService';
 import { snapRouteToRoads } from '../services/routeSnapping';
 import {
   type PaceKeeperCueState,
@@ -584,6 +586,16 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
         hasLoadedRef.current = true;
         setIsLoading(false);
       }
+
+      // Pull remote data
+      try {
+        const remote = await ensurePulled();
+        const remoteRuns = remote?.['runs'];
+        if (remoteRuns && Array.isArray(remoteRuns)) {
+          const valid = remoteRuns.filter(isRunSession).sort((a, b) => b.startedAt - a.startedAt);
+          if (valid.length > 0) setRuns(valid);
+        }
+      } catch {}
     };
 
     loadRuns();
@@ -596,6 +608,7 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         await AsyncStorage.setItem(RUNS_KEY, JSON.stringify(runs));
+        pushKey('runs', runs).catch(() => {});
       } catch (saveError) {
         console.error('Failed to save runs', saveError);
         setError('Unable to save run history.');

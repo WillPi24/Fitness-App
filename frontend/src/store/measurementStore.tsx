@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
+import { ensurePulled, pushKey } from '../services/syncService';
+
 const MEASUREMENTS_KEY = 'fitnessapp.bodyMeasurements.v1';
 
 export type MeasurementType =
@@ -88,12 +90,22 @@ export function MeasurementProvider({ children }: { children: React.ReactNode })
       } catch {}
       hasLoadedRef.current = true;
       setIsLoading(false);
+
+      try {
+        const remote = await ensurePulled();
+        const remoteMeasurements = remote?.['bodyMeasurements'];
+        if (remoteMeasurements && Array.isArray(remoteMeasurements)) {
+          const valid = remoteMeasurements.filter(isMeasurementEntry);
+          if (valid.length > 0) setMeasurements(valid);
+        }
+      } catch {}
     })();
   }, []);
 
   useEffect(() => {
     if (!hasLoadedRef.current) return;
     AsyncStorage.setItem(MEASUREMENTS_KEY, JSON.stringify(measurements)).catch(() => {});
+    pushKey('bodyMeasurements', measurements).catch(() => {});
   }, [measurements]);
 
   const addMeasurement = useCallback((type: MeasurementType, valueCm: number, date?: string) => {

@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../store/themeStore';
@@ -21,12 +21,16 @@ export function LoginScreen({ onBack, onSuccess }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     clearError();
-    const ok = login(email, password);
-    if (ok) {
-      onSuccess();
+    setLoading(true);
+    try {
+      const ok = await login(email, password);
+      if (ok) onSuccess();
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -86,8 +90,8 @@ export function LoginScreen({ onBack, onSuccess }: LoginScreenProps) {
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            <Pressable style={styles.primaryButton} onPress={handleLogin}>
-              <Text style={styles.primaryButtonText}>Log In</Text>
+            <Pressable style={[styles.primaryButton, loading && { opacity: 0.6 }]} onPress={handleLogin} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Log In</Text>}
             </Pressable>
           </View>
         </ScrollView>

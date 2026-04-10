@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Privacy Policy | Helm</title>
-  <meta name="description" content="Helm's privacy policy. Your fitness data stays on your device. No tracking, no ads, no data selling.">
+  <meta name="description" content="Helm's privacy policy. Learn how we handle your fitness data, protect your privacy, and keep you in control.">
   <link rel="icon" type="image/png" href="assets/images/helm-app-icon.png">
   <link rel="stylesheet" href="assets/css/style.css">
 </head>
@@ -45,37 +45,148 @@
   <main style="padding-top: var(--nav-height);">
     <div class="legal">
       <h1 class="t-title" style="margin-bottom: var(--space-sm);">Privacy Policy</h1>
-      <p><strong>Effective date:</strong> April 1, 2026</p>
+      <p><strong>Effective date:</strong> 10 April 2026</p>
 
-      <h2>Your Data Stays on Your Device</h2>
-      <p>Helm is built with a local-first architecture. All workout logs, progress photos, body measurements, and personal records are stored directly on your device. We do not have access to your fitness data and cannot retrieve it from our servers because it never leaves your phone.</p>
+      <p>Helm ("we", "us", "our") operates the Helm mobile application and the helmfit.com website (collectively, the "Service"). This Privacy Policy explains what information we collect, how we use it, and the choices you have.</p>
 
-      <h2>No Tracking or Analytics</h2>
-      <p>The Helm app does not include any user tracking, analytics SDKs, or telemetry. We do not monitor how you use the app, which screens you visit, or how often you work out. Your habits are yours alone.</p>
+      <h2>Data Controller</h2>
+      <p>The data controller responsible for your personal data is:</p>
+      <p>Helm<br>Email: <a href="mailto:helmfitness@outlook.com" style="color: var(--color-accent);">helmfitness@outlook.com</a></p>
+      <p>If you have any questions or concerns about how your data is processed, please contact us at the email address above.</p>
 
-      <h2>No Data Selling</h2>
-      <p>We do not sell, rent, license, or otherwise share your personal data with third parties. Period. Your information is not a product.</p>
+      <h2>1. Information We Collect</h2>
 
-      <h2>No Advertising SDKs</h2>
-      <p>Helm does not contain any advertising software development kits (SDKs) or ad networks. You will never see targeted ads in the app, and no data is collected for advertising purposes.</p>
+      <p><strong>Account information.</strong> When you create an account, we collect your name, email address, and password. Your password is hashed by our authentication provider and is never stored in plain text.</p>
 
-      <h2>Email Collection via Website</h2>
-      <p>If you choose to provide your email address through our website (for example, to be notified when the app launches), your email is stored securely and used solely for the purpose of sending you launch notifications and important product updates. We will never share your email with third parties or send unsolicited marketing.</p>
+      <p><strong>Profile information.</strong> During onboarding you provide your biological sex, bodyweight, preferred unit system, and training focus. This information is used solely to personalise the app experience.</p>
 
-      <h2>Optional Cloud Sync (Coming Soon)</h2>
-      <p>We plan to offer an optional cloud sync feature in the future. If you opt in, your data will be encrypted before it leaves your device and stored in encrypted cloud storage. Cloud sync will always be optional, and you can disable it at any time to return to fully local storage.</p>
+      <p><strong>Fitness data.</strong> Workout logs, run sessions (including GPS route data for outdoor runs), nutrition entries, body measurements, bodyweight history, progress photo metadata, custom exercises, saved meals, and workout templates are stored in your account.</p>
 
-      <h2>Data Export and Deletion</h2>
-      <p>You can export all of your data at any time in a standard format. You can also delete all your data from the app at any time. Since your data is stored locally, deleting the app removes your data from your device entirely.</p>
+      <p><strong>Device-local data.</strong> Certain data never leaves your device: in-progress workout and run drafts, draft food entries, theme preferences, and progress photo image files. These are stored in on-device storage and are not transmitted to our servers.</p>
 
-      <h2>Children's Privacy</h2>
-      <p>Helm is not directed at children under the age of 13. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has provided us with personal information, please contact us so we can take appropriate action.</p>
+      <p><strong>Website email.</strong> If you provide your email address via our website (e.g. to receive launch notifications), it is stored separately and used only for that purpose.</p>
 
-      <h2>Changes to This Policy</h2>
-      <p>We may update this privacy policy from time to time. If we make material changes, we will notify you through the app or on our website. Continued use of Helm after changes constitutes acceptance of the updated policy.</p>
+      <h2>2. How Your Data Is Stored</h2>
 
-      <h2>Contact Us</h2>
-      <p>If you have questions about this privacy policy or your data, please contact us at <a href="mailto:helmfitness@outlook.com" style="color: var(--color-accent);">helmfitness@outlook.com</a>.</p>
+      <p>Your fitness data is stored in two places:</p>
+      <ul>
+        <li><strong>On your device</strong> in local storage, which serves as the primary, fast-access copy.</li>
+        <li><strong>In the cloud</strong> via Supabase, a hosted PostgreSQL database secured with row-level security policies. Each user can only read and write their own data. Data is transmitted over HTTPS/TLS encryption in transit and encrypted at rest by the hosting provider.</li>
+      </ul>
+      <p>Cloud sync ensures your data persists across devices and survives app reinstallation. It is an integral part of the account system.</p>
+
+      <h2>3. How We Use Your Information</h2>
+      <p>We use the information we collect to:</p>
+      <ul>
+        <li>Provide, maintain, and improve the Service</li>
+        <li>Authenticate your identity and secure your account</li>
+        <li>Sync your fitness data across your devices</li>
+        <li>Personalise the app based on your profile and training focus</li>
+        <li>Send launch notifications or important product updates (website email only)</li>
+      </ul>
+
+      <h2>4. Legal Basis for Processing (GDPR)</h2>
+      <p>If you are located in the European Economic Area (EEA), United Kingdom, or Switzerland, we process your personal data on the following legal bases:</p>
+      <ul>
+        <li><strong>Performance of a contract</strong> (Article 6(1)(b) GDPR) -Processing your account information, profile data, and fitness data is necessary to provide the Service you signed up for.</li>
+        <li><strong>Legitimate interest</strong> (Article 6(1)(f) GDPR) -We process limited technical data to maintain the security and integrity of the Service. Our legitimate interests do not override your fundamental rights; we do not use your data for profiling, marketing, or advertising.</li>
+        <li><strong>Consent</strong> (Article 6(1)(a) GDPR) -Where we collect your email address via the website for launch notifications, we do so on the basis of your freely given consent. You may withdraw consent at any time by contacting us.</li>
+      </ul>
+
+      <h2>5. What We Do Not Do</h2>
+      <ul>
+        <li>We do not sell, rent, license, or share your personal data with third parties.</li>
+        <li>We do not include advertising SDKs, ad networks, or targeted advertising of any kind.</li>
+        <li>We do not include analytics SDKs or telemetry. We do not track which screens you visit, how often you work out, or any behavioural data.</li>
+        <li>We do not use your data to train machine learning models.</li>
+        <li>We do not profile you or create marketing segments from your data.</li>
+      </ul>
+
+      <h2>6. Third-Party Services</h2>
+      <p>The Service integrates with the following third-party services:</p>
+      <ul>
+        <li><strong>Supabase</strong> (authentication and database hosting) -processes your account credentials and stores your synced fitness data. Governed by the <a href="https://supabase.com/privacy" style="color: var(--color-accent);">Supabase Privacy Policy</a>.</li>
+        <li><strong>USDA FoodData Central</strong> -used to look up nutritional information for foods. No personal data is sent; only food search queries.</li>
+        <li><strong>Open Food Facts</strong> -used for barcode-based food lookups. Only the barcode number is sent; no personal data.</li>
+      </ul>
+      <p>We do not share your personal information with any of these services beyond what is necessary for the features described above.</p>
+
+      <h2>7. Data Retention</h2>
+      <p>We retain your data for as long as your account is active. If you delete your account, all associated data in our cloud database is permanently and irreversibly deleted. Local data on your device can be removed by uninstalling the app or clearing app storage.</p>
+
+      <h2>8. Data Export and Deletion</h2>
+      <p>You can export all of your data at any time from the Account screen in the app, in JSON and CSV formats. You can delete your account and all associated cloud data at any time from the Account screen. Account deletion is permanent and cannot be undone. Since a copy of your data also exists locally, uninstalling the app removes the local copy.</p>
+
+      <h2>9. Data Security</h2>
+      <p>We take reasonable measures to protect your data, including:</p>
+      <ul>
+        <li>HTTPS/TLS encryption for all data in transit</li>
+        <li>Encryption at rest provided by our database hosting provider</li>
+        <li>Row-level security policies ensuring users can only access their own data</li>
+        <li>Hashed password storage (passwords are never stored in plain text)</li>
+        <li>No storage of payment information (the app is free)</li>
+      </ul>
+      <p>No system is perfectly secure. While we strive to protect your data, we cannot guarantee absolute security. If we become aware of a data breach that affects your personal information, we will notify affected users promptly.</p>
+
+      <h2>10. Children's Privacy and Age Requirements</h2>
+      <p>The Service is not directed at children under the age of 13. We do not knowingly collect personal information from children under 13. If you are located in a jurisdiction where the minimum age for processing personal data is higher (for example, 16 in certain EU member states under Article 8 of the GDPR), you must meet that age requirement or have verifiable parental consent. If you believe a child has created an account, please contact us and we will take steps to delete the information and terminate the account.</p>
+
+      <h2>11. International Data Transfers</h2>
+      <p>Your data is processed and stored by Supabase on cloud infrastructure which may be located outside your country of residence. Where data is transferred from the EEA, UK, or Switzerland to a country that has not received an adequacy decision, we rely on appropriate safeguards as required by applicable data protection law, including the standard contractual clauses approved by the European Commission. By using the Service, you acknowledge that your data may be processed in jurisdictions with different data protection standards.</p>
+
+      <h2>12. Your Rights</h2>
+      <p><strong>All users</strong> have the right to:</p>
+      <ul>
+        <li>Access all personal data we hold about you (via in-app data export)</li>
+        <li>Request correction of inaccurate data</li>
+        <li>Request deletion of your account and all associated data</li>
+        <li>Export your data in a portable format (JSON, CSV)</li>
+      </ul>
+
+      <p><strong>EEA, UK, and Swiss residents</strong> additionally have the right under the GDPR and UK GDPR to:</p>
+      <ul>
+        <li>Object to processing based on legitimate interest</li>
+        <li>Restrict certain processing of your data</li>
+        <li>Withdraw consent at any time (where processing is based on consent)</li>
+        <li>Lodge a complaint with your local supervisory authority (for example, the Information Commissioner's Office (ICO) in the UK, or the Data Protection Commission (DPC) in Ireland)</li>
+      </ul>
+
+      <p>To exercise any of these rights, use the in-app data management tools or contact us at the email address below.</p>
+
+      <h2>13. California Residents (CCPA/CPRA)</h2>
+      <p>If you are a California resident, the California Consumer Privacy Act (CCPA) and the California Privacy Rights Act (CPRA) provide you with additional rights regarding your personal information.</p>
+
+      <p><strong>Categories of personal information we collect:</strong></p>
+      <ul>
+        <li><strong>Identifiers</strong> -name, email address</li>
+        <li><strong>Characteristics of protected classifications</strong> -biological sex (provided voluntarily during onboarding)</li>
+        <li><strong>Geolocation data</strong> -GPS coordinates collected during outdoor runs (only while the run tracking feature is actively in use)</li>
+        <li><strong>Health and fitness information</strong> -workout logs, nutrition data, body measurements, bodyweight</li>
+      </ul>
+
+      <p><strong>We do not:</strong></p>
+      <ul>
+        <li>Sell your personal information to third parties, as defined by the CCPA</li>
+        <li>Share your personal information for cross-context behavioural advertising</li>
+        <li>Use or disclose sensitive personal information for purposes other than providing the Service</li>
+      </ul>
+
+      <p><strong>Your rights under CCPA/CPRA:</strong></p>
+      <ul>
+        <li><strong>Right to know</strong> -You may request a description of the personal information we have collected about you</li>
+        <li><strong>Right to delete</strong> -You may request deletion of your personal information</li>
+        <li><strong>Right to correct</strong> -You may request correction of inaccurate personal information</li>
+        <li><strong>Right to opt-out of sale/sharing</strong> -We do not sell or share your data, so no opt-out is necessary</li>
+        <li><strong>Right to non-discrimination</strong> -We will not discriminate against you for exercising any of these rights</li>
+      </ul>
+
+      <p>To exercise these rights, use the in-app tools (export, delete account) or contact us at the email address below. We will respond to verifiable consumer requests within 45 days.</p>
+
+      <h2>14. Changes to This Policy</h2>
+      <p>We may update this Privacy Policy from time to time. If we make material changes, we will notify you through the app or on our website and update the effective date above. Continued use of the Service after changes constitutes acceptance of the updated policy.</p>
+
+      <h2>15. Contact Us</h2>
+      <p>If you have questions about this Privacy Policy or your data, please contact us at <a href="mailto:helmfitness@outlook.com" style="color: var(--color-accent);">helmfitness@outlook.com</a>.</p>
     </div>
   </main>
 

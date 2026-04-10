@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
+import { ensurePulled, pushKey } from '../services/syncService';
+
 const PHOTOS_KEY = 'fitnessapp.progressPhotos.v1';
 const CUSTOM_POSES_KEY = 'fitnessapp.customPoses.v1';
 
@@ -84,17 +86,33 @@ export function ProgressPhotoProvider({ children }: { children: React.ReactNode 
       } catch {}
       hasLoadedRef.current = true;
       setIsLoading(false);
+
+      try {
+        const remote = await ensurePulled();
+        const remotePhotos = remote?.['progressPhotos'];
+        if (remotePhotos && Array.isArray(remotePhotos)) {
+          const valid = remotePhotos.filter(isProgressPhoto);
+          if (valid.length > 0) setPhotos(valid);
+        }
+        const remotePoses = remote?.['customPoses'];
+        if (remotePoses && Array.isArray(remotePoses)) {
+          const valid = remotePoses.filter((p: unknown) => typeof p === 'string');
+          if (valid.length > 0) setCustomPoses(valid);
+        }
+      } catch {}
     })();
   }, []);
 
   useEffect(() => {
     if (!hasLoadedRef.current) return;
     AsyncStorage.setItem(PHOTOS_KEY, JSON.stringify(photos)).catch(() => {});
+    pushKey('progressPhotos', photos).catch(() => {});
   }, [photos]);
 
   useEffect(() => {
     if (!hasLoadedRef.current) return;
     AsyncStorage.setItem(CUSTOM_POSES_KEY, JSON.stringify(customPoses)).catch(() => {});
+    pushKey('customPoses', customPoses).catch(() => {});
   }, [customPoses]);
 
   const addPhoto = useCallback((photo: Omit<ProgressPhoto, 'id' | 'timestamp'>) => {

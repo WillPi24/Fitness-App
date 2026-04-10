@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../store/themeStore';
@@ -11,9 +11,11 @@ import type { ThemeColors } from '../theme';
 type SignUpScreenProps = {
   onBack: () => void;
   onNext: () => void;
+  onPrivacy: () => void;
+  onTerms: () => void;
 };
 
-export function SignUpScreen({ onBack, onNext }: SignUpScreenProps) {
+export function SignUpScreen({ onBack, onNext, onPrivacy, onTerms }: SignUpScreenProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
@@ -22,12 +24,16 @@ export function SignUpScreen({ onBack, onNext }: SignUpScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     clearError();
-    const ok = signUp(name, email, password);
-    if (ok) {
-      onNext();
+    setLoading(true);
+    try {
+      const ok = await signUp(name, email, password);
+      if (ok) onNext();
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -100,9 +106,16 @@ export function SignUpScreen({ onBack, onNext }: SignUpScreenProps) {
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            <Pressable style={styles.primaryButton} onPress={handleNext}>
-              <Text style={styles.primaryButtonText}>Next</Text>
+            <Pressable style={[styles.primaryButton, loading && { opacity: 0.6 }]} onPress={handleNext} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Next</Text>}
             </Pressable>
+
+            <Text style={styles.legalText}>
+              By creating an account, you agree to our{' '}
+              <Text style={styles.legalLink} onPress={onTerms}>Terms of Service</Text>
+              {' '}and{' '}
+              <Text style={styles.legalLink} onPress={onPrivacy}>Privacy Policy</Text>.
+            </Text>
           </View>
         </ScrollView>
       </Pressable>
@@ -181,5 +194,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     ...typography.headline,
     color: '#fff',
     fontSize: 18,
+  },
+  legalText: {
+    ...typography.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  legalLink: {
+    color: colors.accent,
+    textDecorationLine: 'underline',
   },
 });

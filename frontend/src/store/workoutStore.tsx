@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
+import { ensurePulled, pushKey } from '../services/syncService';
+
 export type WorkoutSet = {
   id: string;
   weight: number;
@@ -600,6 +602,21 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
         hasLoadedRef.current = true;
         setIsLoading(false);
       }
+
+      // Pull remote data
+      try {
+        const remote = await ensurePulled();
+        const remoteWorkouts = remote?.['workouts'];
+        if (remoteWorkouts && Array.isArray(remoteWorkouts)) {
+          const valid = remoteWorkouts.filter(isWorkoutSession).sort((a, b) => b.endedAt - a.endedAt);
+          if (valid.length > 0) setWorkouts(valid);
+        }
+        const remoteTemplates = remote?.['workoutTemplates'];
+        if (remoteTemplates && Array.isArray(remoteTemplates)) {
+          const valid = remoteTemplates.filter(isWorkoutTemplate).sort((a, b) => b.createdAt - a.createdAt);
+          if (valid.length > 0) setWorkoutTemplates(valid);
+        }
+      } catch {}
     };
 
     loadWorkouts();
@@ -612,6 +629,7 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         await AsyncStorage.setItem(WORKOUTS_KEY, JSON.stringify(workouts));
+        pushKey('workouts', workouts).catch(() => {});
       } catch (saveError) {
         console.error('Failed to save workouts', saveError);
         setError('Unable to save workout history. Please try again.');
@@ -648,6 +666,7 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         await AsyncStorage.setItem(WORKOUT_TEMPLATES_KEY, JSON.stringify(workoutTemplates));
+        pushKey('workoutTemplates', workoutTemplates).catch(() => {});
       } catch (saveError) {
         console.error('Failed to save workout templates', saveError);
         setError('Unable to save workout templates.');

@@ -55,7 +55,7 @@ export function AccountScreen() {
   const { colors, isDark, toggleColorMode } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const switchTrackOff = isDark ? '#4B5563' : '#B8ADA0';
-  const { user, updateProfile, setFocus, signOut } = useUserStore();
+  const { user, updateProfile, setFocus, signOut, deleteAccount, error: userError } = useUserStore();
   const { workouts, importWorkouts } = useWorkoutStore();
   const { runs, importRuns } = useRunStore();
   const { calorieDays, importCalorieDays } = useCalorieStore();
@@ -66,6 +66,8 @@ export function AccountScreen() {
   const [editWeightUnit, setEditWeightUnit] = useState<WeightUnit>('kg');
   const [editName, setEditName] = useState('');
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [focusPickerOpen, setFocusPickerOpen] = useState(false);
   const [moreToolsOpen, setMoreToolsOpen] = useState(false);
 
@@ -474,6 +476,11 @@ export function AccountScreen() {
           <Feather name="log-out" size={18} color={colors.danger} />
           <Text style={styles.signOutText}>Sign Out</Text>
         </Pressable>
+
+        <Pressable style={styles.deleteAccountButton} onPress={() => setConfirmDelete(true)}>
+          <Feather name="trash-2" size={18} color={colors.danger} />
+          <Text style={styles.deleteAccountText}>Delete Account</Text>
+        </Pressable>
       </ScrollView>
 
       {/* Edit Profile Modal */}
@@ -753,13 +760,44 @@ export function AccountScreen() {
         <View style={styles.confirmBackdrop}>
           <Card style={styles.confirmModal}>
             <Text style={styles.modalTitle}>Sign out?</Text>
-            <Text style={styles.confirmText}>Your data is stored on this device. You can log back in with your email and password.</Text>
+            <Text style={styles.confirmText}>Your data is synced to the cloud. You can log back in with your email and password.</Text>
             <View style={styles.confirmActions}>
               <Pressable style={styles.confirmCancel} onPress={() => setConfirmSignOut(false)}>
                 <Text style={styles.confirmCancelText}>Cancel</Text>
               </Pressable>
               <Pressable style={styles.confirmDanger} onPress={signOut}>
                 <Text style={styles.confirmDangerText}>Sign Out</Text>
+              </Pressable>
+            </View>
+          </Card>
+        </View>
+      </Modal>
+
+      {/* Delete Account Confirmation */}
+      <Modal visible={confirmDelete} transparent animationType="fade" onRequestClose={() => setConfirmDelete(false)}>
+        <View style={styles.confirmBackdrop}>
+          <Card style={styles.confirmModal}>
+            <Text style={styles.modalTitle}>Delete account?</Text>
+            <Text style={styles.confirmText}>This will permanently delete your account and all associated data from our servers. This action cannot be undone.</Text>
+            {userError ? <Text style={styles.deleteError}>{userError}</Text> : null}
+            <View style={styles.confirmActions}>
+              <Pressable style={styles.confirmCancel} onPress={() => setConfirmDelete(false)} disabled={deleting}>
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.confirmDanger, deleting && { opacity: 0.6 }]}
+                disabled={deleting}
+                onPress={async () => {
+                  setDeleting(true);
+                  const ok = await deleteAccount();
+                  if (!ok) setDeleting(false);
+                }}
+              >
+                {deleting ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.confirmDangerText}>Delete</Text>
+                )}
               </Pressable>
             </View>
           </Card>
@@ -897,9 +935,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   signOutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    alignSelf: 'center',
     gap: spacing.sm,
-    paddingVertical: 14,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.xl,
     borderWidth: 1,
     borderColor: colors.danger,
     borderRadius: 14,
@@ -909,6 +948,28 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     ...typography.headline,
     color: colors.danger,
     fontSize: 16,
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: spacing.sm,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    borderRadius: 14,
+    marginTop: spacing.sm,
+  },
+  deleteAccountText: {
+    ...typography.headline,
+    color: colors.danger,
+    fontSize: 16,
+  },
+  deleteError: {
+    ...typography.body,
+    color: colors.danger,
+    fontSize: 14,
   },
   modalBackdrop: {
     flex: 1,

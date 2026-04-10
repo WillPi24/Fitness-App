@@ -104,15 +104,18 @@ export function BodyInfoScreen({ onBack, onComplete }: BodyInfoScreenProps) {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Bodyweight ({weightUnit})</Text>
-              <TextInput
-                style={styles.input}
-                value={weight}
-                onChangeText={setWeight}
-                placeholder="e.g. 75"
-                placeholderTextColor={colors.muted}
-                keyboardType="decimal-pad"
-              />
+              <Text style={styles.fieldLabel}>Bodyweight</Text>
+              <View style={styles.weightRow}>
+                <TextInput
+                  style={[styles.input, styles.weightInput]}
+                  value={weight}
+                  onChangeText={setWeight}
+                  placeholder="0"
+                  placeholderTextColor={colors.muted}
+                  keyboardType="decimal-pad"
+                />
+                <Text style={styles.weightUnit}>{weightUnit}</Text>
+              </View>
             </View>
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -193,6 +196,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surface,
     ...typography.body,
     color: colors.text,
+  },
+  weightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  weightInput: {
+    width: 100,
+    textAlign: 'center',
+  },
+  weightUnit: {
+    ...typography.headline,
+    color: colors.muted,
+    fontSize: 18,
   },
   errorText: {
     ...typography.body,

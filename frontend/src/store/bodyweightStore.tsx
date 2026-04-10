@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
+import { ensurePulled, pushKey } from '../services/syncService';
+
 const BODYWEIGHT_KEY = 'fitnessapp.bodyweightLog.v1';
 
 export type BodyweightEntry = {
@@ -57,12 +59,23 @@ export function BodyweightProvider({ children }: { children: React.ReactNode }) 
       } catch {}
       hasLoadedRef.current = true;
       setIsLoading(false);
+
+      // Pull remote data (shared single request across all stores)
+      try {
+        const remote = await ensurePulled();
+        const remoteEntries = remote?.['bodyweightLog'];
+        if (remoteEntries && Array.isArray(remoteEntries)) {
+          const valid = remoteEntries.filter(isBodyweightEntry);
+          if (valid.length > 0) setEntries(valid);
+        }
+      } catch {}
     })();
   }, []);
 
   useEffect(() => {
     if (!hasLoadedRef.current) return;
     AsyncStorage.setItem(BODYWEIGHT_KEY, JSON.stringify(entries)).catch(() => {});
+    pushKey('bodyweightLog', entries).catch(() => {});
   }, [entries]);
 
   const addEntry = useCallback((weightKg: number, date?: string) => {

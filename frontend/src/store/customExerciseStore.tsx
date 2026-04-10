@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { CanonicalBodyPart } from '../components/WeeklyMuscleMap';
+import { ensurePulled, pushKey } from '../services/syncService';
 
 const CUSTOM_EXERCISES_KEY = 'fitnessapp.customExercises.v1';
 
@@ -49,12 +50,22 @@ export function CustomExerciseProvider({ children }: { children: React.ReactNode
       } catch {}
       hasLoadedRef.current = true;
       setIsLoading(false);
+
+      try {
+        const remote = await ensurePulled();
+        const remoteExercises = remote?.['customExercises'];
+        if (remoteExercises && Array.isArray(remoteExercises)) {
+          const valid = remoteExercises.filter(isCustomExercise);
+          if (valid.length > 0) setCustomExercises(valid);
+        }
+      } catch {}
     })();
   }, []);
 
   useEffect(() => {
     if (!hasLoadedRef.current) return;
     AsyncStorage.setItem(CUSTOM_EXERCISES_KEY, JSON.stringify(customExercises)).catch(() => {});
+    pushKey('customExercises', customExercises).catch(() => {});
   }, [customExercises]);
 
   const addCustomExercise = useCallback((exercise: CustomExercise) => {

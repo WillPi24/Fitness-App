@@ -1,6 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
+import { supabase } from '../services/supabase';
+import { clearSyncTimestamps, pushKey, resetPullCache } from '../services/syncService';
+
 export type UserSex = 'male' | 'female';
 export type WeightUnit = 'kg' | 'lbs';
 export type TrainingFocus = 'strength' | 'cardio' | 'bodybuilding' | 'general';
@@ -8,7 +11,6 @@ export type TrainingFocus = 'strength' | 'cardio' | 'bodybuilding' | 'general';
 export type UserProfile = {
   name: string;
   email: string;
-  password: string;
   sex: UserSex;
   bodyweightKg: number;
   weightUnit: WeightUnit;
@@ -34,10 +36,11 @@ type UserContextValue = {
   isLoading: boolean;
   error: string | null;
   clearError: () => void;
-  signUp: (name: string, email: string, password: string) => boolean;
+  signUp: (name: string, email: string, password: string) => Promise<boolean>;
   setBodyInfo: (sex: UserSex, bodyweightKg: number, weightUnit: WeightUnit) => void;
-  login: (email: string, password: string) => boolean;
-  signOut: () => void;
+  login: (email: string, password: string) => Promise<boolean>;
+  signOut: () => Promise<void>;
+  deleteAccount: () => Promise<boolean>;
   setFocus: (focus: TrainingFocus) => void;
   setEnabledFeatures: (features: string[]) => void;
   toggleFeature: (featureId: string) => void;
@@ -54,15 +57,16 @@ function isUserProfile(value: unknown): value is UserProfile {
   if (
     typeof u.name === 'string' &&
     typeof u.email === 'string' &&
-    typeof u.password === 'string' &&
     (u.sex === 'male' || u.sex === 'female') &&
     typeof u.bodyweightKg === 'number' &&
     typeof u.createdAt === 'number'
   ) {
     // Migrate: add weightUnit if missing (existing profiles default to kg)
     if (u.weightUnit !== 'kg' && u.weightUnit !== 'lbs') {
-      (u as Record<string, unknown>).weightUnit = 'kg';
+      u.weightUnit = 'kg';
     }
+    // Migrate: strip plaintext password from legacy local profiles
+    delete u.password;
     return true;
   }
   return false;
@@ -74,14 +78,22 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const hasLoadedRef = useRef(false);
 
+  // On mount: check Supabase session, then load local profile
   useEffect(() => {
     const load = async () => {
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const session = sessionData?.session;
+
+        // Load local profile from AsyncStorage
         const raw = await AsyncStorage.getItem(USER_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (isUserProfile(parsed)) {
-            setUser(parsed);
+            // Only restore local profile if there's an active Supabase session
+            if (session) {
+              setUser(parsed);
+            }
           }
         }
       } catch (e) {
@@ -92,14 +104,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
     };
     load();
+
+    // Listen for auth state changes (token refresh, sign-out from another tab, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
+  // Save to AsyncStorage + push to Supabase whenever profile changes
   useEffect(() => {
     if (!hasLoadedRef.current) return;
     const save = async () => {
       try {
         if (user) {
           await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+          pushKey('userProfile', user).catch(() => {});
         } else {
           await AsyncStorage.removeItem(USER_KEY);
         }
@@ -110,7 +133,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     save();
   }, [user]);
 
-  const signUp = useCallback((name: string, email: string, password: string) => {
+  const signUp = useCallback(async (name: string, email: string, password: string) => {
     if (!name.trim()) {
       setError('Please enter your name.');
       return false;
@@ -123,10 +146,41 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setError('Password must be at least 6 characters.');
       return false;
     }
+
+    const { error: authError } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password,
+      options: { data: { name: name.trim() } },
+    });
+
+    if (authError) {
+      setError(authError.message);
+      return false;
+    }
+
+    // Clear old local data so the new account starts clean
+    const staleKeys = [
+      'fitnessapp.workouts.v2',
+      'fitnessapp.activeWorkout.v1',
+      'fitnessapp.workoutTemplates.v1',
+      'fitnessapp.calorieDays.v2',
+      'fitnessapp.calorieGoal.v1',
+      'fitnessapp.draftFoodEntry.v2',
+      'fitnessapp.savedMeals.v1',
+      'fitnessapp.runs.v1',
+      'fitnessapp.activeRun.v1',
+      'fitnessapp.bodyweightLog.v1',
+      'fitnessapp.bodyMeasurements.v1',
+      'fitnessapp.progressPhotos.v1',
+      'fitnessapp.customPoses.v1',
+      'fitnessapp.customExercises.v1',
+    ];
+    await AsyncStorage.multiRemove(staleKeys).catch(() => {});
+    await clearSyncTimestamps();
+
     setUser({
       name: name.trim(),
       email: email.trim().toLowerCase(),
-      password,
       sex: 'male',
       bodyweightKg: 0,
       weightUnit: 'kg',
@@ -143,21 +197,96 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const login = useCallback((email: string, password: string) => {
-    if (!user) {
-      setError('No account found. Please sign up first.');
-      return false;
-    }
-    if (email.trim().toLowerCase() !== user.email || password !== user.password) {
-      setError('Incorrect email or password.');
-      return false;
-    }
-    setError(null);
-    return true;
-  }, [user]);
+  const login = useCallback(async (email: string, password: string) => {
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
 
-  const signOut = useCallback(() => {
+    if (authError) {
+      setError(authError.message);
+      return false;
+    }
+
+    // Pull profile from Supabase if it exists (e.g. signing in on a new device)
+    try {
+      const { data } = await supabase
+        .from('user_data')
+        .select('data')
+        .eq('data_key', 'userProfile')
+        .single();
+
+      if (data?.data && isUserProfile(data.data)) {
+        setUser(data.data);
+        setError(null);
+        return true;
+      }
+    } catch {}
+
+    // Fall back to local profile
+    try {
+      const raw = await AsyncStorage.getItem(USER_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (isUserProfile(parsed)) {
+          setUser(parsed);
+          setError(null);
+          return true;
+        }
+      }
+    } catch {}
+
+    // No profile found anywhere — this is a fresh login, prompt will go through onboarding
+    setError('No profile found. Please sign up.');
+    return false;
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    resetPullCache();
+    await clearSyncTimestamps();
     setUser(null);
+  }, []);
+
+  const deleteAccount = useCallback(async () => {
+    try {
+      // 1. Delete all cloud data via server-side function
+      const { error: rpcError } = await supabase.rpc('delete_own_account');
+      if (rpcError) {
+        setError('Failed to delete account. Please try again.');
+        return false;
+      }
+
+      // 2. Clear all local data
+      const allKeys = [
+        USER_KEY,
+        'fitnessapp.workouts.v2',
+        'fitnessapp.activeWorkout.v1',
+        'fitnessapp.workoutTemplates.v1',
+        'fitnessapp.calorieDays.v2',
+        'fitnessapp.calorieGoal.v1',
+        'fitnessapp.draftFoodEntry.v2',
+        'fitnessapp.savedMeals.v1',
+        'fitnessapp.runs.v1',
+        'fitnessapp.activeRun.v1',
+        'fitnessapp.bodyweightLog.v1',
+        'fitnessapp.bodyMeasurements.v1',
+        'fitnessapp.progressPhotos.v1',
+        'fitnessapp.customPoses.v1',
+        'fitnessapp.customExercises.v1',
+      ];
+      await AsyncStorage.multiRemove(allKeys).catch(() => {});
+      await clearSyncTimestamps();
+      resetPullCache();
+
+      // 3. Sign out (session is already invalid since user was deleted)
+      await supabase.auth.signOut().catch(() => {});
+      setUser(null);
+      return true;
+    } catch {
+      setError('Failed to delete account. Please try again.');
+      return false;
+    }
   }, []);
 
   const setFocus = useCallback((focus: TrainingFocus) => {
@@ -202,12 +331,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setBodyInfo,
       login,
       signOut,
+      deleteAccount,
       setFocus,
       setEnabledFeatures,
       toggleFeature,
       updateProfile,
     }),
-    [user, isLoading, error, signUp, setBodyInfo, login, signOut, setFocus, setEnabledFeatures, toggleFeature, updateProfile]
+    [user, isLoading, error, signUp, setBodyInfo, login, signOut, deleteAccount, setFocus, setEnabledFeatures, toggleFeature, updateProfile]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

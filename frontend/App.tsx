@@ -16,6 +16,7 @@ import { ProgressPhotoProvider } from './src/store/progressPhotoStore';
 import { BodyInfoScreen } from './src/screens/BodyInfoScreen';
 import { CalorieScreen } from './src/screens/CalorieScreen';
 import { FocusScreen } from './src/screens/FocusScreen';
+import { LegalScreen } from './src/screens/LegalScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { LogScreen } from './src/screens/LogScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
@@ -40,10 +41,16 @@ type RootTabParamList = {
 
 const Tab = createMaterialTopTabNavigator<RootTabParamList>();
 
-type AuthStep = 'welcome' | 'signup' | 'bodyinfo' | 'focus' | 'login';
+type AuthStep = 'welcome' | 'signup' | 'bodyinfo' | 'focus' | 'login' | 'privacy' | 'terms';
 
 function AuthFlow({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<AuthStep>('welcome');
+  const [returnStep, setReturnStep] = useState<AuthStep>('signup');
+
+  const openLegal = (type: 'privacy' | 'terms', from: AuthStep) => {
+    setReturnStep(from);
+    setStep(type);
+  };
 
   switch (step) {
     case 'welcome':
@@ -58,6 +65,8 @@ function AuthFlow({ onComplete }: { onComplete: () => void }) {
         <SignUpScreen
           onBack={() => setStep('welcome')}
           onNext={() => setStep('bodyinfo')}
+          onPrivacy={() => openLegal('privacy', 'signup')}
+          onTerms={() => openLegal('terms', 'signup')}
         />
       );
     case 'bodyinfo':
@@ -80,6 +89,14 @@ function AuthFlow({ onComplete }: { onComplete: () => void }) {
           onBack={() => setStep('welcome')}
           onSuccess={onComplete}
         />
+      );
+    case 'privacy':
+      return (
+        <LegalScreen type="privacy" onBack={() => setStep(returnStep)} />
+      );
+    case 'terms':
+      return (
+        <LegalScreen type="terms" onBack={() => setStep(returnStep)} />
       );
   }
 }
