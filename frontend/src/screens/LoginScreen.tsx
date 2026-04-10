@@ -11,9 +11,10 @@ import type { ThemeColors } from '../theme';
 type LoginScreenProps = {
   onBack: () => void;
   onSuccess: () => void;
+  onForgotPassword: () => void;
 };
 
-export function LoginScreen({ onBack, onSuccess }: LoginScreenProps) {
+export function LoginScreen({ onBack, onSuccess, onForgotPassword }: LoginScreenProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
@@ -87,6 +88,10 @@ export function LoginScreen({ onBack, onSuccess }: LoginScreenProps) {
                 </Pressable>
               </View>
             </View>
+
+            <Pressable onPress={onForgotPassword}>
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </Pressable>
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -171,5 +176,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     ...typography.headline,
     color: '#fff',
     fontSize: 18,
+  },
+  forgotText: {
+    ...typography.body,
+    color: colors.accent,
+    fontSize: 14,
+    textAlign: 'right',
   },
 });

@@ -31,16 +31,24 @@ export function fromDisplayWeight(value: number, unit: WeightUnit): number {
   return Math.round(value * 10) / 10;
 }
 
+type PendingSignUp = { name: string; email: string };
+
 type UserContextValue = {
   user: UserProfile | null;
+  pendingSignUp: PendingSignUp | null;
   isLoading: boolean;
   error: string | null;
   clearError: () => void;
   signUp: (name: string, email: string, password: string) => Promise<boolean>;
+  verifySignUpOtp: (email: string, token: string) => Promise<boolean>;
+  resendSignUpOtp: (email: string) => Promise<boolean>;
   setBodyInfo: (sex: UserSex, bodyweightKg: number, weightUnit: WeightUnit) => void;
   login: (email: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<boolean>;
+  sendPasswordReset: (email: string) => Promise<boolean>;
+  verifyPasswordResetOtp: (email: string, token: string) => Promise<boolean>;
+  updatePassword: (newPassword: string) => Promise<boolean>;
   setFocus: (focus: TrainingFocus) => void;
   setEnabledFeatures: (features: string[]) => void;
   toggleFeature: (featureId: string) => void;
@@ -48,6 +56,23 @@ type UserContextValue = {
 };
 
 const USER_KEY = 'fitnessapp.userProfile.v1';
+
+const STALE_KEYS = [
+  'fitnessapp.workouts.v2',
+  'fitnessapp.activeWorkout.v1',
+  'fitnessapp.workoutTemplates.v1',
+  'fitnessapp.calorieDays.v2',
+  'fitnessapp.calorieGoal.v1',
+  'fitnessapp.draftFoodEntry.v2',
+  'fitnessapp.savedMeals.v1',
+  'fitnessapp.runs.v1',
+  'fitnessapp.activeRun.v1',
+  'fitnessapp.bodyweightLog.v1',
+  'fitnessapp.bodyMeasurements.v1',
+  'fitnessapp.progressPhotos.v1',
+  'fitnessapp.customPoses.v1',
+  'fitnessapp.customExercises.v1',
+];
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
 
@@ -61,11 +86,9 @@ function isUserProfile(value: unknown): value is UserProfile {
     typeof u.bodyweightKg === 'number' &&
     typeof u.createdAt === 'number'
   ) {
-    // Migrate: add weightUnit if missing (existing profiles default to kg)
     if (u.weightUnit !== 'kg' && u.weightUnit !== 'lbs') {
       u.weightUnit = 'kg';
     }
-    // Migrate: strip plaintext password from legacy local profiles
     delete u.password;
     return true;
   }
@@ -74,6 +97,7 @@ function isUserProfile(value: unknown): value is UserProfile {
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [pendingSignUp, setPendingSignUp] = useState<PendingSignUp | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasLoadedRef = useRef(false);
@@ -85,12 +109,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         const { data: sessionData } = await supabase.auth.getSession();
         const session = sessionData?.session;
 
-        // Load local profile from AsyncStorage
         const raw = await AsyncStorage.getItem(USER_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (isUserProfile(parsed)) {
-            // Only restore local profile if there's an active Supabase session
             if (session) {
               setUser(parsed);
             }
@@ -105,7 +127,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     };
     load();
 
-    // Listen for auth state changes (token refresh, sign-out from another tab, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         setUser(null);
@@ -159,33 +180,52 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Clear old local data so the new account starts clean
-    const staleKeys = [
-      'fitnessapp.workouts.v2',
-      'fitnessapp.activeWorkout.v1',
-      'fitnessapp.workoutTemplates.v1',
-      'fitnessapp.calorieDays.v2',
-      'fitnessapp.calorieGoal.v1',
-      'fitnessapp.draftFoodEntry.v2',
-      'fitnessapp.savedMeals.v1',
-      'fitnessapp.runs.v1',
-      'fitnessapp.activeRun.v1',
-      'fitnessapp.bodyweightLog.v1',
-      'fitnessapp.bodyMeasurements.v1',
-      'fitnessapp.progressPhotos.v1',
-      'fitnessapp.customPoses.v1',
-      'fitnessapp.customExercises.v1',
-    ];
-    await AsyncStorage.multiRemove(staleKeys).catch(() => {});
+    await AsyncStorage.multiRemove(STALE_KEYS).catch(() => {});
     await clearSyncTimestamps();
 
+    // Don't set user profile yet — wait for email verification
+    setPendingSignUp({ name: name.trim(), email: email.trim().toLowerCase() });
+    setError(null);
+    return true;
+  }, []);
+
+  const verifySignUpOtp = useCallback(async (email: string, token: string) => {
+    const { error: authError } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'signup',
+    });
+
+    if (authError) {
+      setError(authError.message);
+      return false;
+    }
+
+    // Email verified — now create the user profile
+    const name = pendingSignUp?.name ?? '';
     setUser({
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
+      name,
+      email,
       sex: 'male',
       bodyweightKg: 0,
       weightUnit: 'kg',
       createdAt: Date.now(),
     });
+    setPendingSignUp(null);
+    setError(null);
+    return true;
+  }, [pendingSignUp]);
+
+  const resendSignUpOtp = useCallback(async (email: string) => {
+    const { error: authError } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+    });
+
+    if (authError) {
+      setError(authError.message);
+      return false;
+    }
     setError(null);
     return true;
   }, []);
@@ -208,7 +248,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    // Pull profile from Supabase if it exists (e.g. signing in on a new device)
+    // Pull profile from Supabase if it exists
     try {
       const { data } = await supabase
         .from('user_data')
@@ -236,7 +276,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {}
 
-    // No profile found anywhere — this is a fresh login, prompt will go through onboarding
     setError('No profile found. Please sign up.');
     return false;
   }, []);
@@ -250,36 +289,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const deleteAccount = useCallback(async () => {
     try {
-      // 1. Delete all cloud data via server-side function
       const { error: rpcError } = await supabase.rpc('delete_own_account');
       if (rpcError) {
         setError('Failed to delete account. Please try again.');
         return false;
       }
 
-      // 2. Clear all local data
-      const allKeys = [
-        USER_KEY,
-        'fitnessapp.workouts.v2',
-        'fitnessapp.activeWorkout.v1',
-        'fitnessapp.workoutTemplates.v1',
-        'fitnessapp.calorieDays.v2',
-        'fitnessapp.calorieGoal.v1',
-        'fitnessapp.draftFoodEntry.v2',
-        'fitnessapp.savedMeals.v1',
-        'fitnessapp.runs.v1',
-        'fitnessapp.activeRun.v1',
-        'fitnessapp.bodyweightLog.v1',
-        'fitnessapp.bodyMeasurements.v1',
-        'fitnessapp.progressPhotos.v1',
-        'fitnessapp.customPoses.v1',
-        'fitnessapp.customExercises.v1',
-      ];
-      await AsyncStorage.multiRemove(allKeys).catch(() => {});
+      await AsyncStorage.multiRemove([USER_KEY, ...STALE_KEYS]).catch(() => {});
       await clearSyncTimestamps();
       resetPullCache();
-
-      // 3. Sign out (session is already invalid since user was deleted)
       await supabase.auth.signOut().catch(() => {});
       setUser(null);
       return true;
@@ -287,6 +305,52 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setError('Failed to delete account. Please try again.');
       return false;
     }
+  }, []);
+
+  const sendPasswordReset = useCallback(async (email: string) => {
+    const { error: authError } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
+
+    if (authError) {
+      setError(authError.message);
+      return false;
+    }
+    setError(null);
+    return true;
+  }, []);
+
+  const verifyPasswordResetOtp = useCallback(async (email: string, token: string) => {
+    const { error: authError } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'recovery',
+    });
+
+    if (authError) {
+      setError(authError.message);
+      return false;
+    }
+    setError(null);
+    return true;
+  }, []);
+
+  const updatePassword = useCallback(async (newPassword: string) => {
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return false;
+    }
+
+    const { error: authError } = await supabase.auth.updateUser({ password: newPassword });
+
+    if (authError) {
+      setError(authError.message);
+      return false;
+    }
+
+    // Sign out so user logs in fresh with new password
+    await supabase.auth.signOut().catch(() => {});
+    setUser(null);
+    setError(null);
+    return true;
   }, []);
 
   const setFocus = useCallback((focus: TrainingFocus) => {
@@ -324,20 +388,26 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       user,
+      pendingSignUp,
       isLoading,
       error,
       clearError: () => setError(null),
       signUp,
+      verifySignUpOtp,
+      resendSignUpOtp,
       setBodyInfo,
       login,
       signOut,
       deleteAccount,
+      sendPasswordReset,
+      verifyPasswordResetOtp,
+      updatePassword,
       setFocus,
       setEnabledFeatures,
       toggleFeature,
       updateProfile,
     }),
-    [user, isLoading, error, signUp, setBodyInfo, login, signOut, deleteAccount, setFocus, setEnabledFeatures, toggleFeature, updateProfile]
+    [user, pendingSignUp, isLoading, error, signUp, verifySignUpOtp, resendSignUpOtp, setBodyInfo, login, signOut, deleteAccount, sendPasswordReset, verifyPasswordResetOtp, updatePassword, setFocus, setEnabledFeatures, toggleFeature, updateProfile]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

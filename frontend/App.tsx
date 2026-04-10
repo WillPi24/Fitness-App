@@ -16,12 +16,14 @@ import { ProgressPhotoProvider } from './src/store/progressPhotoStore';
 import { BodyInfoScreen } from './src/screens/BodyInfoScreen';
 import { CalorieScreen } from './src/screens/CalorieScreen';
 import { FocusScreen } from './src/screens/FocusScreen';
+import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
 import { LegalScreen } from './src/screens/LegalScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { LogScreen } from './src/screens/LogScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { RunScreen } from './src/screens/RunScreen';
 import { SignUpScreen } from './src/screens/SignUpScreen';
+import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { CalorieProvider } from './src/store/calorieStore';
 import { RunProvider } from './src/store/runStore';
@@ -41,11 +43,12 @@ type RootTabParamList = {
 
 const Tab = createMaterialTopTabNavigator<RootTabParamList>();
 
-type AuthStep = 'welcome' | 'signup' | 'bodyinfo' | 'focus' | 'login' | 'privacy' | 'terms';
+type AuthStep = 'welcome' | 'signup' | 'verify-email' | 'bodyinfo' | 'focus' | 'login' | 'forgot-password' | 'privacy' | 'terms';
 
 function AuthFlow({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<AuthStep>('welcome');
   const [returnStep, setReturnStep] = useState<AuthStep>('signup');
+  const [signUpEmail, setSignUpEmail] = useState('');
 
   const openLegal = (type: 'privacy' | 'terms', from: AuthStep) => {
     setReturnStep(from);
@@ -64,9 +67,20 @@ function AuthFlow({ onComplete }: { onComplete: () => void }) {
       return (
         <SignUpScreen
           onBack={() => setStep('welcome')}
-          onNext={() => setStep('bodyinfo')}
+          onNext={(email: string) => {
+            setSignUpEmail(email);
+            setStep('verify-email');
+          }}
           onPrivacy={() => openLegal('privacy', 'signup')}
           onTerms={() => openLegal('terms', 'signup')}
+        />
+      );
+    case 'verify-email':
+      return (
+        <VerifyEmailScreen
+          email={signUpEmail}
+          onBack={() => setStep('signup')}
+          onVerified={() => setStep('bodyinfo')}
         />
       );
     case 'bodyinfo':
@@ -88,6 +102,14 @@ function AuthFlow({ onComplete }: { onComplete: () => void }) {
         <LoginScreen
           onBack={() => setStep('welcome')}
           onSuccess={onComplete}
+          onForgotPassword={() => setStep('forgot-password')}
+        />
+      );
+    case 'forgot-password':
+      return (
+        <ForgotPasswordScreen
+          onBack={() => setStep('login')}
+          onSuccess={() => setStep('login')}
         />
       );
     case 'privacy':
