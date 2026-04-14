@@ -1,6 +1,6 @@
 import type { UserSex } from '../store/userStore';
 import type { WorkoutSession } from '../store/workoutStore';
-import { estimateOneRepMax } from '../store/workoutStore';
+import { estimateOneRepMax, isWarmupSet } from '../store/workoutStore';
 
 // ─── Wilks Coefficient ───
 // Published 5th-order polynomial coefficients
@@ -55,13 +55,13 @@ export function getBestE1RMForLifts(
     if (workout.endedAt < cutoff) continue;
 
     for (const exercise of workout.exercises) {
-      if (exercise.isWarmup) continue;
       const name = exercise.name;
 
       for (const [liftKey, pattern] of Object.entries(LIFT_PATTERNS)) {
         if (!pattern.test(name)) continue;
 
         for (const set of exercise.sets) {
+          if (isWarmupSet(set, exercise)) continue;
           const e1rm = estimateOneRepMax(set.weight, set.reps);
           if (e1rm > result[liftKey]) {
             result[liftKey] = e1rm;

@@ -27,6 +27,7 @@ import { useCustomExerciseStore } from '../store/customExerciseStore';
 import {
   DraftWorkout,
   WorkoutCompletionPreview,
+  isWarmupSet,
   useWorkoutStore,
 } from '../store/workoutStore';
 import { FeatureGate } from '../components/FeatureGate';
@@ -180,8 +181,7 @@ type ExerciseHistoryEntry = {
   startedAt: number;
   topWeight: number;
   topReps: number;
-  sets: Array<{ weight: number; reps: number; weightR?: number; repsR?: number }>;
-  isWarmup?: boolean;
+  sets: Array<{ weight: number; reps: number; weightR?: number; repsR?: number; isWarmup?: boolean }>;
   isUnilateral?: boolean;
 };
 
@@ -441,22 +441,26 @@ export function LogScreen() {
     }
 
     const entries = workouts.reduce<ExerciseHistoryEntry[]>((acc, workout) => {
-      const matchingSets: Array<{ weight: number; reps: number; weightR?: number; repsR?: number }> = [];
-      let exerciseIsWarmup = false;
+      const matchingSets: Array<{ weight: number; reps: number; weightR?: number; repsR?: number; isWarmup?: boolean }> = [];
       let exerciseIsUnilateral = false;
 
       workout.exercises.forEach((exercise) => {
         if (normalizeExerciseName(exercise.name) !== targetExercise) {
           return;
         }
-        if (exercise.isWarmup) exerciseIsWarmup = true;
         if (exercise.isUnilateral) exerciseIsUnilateral = true;
         exercise.sets.forEach((set) => {
-          matchingSets.push({ weight: set.weight, reps: set.reps, weightR: set.weightR, repsR: set.repsR });
+          matchingSets.push({
+            weight: set.weight,
+            reps: set.reps,
+            weightR: set.weightR,
+            repsR: set.repsR,
+            isWarmup: isWarmupSet(set, exercise) || undefined,
+          });
         });
       });
 
-      const topSet = getTopSet(matchingSets);
+      const topSet = getTopSet(matchingSets.filter((set) => !set.isWarmup));
       if (!topSet) {
         return acc;
       }
@@ -468,7 +472,6 @@ export function LogScreen() {
         topWeight: topSet.weight,
         topReps: topSet.reps,
         sets: matchingSets,
-        isWarmup: exerciseIsWarmup || undefined,
         isUnilateral: exerciseIsUnilateral || undefined,
       });
       return acc;
@@ -788,133 +791,145 @@ export function LogScreen() {
     </Pressable>
   );
 
-  const renderWorkoutExercise = (exercise: DraftWorkout['exercises'][number], index: number) => (
-    <View key={exercise.id} style={styles.exerciseCard}>
-      <View style={styles.exerciseHeader}>
-        <Pressable style={styles.exerciseNameButton} onPress={() => handleOpenExerciseHistory(exercise.name)}>
-          <Text style={styles.exerciseName}>{exercise.name || `Exercise ${index + 1}`}</Text>
-        </Pressable>
-        <View style={styles.exerciseActions}>
-          <Pressable
-            style={[styles.exerciseActionButton, exercise.isWarmup && styles.exerciseActionButtonActive]}
-            onPress={() => toggleExerciseWarmup(exercise.id)}
-          >
-            <Text style={[styles.exerciseAction, exercise.isWarmup && styles.exerciseActionTextActive]}>Warm-up</Text>
+  const renderWorkoutExercise = (exercise: DraftWorkout['exercises'][number], index: number) => {
+    const latestSet = exercise.sets[exercise.sets.length - 1];
+    const latestSetIsWarmup = latestSet ? isWarmupSet(latestSet, exercise) : false;
+
+    return (
+      <View key={exercise.id} style={styles.exerciseCard}>
+        <View style={styles.exerciseHeader}>
+          <Pressable style={styles.exerciseNameButton} onPress={() => handleOpenExerciseHistory(exercise.name)}>
+            <Text style={styles.exerciseName}>{exercise.name || `Exercise ${index + 1}`}</Text>
           </Pressable>
-          <Pressable
-            style={[styles.exerciseActionButton, exercise.isUnilateral && styles.exerciseActionButtonActive]}
-            onPress={() => toggleExerciseUnilateral(exercise.id)}
-          >
-            <Text style={[styles.exerciseAction, exercise.isUnilateral && styles.exerciseActionTextActive]}>Unilateral</Text>
+          <View style={styles.exerciseActions}>
+            <Pressable
+              style={[styles.exerciseActionButton, latestSetIsWarmup && styles.exerciseActionButtonActive]}
+              onPress={() => toggleExerciseWarmup(exercise.id)}
+            >
+              <Text style={[styles.exerciseAction, latestSetIsWarmup && styles.exerciseActionTextActive]}>Warm-up</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.exerciseActionButton, exercise.isUnilateral && styles.exerciseActionButtonActive]}
+              onPress={() => toggleExerciseUnilateral(exercise.id)}
+            >
+              <Text style={[styles.exerciseAction, exercise.isUnilateral && styles.exerciseActionTextActive]}>Unilateral</Text>
+            </Pressable>
+          </View>
+        </View>
+        {exercise.sets.map((set, setIndex) => {
+          const setIsWarmup = isWarmupSet(set, exercise);
+          const warmupNumber = exercise.sets
+            .slice(0, setIndex + 1)
+            .filter((candidate) => isWarmupSet(candidate, exercise)).length;
+
+          return (
+            <View key={set.id} style={[styles.setRow, setIsWarmup && styles.setRowWarmup]}>
+              <Text style={[styles.setLabel, setIsWarmup && styles.setLabelWarmup]}>
+                {setIsWarmup ? `Warm-up ${warmupNumber}` : `Set ${setIndex + 1}`}
+              </Text>
+              {exercise.isUnilateral ? (
+                <View style={styles.setInputsWithRemove}>
+                  <View style={styles.setInputsGroup}>
+                    <View style={styles.setInputs}>
+                      <Text style={styles.sideLabel}>L</Text>
+                      <View style={styles.setInputWrapper}>
+                        <TextInput
+                          style={styles.setInput}
+                          value={set.weight}
+                          onChangeText={(value) => updateSet(exercise.id, set.id, 'weight', value)}
+                          placeholder="0"
+                          placeholderTextColor={colors.muted}
+                          keyboardType="numeric"
+                        />
+                        <Text style={styles.setInputSuffix}>{weightUnit}</Text>
+                      </View>
+                      <View style={styles.setInputWrapper}>
+                        <TextInput
+                          style={styles.setInput}
+                          value={set.reps}
+                          onChangeText={(value) => updateSet(exercise.id, set.id, 'reps', value)}
+                          placeholder="0"
+                          placeholderTextColor={colors.muted}
+                          keyboardType="numeric"
+                        />
+                        <Text style={styles.setInputSuffix}>reps</Text>
+                      </View>
+                    </View>
+                    <View style={styles.setInputs}>
+                      <Text style={styles.sideLabel}>R</Text>
+                      <View style={styles.setInputWrapper}>
+                        <TextInput
+                          style={styles.setInput}
+                          value={set.weightR ?? ''}
+                          onChangeText={(value) => updateSet(exercise.id, set.id, 'weightR', value)}
+                          placeholder="0"
+                          placeholderTextColor={colors.muted}
+                          keyboardType="numeric"
+                        />
+                        <Text style={styles.setInputSuffix}>{weightUnit}</Text>
+                      </View>
+                      <View style={styles.setInputWrapper}>
+                        <TextInput
+                          style={styles.setInput}
+                          value={set.repsR ?? ''}
+                          onChangeText={(value) => updateSet(exercise.id, set.id, 'repsR', value)}
+                          placeholder="0"
+                          placeholderTextColor={colors.muted}
+                          keyboardType="numeric"
+                        />
+                        <Text style={styles.setInputSuffix}>reps</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <Pressable style={styles.removeSetButton} onPress={() => removeSet(exercise.id, set.id)}>
+                    <Feather name="x" size={10} color={colors.danger} />
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.setInputsWithRemove}>
+                  <View style={styles.setInputs}>
+                    <View style={styles.setInputWrapper}>
+                      <TextInput
+                        style={styles.setInput}
+                        value={set.weight}
+                        onChangeText={(value) => updateSet(exercise.id, set.id, 'weight', value)}
+                        placeholder="0"
+                        placeholderTextColor={colors.muted}
+                        keyboardType="numeric"
+                      />
+                      <Text style={styles.setInputSuffix}>{weightUnit}</Text>
+                    </View>
+                    <View style={styles.setInputWrapper}>
+                      <TextInput
+                        style={styles.setInput}
+                        value={set.reps}
+                        onChangeText={(value) => updateSet(exercise.id, set.id, 'reps', value)}
+                        placeholder="0"
+                        placeholderTextColor={colors.muted}
+                        keyboardType="numeric"
+                      />
+                      <Text style={styles.setInputSuffix}>reps</Text>
+                    </View>
+                  </View>
+                  <Pressable style={styles.removeSetButton} onPress={() => removeSet(exercise.id, set.id)}>
+                    <Feather name="x" size={10} color={colors.danger} />
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          );
+        })}
+        <View style={styles.exerciseFooterActions}>
+          <Pressable style={styles.addSetButton} onPress={() => addSet(exercise.id)}>
+            <Text style={styles.addSetText}>Add set</Text>
+          </Pressable>
+          <Pressable style={styles.addSetButton} onPress={() => removeExercise(exercise.id)}>
+            <Text style={styles.removeExerciseText}>Remove</Text>
           </Pressable>
         </View>
       </View>
-      {exercise.sets.map((set, setIndex) => (
-        <View key={set.id} style={styles.setRow}>
-          <Text style={[styles.setLabel, exercise.isWarmup && styles.setLabelWarmup]}>
-            {exercise.isWarmup ? `Warm-up ${setIndex + 1}` : `Set ${setIndex + 1}`}
-          </Text>
-          {exercise.isUnilateral ? (
-            <View style={styles.setInputsWithRemove}>
-              <View style={styles.setInputsGroup}>
-                <View style={styles.setInputs}>
-                  <Text style={styles.sideLabel}>L</Text>
-                  <View style={styles.setInputWrapper}>
-                    <TextInput
-                      style={styles.setInput}
-                      value={set.weight}
-                      onChangeText={(value) => updateSet(exercise.id, set.id, 'weight', value)}
-                      placeholder="0"
-                      placeholderTextColor={colors.muted}
-                      keyboardType="numeric"
-                    />
-                    <Text style={styles.setInputSuffix}>{weightUnit}</Text>
-                  </View>
-                  <View style={styles.setInputWrapper}>
-                    <TextInput
-                      style={styles.setInput}
-                      value={set.reps}
-                      onChangeText={(value) => updateSet(exercise.id, set.id, 'reps', value)}
-                      placeholder="0"
-                      placeholderTextColor={colors.muted}
-                      keyboardType="numeric"
-                    />
-                    <Text style={styles.setInputSuffix}>reps</Text>
-                  </View>
-                </View>
-                <View style={styles.setInputs}>
-                  <Text style={styles.sideLabel}>R</Text>
-                  <View style={styles.setInputWrapper}>
-                    <TextInput
-                      style={styles.setInput}
-                      value={set.weightR ?? ''}
-                      onChangeText={(value) => updateSet(exercise.id, set.id, 'weightR', value)}
-                      placeholder="0"
-                      placeholderTextColor={colors.muted}
-                      keyboardType="numeric"
-                    />
-                    <Text style={styles.setInputSuffix}>{weightUnit}</Text>
-                  </View>
-                  <View style={styles.setInputWrapper}>
-                    <TextInput
-                      style={styles.setInput}
-                      value={set.repsR ?? ''}
-                      onChangeText={(value) => updateSet(exercise.id, set.id, 'repsR', value)}
-                      placeholder="0"
-                      placeholderTextColor={colors.muted}
-                      keyboardType="numeric"
-                    />
-                    <Text style={styles.setInputSuffix}>reps</Text>
-                  </View>
-                </View>
-              </View>
-              <Pressable style={styles.removeSetButton} onPress={() => removeSet(exercise.id, set.id)}>
-                <Feather name="x" size={10} color={colors.danger} />
-              </Pressable>
-            </View>
-          ) : (
-            <View style={styles.setInputsWithRemove}>
-              <View style={styles.setInputs}>
-                <View style={styles.setInputWrapper}>
-                  <TextInput
-                    style={styles.setInput}
-                    value={set.weight}
-                    onChangeText={(value) => updateSet(exercise.id, set.id, 'weight', value)}
-                    placeholder="0"
-                    placeholderTextColor={colors.muted}
-                    keyboardType="numeric"
-                  />
-                  <Text style={styles.setInputSuffix}>{weightUnit}</Text>
-                </View>
-                <View style={styles.setInputWrapper}>
-                  <TextInput
-                    style={styles.setInput}
-                    value={set.reps}
-                    onChangeText={(value) => updateSet(exercise.id, set.id, 'reps', value)}
-                    placeholder="0"
-                    placeholderTextColor={colors.muted}
-                    keyboardType="numeric"
-                  />
-                  <Text style={styles.setInputSuffix}>reps</Text>
-                </View>
-              </View>
-              <Pressable style={styles.removeSetButton} onPress={() => removeSet(exercise.id, set.id)}>
-                <Feather name="x" size={10} color={colors.danger} />
-              </Pressable>
-            </View>
-          )}
-        </View>
-      ))}
-      <View style={styles.exerciseFooterActions}>
-        <Pressable style={styles.addSetButton} onPress={() => addSet(exercise.id)}>
-          <Text style={styles.addSetText}>Add set</Text>
-        </Pressable>
-        <Pressable style={styles.addSetButton} onPress={() => removeExercise(exercise.id)}>
-          <Text style={styles.removeExerciseText}>Remove</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <KeyboardAvoidingView
@@ -1243,8 +1258,8 @@ export function LogScreen() {
                     {expandedExerciseHistoryIds[entry.workoutId] ? (
                       <View style={styles.exerciseHistorySets}>
                         {entry.sets.map((set, index) => (
-                          <Text key={`${entry.workoutId}-set-${index}`} style={[styles.exerciseHistorySetRow, entry.isWarmup && styles.warmupText]}>
-                            Set {index + 1}: {toDisplayWeight(set.weight, weightUnit)} {weightUnit} x {set.reps}{entry.isUnilateral && set.weightR != null && set.repsR != null ? ` / ${toDisplayWeight(set.weightR, weightUnit)} ${weightUnit} x ${set.repsR}` : ''}
+                          <Text key={`${entry.workoutId}-set-${index}`} style={[styles.exerciseHistorySetRow, set.isWarmup && styles.warmupText]}>
+                            {set.isWarmup ? 'Warm-up' : `Set ${index + 1}`}: {toDisplayWeight(set.weight, weightUnit)} {weightUnit} x {set.reps}{entry.isUnilateral && set.weightR != null && set.repsR != null ? ` / ${toDisplayWeight(set.weightR, weightUnit)} ${weightUnit} x ${set.repsR}` : ''}
                           </Text>
                         ))}
                       </View>
@@ -1481,13 +1496,13 @@ export function LogScreen() {
                             <View key={exercise.id} style={styles.historyExercise}>
                               <Text style={styles.historyExerciseName}>{exercise.name}</Text>
                               <Text style={styles.historyExerciseDetail}>
-                                {exercise.isWarmup ? '(warm-up) ' : ''}{exercise.sets
+                                {exercise.sets
                                   .map((set) => {
                                     let text = `${toDisplayWeight(set.weight, weightUnit)} ${weightUnit} x ${set.reps}`;
                                     if (exercise.isUnilateral && set.weightR != null && set.repsR != null) {
                                       text += ` / ${toDisplayWeight(set.weightR, weightUnit)} ${weightUnit} x ${set.repsR}`;
                                     }
-                                    return text;
+                                    return isWarmupSet(set, exercise) ? `(warm-up) ${text}` : text;
                                   })
                                   .join(', ')}
                               </Text>
@@ -1822,6 +1837,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   setRow: {
     gap: spacing.xs,
+  },
+  setRowWarmup: {
+    padding: spacing.xs,
+    borderRadius: 12,
+    backgroundColor: colors.accentSoft,
   },
   setInputsWithRemove: {
     flexDirection: 'row',

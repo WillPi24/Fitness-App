@@ -25,7 +25,7 @@ import { EXERCISE_OPTIONS } from '../data/exercises';
 import { useRunStore } from '../store/runStore';
 import { FeatureGate } from '../components/FeatureGate';
 import { useUserStore, useFeatureEnabled, toDisplayWeight } from '../store/userStore';
-import { estimateOneRepMax, useWorkoutStore } from '../store/workoutStore';
+import { estimateOneRepMax, isWarmupSet, useWorkoutStore } from '../store/workoutStore';
 import { useTheme } from '../store/themeStore';
 import { spacing, typography } from '../theme';
 import type { ThemeColors } from '../theme';
@@ -477,11 +477,12 @@ export function ProgressScreen() {
           exerciseBodyPartLookup.get(exerciseKey) ??
           inferBodyPartFromExerciseName(exercise.name);
 
-        if (exercise.isWarmup) return;
-        muscleMonthlySets[bodyPart][index] += exercise.sets.length;
+        const workingSets = exercise.sets.filter((set) => !isWarmupSet(set, exercise));
+        if (workingSets.length === 0) return;
+        muscleMonthlySets[bodyPart][index] += workingSets.length;
 
         let bestEstimateForMonth = 0;
-        exercise.sets.forEach((set) => {
+        workingSets.forEach((set) => {
           let volume = set.weight * set.reps;
           if (exercise.isUnilateral && set.weightR && set.repsR) {
             volume += set.weightR * set.repsR;

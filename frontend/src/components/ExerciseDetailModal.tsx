@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 
 import { type WeightUnit, toDisplayWeight } from '../store/userStore';
-import { estimateOneRepMax, type WorkoutSession } from '../store/workoutStore';
+import { estimateOneRepMax, isWarmupSet, type WorkoutSession } from '../store/workoutStore';
 import { spacing, typography } from '../theme';
 import type { ThemeColors } from '../theme';
 import { useTheme } from '../store/themeStore';
@@ -30,10 +30,9 @@ type ExerciseDetailModalProps = {
 type SessionEntry = {
   workoutId: string;
   date: string;
-  sets: Array<{ weight: number; reps: number; weightR?: number; repsR?: number }>;
+  sets: Array<{ weight: number; reps: number; weightR?: number; repsR?: number; isWarmup?: boolean }>;
   volumeKg: number;
   bestE1RM: number;
-  isWarmup?: boolean;
   isUnilateral?: boolean;
 };
 
@@ -109,13 +108,19 @@ export function ExerciseDetailModal({
 
         let sessionVolume = 0;
         let sessionBestE1RM = 0;
-        const isWarmup = exercise.isWarmup;
         const isUnilateral = exercise.isUnilateral;
-        const sets: Array<{ weight: number; reps: number; weightR?: number; repsR?: number }> = [];
+        const sets: Array<{ weight: number; reps: number; weightR?: number; repsR?: number; isWarmup?: boolean }> = [];
 
         exercise.sets.forEach((set) => {
-          sets.push({ weight: set.weight, reps: set.reps, weightR: set.weightR, repsR: set.repsR });
-          if (isWarmup) return;
+          const setIsWarmup = isWarmupSet(set, exercise);
+          sets.push({
+            weight: set.weight,
+            reps: set.reps,
+            weightR: set.weightR,
+            repsR: set.repsR,
+            isWarmup: setIsWarmup || undefined,
+          });
+          if (setIsWarmup) return;
           let volume = set.weight * set.reps;
           if (isUnilateral && set.weightR && set.repsR) {
             volume += set.weightR * set.repsR;
@@ -149,7 +154,6 @@ export function ExerciseDetailModal({
             sets,
             volumeKg: Math.round(sessionVolume),
             bestE1RM: Math.round(sessionBestE1RM),
-            isWarmup: isWarmup || undefined,
             isUnilateral: isUnilateral || undefined,
           });
         }
@@ -285,8 +289,8 @@ export function ExerciseDetailModal({
                   {expandedIds[session.workoutId] ? (
                     <View style={styles.sessionSets}>
                       {session.sets.map((set, i) => (
-                        <Text key={`${session.workoutId}-${i}`} style={[styles.setText, session.isWarmup && styles.warmupText]}>
-                          Set {i + 1}: {toDisplayWeight(set.weight, weightUnit)}{weightUnit} × {set.reps}{session.isUnilateral && set.weightR != null && set.repsR != null ? ` / ${toDisplayWeight(set.weightR, weightUnit)}${weightUnit} × ${set.repsR}` : ''}
+                        <Text key={`${session.workoutId}-${i}`} style={[styles.setText, set.isWarmup && styles.warmupText]}>
+                          {set.isWarmup ? 'Warm-up' : `Set ${i + 1}`}: {toDisplayWeight(set.weight, weightUnit)}{weightUnit} × {set.reps}{session.isUnilateral && set.weightR != null && set.repsR != null ? ` / ${toDisplayWeight(set.weightR, weightUnit)}${weightUnit} × ${set.repsR}` : ''}
                         </Text>
                       ))}
                     </View>

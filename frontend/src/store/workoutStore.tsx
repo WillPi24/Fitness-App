@@ -9,6 +9,7 @@ export type WorkoutSet = {
   reps: number;
   weightR?: number;
   repsR?: number;
+  isWarmup?: boolean;
 };
 
 export type WorkoutExercise = {
@@ -42,6 +43,7 @@ export type DraftWorkoutSet = {
   reps: string;
   weightR?: string;
   repsR?: string;
+  isWarmup?: boolean;
 };
 
 export type DraftWorkoutExercise = {
@@ -119,6 +121,49 @@ const WorkoutContext = createContext<WorkoutContextValue | undefined>(undefined)
 
 function generateId() {
   return `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+}
+
+export function isWarmupSet(
+  set: { isWarmup?: boolean },
+  exercise?: { isWarmup?: boolean },
+) {
+  return Boolean(set.isWarmup || exercise?.isWarmup);
+}
+
+function areAllSetsWarmup<T extends { isWarmup?: boolean }>(sets: T[]) {
+  return sets.length > 0 && sets.every((set) => set.isWarmup);
+}
+
+function normalizeDraftExercise(exercise: DraftWorkoutExercise): DraftWorkoutExercise {
+  const hasSetWarmups = exercise.sets.some((set) => set.isWarmup);
+  const sets = exercise.sets.map((set, index) => ({
+    ...set,
+    isWarmup:
+      set.isWarmup ||
+      (!hasSetWarmups && exercise.isWarmup && index === exercise.sets.length - 1) ||
+      undefined,
+  }));
+
+  return {
+    ...exercise,
+    sets,
+    isWarmup: areAllSetsWarmup(sets) || undefined,
+  };
+}
+
+function normalizeDraftWorkout(workout: DraftWorkout): DraftWorkout {
+  return {
+    ...workout,
+    exercises: workout.exercises.map(normalizeDraftExercise),
+  };
+}
+
+function normalizeCompletedExercise(exercise: WorkoutExercise): WorkoutExercise {
+  return {
+    ...exercise,
+    sets: exercise.sets.map((set) => ({ ...set, isWarmup: set.isWarmup || undefined })),
+    isWarmup: exercise.isWarmup || undefined,
+  };
 }
 
 export function estimateOneRepMax(weight: number, reps: number) {
@@ -366,7 +411,8 @@ function isWorkoutSet(value: unknown): value is WorkoutSet {
   return (
     typeof set.id === 'string' &&
     typeof set.weight === 'number' &&
-    typeof set.reps === 'number'
+    typeof set.reps === 'number' &&
+    (set.isWarmup === undefined || typeof set.isWarmup === 'boolean')
   );
 }
 
@@ -406,7 +452,8 @@ function isDraftSet(value: unknown): value is DraftWorkoutSet {
   return (
     typeof set.id === 'string' &&
     typeof set.weight === 'string' &&
-    typeof set.reps === 'string'
+    typeof set.reps === 'string' &&
+    (set.isWarmup === undefined || typeof set.isWarmup === 'boolean')
   );
 }
 
@@ -494,8 +541,8 @@ function getBestEstimatesByExercise(workouts: WorkoutSession[]) {
   const map: Record<string, number> = {};
   workouts.forEach((workout) => {
     workout.exercises.forEach((exercise) => {
-      if (exercise.isWarmup) return;
       exercise.sets.forEach((set) => {
+        if (isWarmupSet(set, exercise)) return;
         const key = normalizeExercise(exercise.name);
         const estimate = estimateOneRepMax(set.weight, set.reps);
         if (!map[key] || estimate > map[key]) {
@@ -520,11 +567,13 @@ function buildPersonalRecords(
   const records: WorkoutPersonalRecord[] = [];
 
   workout.exercises.forEach((exercise) => {
-    if (exercise.isWarmup) return;
     let bestSet: WorkoutSet | null = null;
     let bestEstimate = 0;
 
     for (const set of exercise.sets) {
+      if (isWarmupSet(set, exercise)) {
+        continue;
+      }
       const estimate = estimateOneRepMax(set.weight, set.reps);
       if (!bestSet || estimate > bestEstimate) {
         bestSet = set;
@@ -574,7 +623,13 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
         if (workoutRaw) {
           const parsed = JSON.parse(workoutRaw);
           if (Array.isArray(parsed)) {
-            const safeWorkouts = parsed.filter(isWorkoutSession).sort((a, b) => b.endedAt - a.endedAt);
+            const safeWorkouts = parsed
+              .filter(isWorkoutSession)
+              .map((workout) => ({
+                ...workout,
+                exercises: workout.exercises.map(normalizeCompletedExercise),
+              }))
+              .sort((a, b) => b.endedAt - a.endedAt);
             setWorkouts(safeWorkouts);
           }
         }
@@ -582,7 +637,7 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
         if (activeRaw) {
           const parsedActive = JSON.parse(activeRaw);
           if (isDraftWorkout(parsedActive)) {
-            setActiveWorkout(parsedActive);
+            setActiveWorkout(normalizeDraftWorkout(parsedActive));
           }
         }
 
@@ -839,7 +894,12 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
         exercises: prev.exercises.map((exercise) => {
           if (exercise.id !== exerciseId) return exercise;
           const lastSet = exercise.sets[exercise.sets.length - 1];
-          return { ...exercise, sets: [...exercise.sets, createDraftSet(lastSet?.weight)] };
+          const sets = [...exercise.sets, createDraftSet(lastSet?.weight)];
+          return {
+            ...exercise,
+            sets,
+            isWarmup: areAllSetsWarmup(sets) || undefined,
+          };
         }),
       };
     });
@@ -876,11 +936,24 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
       if (!prev) return prev;
       return {
         ...prev,
-        exercises: prev.exercises.map((exercise) =>
-          exercise.id === exerciseId
-            ? { ...exercise, isWarmup: !exercise.isWarmup }
-            : exercise
-        ),
+        exercises: prev.exercises.map((exercise) => {
+          if (exercise.id !== exerciseId || exercise.sets.length === 0) {
+            return exercise;
+          }
+
+          const latestSetIndex = exercise.sets.length - 1;
+          const sets = exercise.sets.map((set, index) =>
+            index === latestSetIndex
+              ? { ...set, isWarmup: !isWarmupSet(set, exercise) || undefined }
+              : set
+          );
+
+          return {
+            ...exercise,
+            sets,
+            isWarmup: areAllSetsWarmup(sets) || undefined,
+          };
+        }),
       };
     });
   };
@@ -914,6 +987,7 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
           return {
             ...exercise,
             sets: nextSets.length > 0 ? nextSets : [createDraftSet()],
+            isWarmup: areAllSetsWarmup(nextSets) || undefined,
           };
         }),
       };
@@ -957,7 +1031,12 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
         }
 
         const weight = convertWeight ? convertWeight(rawWeight) : rawWeight;
-        const parsedSet: WorkoutSet = { id: set.id, weight, reps };
+        const parsedSet: WorkoutSet = {
+          id: set.id,
+          weight,
+          reps,
+          isWarmup: set.isWarmup || undefined,
+        };
 
         if (exercise.isUnilateral) {
           const rawWeightR = Number(set.weightR);
@@ -979,7 +1058,7 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
         id: exercise.id,
         name: trimmedName,
         sets: parsedSets,
-        isWarmup: exercise.isWarmup || undefined,
+        isWarmup: areAllSetsWarmup(parsedSets) || undefined,
         isUnilateral: exercise.isUnilateral || undefined,
       });
     }
