@@ -9,7 +9,11 @@ export type FeatureId =
   | 'racePredictor'
   | 'bodyMeasurements'
   | 'progressPhotos'
-  | 'bodyweightTracker';
+  | 'bodyweightTracker'
+  | 'barcodeScanning'
+  | 'savedMeals'
+  | 'workoutTemplates'
+  | 'micronutrientTracking';
 
 export type FeatureDefinition = {
   id: FeatureId;
@@ -17,6 +21,8 @@ export type FeatureDefinition = {
   description: string;
   screen: 'Progress' | 'Log' | 'Cardio' | 'Calories' | 'Account';
   defaultFocus: TrainingFocus[];
+  tier: 'free' | 'pro';
+  showInToolsScreen: boolean;
 };
 
 export const FEATURE_REGISTRY: FeatureDefinition[] = [
@@ -27,6 +33,8 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     description: 'Simulate a powerlifting meet with squat, bench, and deadlift attempts. Calculates Wilks and DOTS scores.',
     screen: 'Progress',
     defaultFocus: ['strength'],
+    tier: 'pro',
+    showInToolsScreen: true,
   },
   {
     id: 'attemptSelector',
@@ -34,6 +42,8 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     description: 'Suggests opener, second, and third attempts for competition based on your training history.',
     screen: 'Progress',
     defaultFocus: ['strength'],
+    tier: 'pro',
+    showInToolsScreen: true,
   },
   {
     id: 'oneRepMaxCalc',
@@ -41,6 +51,8 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     description: 'Dedicated tool to estimate your one-rep max from any weight and rep combination.',
     screen: 'Log',
     defaultFocus: ['strength'],
+    tier: 'pro',
+    showInToolsScreen: true,
   },
 
   // Cardio
@@ -50,6 +62,8 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     description: 'Audio cues during outdoor runs comparing your current pace to your personal best.',
     screen: 'Cardio',
     defaultFocus: ['cardio'],
+    tier: 'pro',
+    showInToolsScreen: true,
   },
   {
     id: 'splitTimes',
@@ -57,6 +71,8 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     description: 'Per-kilometre split times shown during and after runs.',
     screen: 'Cardio',
     defaultFocus: ['cardio'],
+    tier: 'pro',
+    showInToolsScreen: true,
   },
   {
     id: 'racePredictor',
@@ -64,6 +80,8 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     description: 'Estimate your 5K, 10K, and half marathon times from training data.',
     screen: 'Progress',
     defaultFocus: ['cardio'],
+    tier: 'pro',
+    showInToolsScreen: true,
   },
 
   // Bodybuilding
@@ -73,6 +91,8 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     description: 'Track arms, chest, waist, quads, and other measurements over time with graphs.',
     screen: 'Account',
     defaultFocus: ['bodybuilding'],
+    tier: 'free',
+    showInToolsScreen: true,
   },
   {
     id: 'progressPhotos',
@@ -80,6 +100,8 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     description: 'Take or import photos tagged by date and pose, with side-by-side comparison.',
     screen: 'Account',
     defaultFocus: ['bodybuilding'],
+    tier: 'pro',
+    showInToolsScreen: true,
   },
   {
     id: 'bodyweightTracker',
@@ -87,6 +109,46 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     description: 'Log weigh-ins over time and track your bodyweight trend.',
     screen: 'Account',
     defaultFocus: ['bodybuilding'],
+    tier: 'free',
+    showInToolsScreen: true,
+  },
+
+  // Non-toggleable paid features (gated at screen level only)
+  {
+    id: 'barcodeScanning',
+    name: 'Barcode Scanning',
+    description: 'Scan food barcodes to quickly log nutritional information.',
+    screen: 'Calories',
+    defaultFocus: [],
+    tier: 'pro',
+    showInToolsScreen: false,
+  },
+  {
+    id: 'savedMeals',
+    name: 'Saved Meals',
+    description: 'Save and reuse frequent meals for faster food logging.',
+    screen: 'Calories',
+    defaultFocus: [],
+    tier: 'pro',
+    showInToolsScreen: false,
+  },
+  {
+    id: 'workoutTemplates',
+    name: 'Workout Templates',
+    description: 'Save and start workouts from reusable templates.',
+    screen: 'Log',
+    defaultFocus: [],
+    tier: 'pro',
+    showInToolsScreen: false,
+  },
+  {
+    id: 'micronutrientTracking',
+    name: 'Micronutrient Tracking',
+    description: 'Track vitamins and minerals beyond basic macros.',
+    screen: 'Calories',
+    defaultFocus: [],
+    tier: 'pro',
+    showInToolsScreen: false,
   },
 ];
 

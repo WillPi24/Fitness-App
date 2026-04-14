@@ -29,6 +29,7 @@ import { ErrorBanner } from '../components/ErrorBanner';
 import { PaceKeeperControls } from '../components/PaceKeeperControls';
 import { SplitTimesDisplay } from '../components/SplitTimesDisplay';
 import { ActiveRun, RunPoint, RunSession, useRunStore } from '../store/runStore';
+import { FeatureGate } from '../components/FeatureGate';
 import { useFeatureEnabled } from '../store/userStore';
 import { useTheme } from '../store/themeStore';
 import { spacing, typography } from '../theme';
@@ -533,7 +534,9 @@ export function RunScreen() {
                 </Card>
 
                 {runType === 'outdoor' && useFeatureEnabled('paceKeeper') ? (
-                  <PaceKeeperControls runs={runs} activeRun={activeRun} elapsedMs={elapsedMs} />
+                  <FeatureGate featureId="paceKeeper">
+                    <PaceKeeperControls runs={runs} activeRun={activeRun} elapsedMs={elapsedMs} />
+                  </FeatureGate>
                 ) : null}
 
                 <Card style={styles.statsCard}>
@@ -588,13 +591,17 @@ export function RunScreen() {
                 </Card>
 
                 {activeRun.type === 'outdoor' && useFeatureEnabled('paceKeeper') ? (
-                  <PaceKeeperControls runs={runs} activeRun={activeRun} elapsedMs={elapsedMs} />
+                  <FeatureGate featureId="paceKeeper">
+                    <PaceKeeperControls runs={runs} activeRun={activeRun} elapsedMs={elapsedMs} />
+                  </FeatureGate>
                 ) : null}
 
                 {useFeatureEnabled('splitTimes') && activeRun.splits && activeRun.splits.length > 0 ? (
-                  <Card>
-                    <SplitTimesDisplay splits={activeRun.splits} isLive />
-                  </Card>
+                  <FeatureGate featureId="splitTimes">
+                    <Card>
+                      <SplitTimesDisplay splits={activeRun.splits} isLive />
+                    </Card>
+                  </FeatureGate>
                 ) : null}
 
                 {activeRun.type !== 'indoor' ? (

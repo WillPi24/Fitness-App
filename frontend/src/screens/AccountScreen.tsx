@@ -6,10 +6,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BodyMeasurements } from '../components/BodyMeasurements';
 import { BodyweightTracker } from '../components/BodyweightTracker';
 import { Card } from '../components/Card';
+import RevenueCatUI from 'react-native-purchases-ui';
+import { FeatureGate } from '../components/FeatureGate';
 import { ProgressPhotos } from '../components/ProgressPhotos';
 import { MoreToolsScreen } from './MoreToolsScreen';
 import { useCalorieStore, CalorieDay } from '../store/calorieStore';
 import { useRunStore } from '../store/runStore';
+import { useSubscription } from '../store/subscriptionStore';
 import { TrainingFocus, UserSex, WeightUnit, toDisplayWeight, fromDisplayWeight, useUserStore, useFeatureEnabled } from '../store/userStore';
 import { useTheme } from '../store/themeStore';
 import { useWorkoutStore } from '../store/workoutStore';
@@ -56,6 +59,7 @@ export function AccountScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const switchTrackOff = isDark ? '#4B5563' : '#B8ADA0';
   const { user, updateProfile, setFocus, signOut, deleteAccount, error: userError } = useUserStore();
+  const { restorePurchases } = useSubscription();
   const { workouts, importWorkouts } = useWorkoutStore();
   const { runs, importRuns } = useRunStore();
   const { calorieDays, importCalorieDays } = useCalorieStore();
@@ -455,7 +459,9 @@ export function AccountScreen() {
         ) : null}
 
         {useFeatureEnabled('progressPhotos') ? (
-          <ProgressPhotos />
+          <FeatureGate featureId="progressPhotos">
+            <ProgressPhotos />
+          </FeatureGate>
         ) : null}
 
         <Card>
@@ -471,6 +477,14 @@ export function AccountScreen() {
             <Feather name="chevron-right" size={20} color={colors.muted} />
           </Pressable>
         </Card>
+
+        <Pressable style={styles.restoreButton} onPress={restorePurchases}>
+          <Text style={styles.restoreText}>Restore Purchases</Text>
+        </Pressable>
+
+        <Pressable style={styles.restoreButton} onPress={() => RevenueCatUI.presentCustomerCenter()}>
+          <Text style={styles.restoreText}>Manage Subscription</Text>
+        </Pressable>
 
         <Pressable style={styles.signOutButton} onPress={() => setConfirmSignOut(true)}>
           <Feather name="log-out" size={18} color={colors.danger} />
@@ -931,6 +945,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  restoreButton: {
+    alignSelf: 'center',
+    paddingVertical: 12,
+    marginTop: spacing.lg,
+  },
+  restoreText: {
+    ...typography.body,
+    color: colors.muted,
+    fontSize: 14,
   },
   signOutButton: {
     flexDirection: 'row',

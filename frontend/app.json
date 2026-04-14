@@ -52,6 +52,8 @@
     "plugins": [
       "@maplibre/maplibre-react-native",
       "expo-font",
+      "react-native-purchases",
+      "react-native-purchases-ui",
       [
         "expo-camera",
         {

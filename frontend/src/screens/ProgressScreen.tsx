@@ -23,6 +23,7 @@ import { MeetSimulator } from '../components/MeetSimulator';
 import { RacePredictor } from '../components/RacePredictor';
 import { EXERCISE_OPTIONS } from '../data/exercises';
 import { useRunStore } from '../store/runStore';
+import { FeatureGate } from '../components/FeatureGate';
 import { useUserStore, useFeatureEnabled, toDisplayWeight } from '../store/userStore';
 import { estimateOneRepMax, useWorkoutStore } from '../store/workoutStore';
 import { useTheme } from '../store/themeStore';
@@ -1102,23 +1103,27 @@ export function ProgressScreen() {
               </CollapsibleSection>
 
               {useFeatureEnabled('meetSim') ? (
-                <MeetSimulator
-                  workouts={workouts}
-                  bodyweightKg={bodyweightKg}
-                  sex={user?.sex ?? 'male'}
-                  weightUnit={weightUnit}
-                  expanded={expandedSections.meetSim}
-                  onToggle={() => toggleSection('meetSim')}
-                />
+                <FeatureGate featureId="meetSim">
+                  <MeetSimulator
+                    workouts={workouts}
+                    bodyweightKg={bodyweightKg}
+                    sex={user?.sex ?? 'male'}
+                    weightUnit={weightUnit}
+                    expanded={expandedSections.meetSim}
+                    onToggle={() => toggleSection('meetSim')}
+                  />
+                </FeatureGate>
               ) : null}
 
               {useFeatureEnabled('attemptSelector') ? (
-                <AttemptSelector
-                  workouts={workouts}
-                  weightUnit={weightUnit}
-                  expanded={expandedSections.attemptSelector}
-                  onToggle={() => toggleSection('attemptSelector')}
-                />
+                <FeatureGate featureId="attemptSelector">
+                  <AttemptSelector
+                    workouts={workouts}
+                    weightUnit={weightUnit}
+                    expanded={expandedSections.attemptSelector}
+                    onToggle={() => toggleSection('attemptSelector')}
+                  />
+                </FeatureGate>
               ) : null}
             </>
           )
@@ -1255,11 +1260,13 @@ export function ProgressScreen() {
               </CollapsibleSection>
 
               {useFeatureEnabled('racePredictor') ? (
-                <RacePredictor
-                  runs={runs}
-                  expanded={expandedSections.racePredictor}
-                  onToggle={() => toggleSection('racePredictor')}
-                />
+                <FeatureGate featureId="racePredictor">
+                  <RacePredictor
+                    runs={runs}
+                    expanded={expandedSections.racePredictor}
+                    onToggle={() => toggleSection('racePredictor')}
+                  />
+                </FeatureGate>
               ) : null}
             </>
           )

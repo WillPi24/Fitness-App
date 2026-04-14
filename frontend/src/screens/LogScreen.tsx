@@ -29,6 +29,8 @@ import {
   WorkoutCompletionPreview,
   useWorkoutStore,
 } from '../store/workoutStore';
+import { FeatureGate } from '../components/FeatureGate';
+import { useSubscription } from '../store/subscriptionStore';
 import { useUserStore, useFeatureEnabled, toDisplayWeight, fromDisplayWeight } from '../store/userStore';
 import { useTheme } from '../store/themeStore';
 import { spacing, typography } from '../theme';
@@ -243,6 +245,7 @@ export function LogScreen() {
   const today = new Date();
   const todayIso = useMemo(() => formatISODate(today), [today]);
   const insets = useSafeAreaInsets();
+  const { isSubscribed, showPaywall } = useSubscription();
   const { width: windowWidth } = useWindowDimensions();
   const [selectedDate, setSelectedDate] = useState(todayIso);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -600,6 +603,11 @@ export function LogScreen() {
   };
 
   const handleStartWithTemplate = () => {
+    if (!isSubscribed) {
+      setStartWorkoutChoiceOpen(false);
+      showPaywall();
+      return;
+    }
     setStartWorkoutChoiceOpen(false);
     setTemplatePickerOpen(true);
   };
@@ -1496,7 +1504,9 @@ export function LogScreen() {
         </View>
 
         {useFeatureEnabled('oneRepMaxCalc') ? (
-          <OneRepMaxCalc weightUnit={weightUnit} />
+          <FeatureGate featureId="oneRepMaxCalc">
+            <OneRepMaxCalc weightUnit={weightUnit} />
+          </FeatureGate>
         ) : null}
       </ScrollView>
     </KeyboardAvoidingView>

@@ -40,6 +40,7 @@ import {
   SavedMealFood,
   useCalorieStore,
 } from '../store/calorieStore';
+import { useSubscription } from '../store/subscriptionStore';
 import { useTheme } from '../store/themeStore';
 import { spacing, typography } from '../theme';
 import type { ThemeColors } from '../theme';
@@ -145,6 +146,7 @@ function getFoodSelectionValues(food: FoodSearchResult) {
 
 export function CalorieScreen() {
   const { colors } = useTheme();
+  const { isSubscribed, showPaywall } = useSubscription();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const {
     calorieDays,
@@ -525,6 +527,7 @@ export function CalorieScreen() {
   };
 
   const handleOpenScanner = () => {
+    if (!isSubscribed) { showPaywall(); return; }
     setFoodPickerOpen(false);
     barcodeScanInFlightRef.current = false;
     setBarcodeLookupOpen(false);
@@ -746,6 +749,7 @@ export function CalorieScreen() {
   };
 
   const handleOpenSavedMeals = () => {
+    if (!isSubscribed) { showPaywall(); return; }
     setFoodPickerOpen(false);
     setSavedMealEditMode('list');
     setSavedMealsOpen(true);
@@ -2641,7 +2645,10 @@ export function CalorieScreen() {
           <View style={styles.micronutrientSection}>
             <Pressable
               style={styles.micronutrientHeader}
-              onPress={() => setMicronutrientsExpanded((prev) => !prev)}
+              onPress={() => {
+                if (!isSubscribed) { showPaywall(); return; }
+                setMicronutrientsExpanded((prev) => !prev);
+              }}
             >
               <View style={styles.micronutrientHeaderInfo}>
                 <Text style={styles.micronutrientTitle}>Micronutrients</Text>

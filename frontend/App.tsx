@@ -8,6 +8,7 @@ import { ActivityIndicator, Modal, Platform, Pressable, StyleSheet, Text, View }
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { PaywallModal } from './src/components/PaywallModal';
 import { AccountScreen } from './src/screens/AccountScreen';
 import { BodyweightProvider } from './src/store/bodyweightStore';
 import { CustomExerciseProvider } from './src/store/customExerciseStore';
@@ -27,6 +28,7 @@ import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { CalorieProvider } from './src/store/calorieStore';
 import { RunProvider } from './src/store/runStore';
+import { SubscriptionProvider } from './src/store/subscriptionStore';
 import { ThemeProvider, useTheme } from './src/store/themeStore';
 import { UserProvider, useUserStore } from './src/store/userStore';
 import { WorkoutProvider, useWorkoutStore } from './src/store/workoutStore';
@@ -331,21 +333,24 @@ function AppContent() {
   }
 
   return (
-    <RunProvider>
-      <WorkoutProvider>
-        <CustomExerciseProvider>
-          <CalorieProvider>
-            <BodyweightProvider>
-              <MeasurementProvider>
-                <ProgressPhotoProvider>
-                  <MainApp />
-                </ProgressPhotoProvider>
-              </MeasurementProvider>
-            </BodyweightProvider>
-          </CalorieProvider>
-        </CustomExerciseProvider>
-      </WorkoutProvider>
-    </RunProvider>
+    <SubscriptionProvider>
+      <RunProvider>
+        <WorkoutProvider>
+          <CustomExerciseProvider>
+            <CalorieProvider>
+              <BodyweightProvider>
+                <MeasurementProvider>
+                  <ProgressPhotoProvider>
+                    <PaywallModal />
+                    <MainApp />
+                  </ProgressPhotoProvider>
+                </MeasurementProvider>
+              </BodyweightProvider>
+            </CalorieProvider>
+          </CustomExerciseProvider>
+        </WorkoutProvider>
+      </RunProvider>
+    </SubscriptionProvider>
   );
 }
 
