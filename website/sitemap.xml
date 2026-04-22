@@ -2,57 +2,77 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://helmfit.com/</loc>
-    <lastmod>2026-04-01</lastmod>
+    <lastmod>2026-04-22</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://helmfit.com/features.html</loc>
-    <lastmod>2026-04-01</lastmod>
+    <lastmod>2026-04-22</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://helmfit.com/import.html</loc>
-    <lastmod>2026-04-01</lastmod>
+    <lastmod>2026-04-22</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://helmfit.com/events.html</loc>
+    <lastmod>2026-04-22</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://helmfit.com/privacy.html</loc>
-    <lastmod>2026-04-01</lastmod>
+    <lastmod>2026-04-22</lastmod>
     <priority>0.4</priority>
   </url>
   <url>
     <loc>https://helmfit.com/terms.html</loc>
-    <lastmod>2026-04-01</lastmod>
+    <lastmod>2026-04-22</lastmod>
     <priority>0.4</priority>
   </url>
   <url>
     <loc>https://helmfit.com/compare/helm-vs-strong.html</loc>
-    <lastmod>2026-04-01</lastmod>
+    <lastmod>2026-04-22</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://helmfit.com/compare/helm-vs-hevy.html</loc>
-    <lastmod>2026-04-01</lastmod>
+    <lastmod>2026-04-22</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://helmfit.com/compare/helm-vs-myfitnesspal.html</loc>
-    <lastmod>2026-04-01</lastmod>
+    <lastmod>2026-04-22</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://helmfit.com/compare/helm-vs-strava.html</loc>
-    <lastmod>2026-04-01</lastmod>
+    <lastmod>2026-04-22</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://helmfit.com/compare/all-in-one-fitness-app.html</loc>
-    <lastmod>2026-04-01</lastmod>
+    <lastmod>2026-04-22</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://helmfit.com/blog/</loc>
-    <lastmod>2026-04-01</lastmod>
+    <lastmod>2026-04-22</lastmod>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://helmfit.com/blog/one-rep-max-calculator.html</loc>
+    <lastmod>2026-04-22</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://helmfit.com/blog/race-time-predictor.html</loc>
+    <lastmod>2026-04-22</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://helmfit.com/blog/wilks-vs-dots-calculator.html</loc>
+    <lastmod>2026-04-22</lastmod>
+    <priority>0.6</priority>
   </url>
 </urlset>
