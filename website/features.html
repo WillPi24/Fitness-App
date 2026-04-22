@@ -21,11 +21,11 @@
   <meta name="twitter:description" content="Explore every feature in Helm: strength training with PR detection, GPS cardio with Kalman filtering, barcode nutrition scanning, body composition tracking, and more.">
 
   <link rel="icon" type="image/png" href="assets/images/helm-app-icon.png">
-  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/style.css?v=20260422a">
 </head>
 <body>
 
-  <!-- â•â•â• Navigation â•â•â• -->
+  <!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â Navigation Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
   <nav class="nav">
     <div class="nav__inner">
       <a href="/" class="nav__logo">
@@ -56,7 +56,7 @@
     </div>
   </nav>
 
-  <!-- â•â•â• Page Header â•â•â• -->
+  <!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â Page Header Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
   <header class="page-header">
     <div class="container">
       <h1 class="t-display">Every tool a serious trainer needs</h1>
@@ -64,7 +64,7 @@
     </div>
   </header>
 
-  <!-- â•â•â• Feature Sections â•â•â• -->
+  <!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â Feature Sections Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
   <main class="container">
 
     <!-- 1. Strength Training -->
@@ -98,8 +98,36 @@
             <li>Competition attempt selector</li>
           </ul>
         </div>
-        <div class="feature-deep__visual">
-          Strength tracking screenshot
+        <div class="feature-deep__visual feature-deep__visual--demo">
+          <div class="demo demo-strength">
+            <div class="demo__header">
+              <div class="demo__titles">
+                <span class="demo__title">1RM Calculator</span>
+                <span class="demo__subtitle">Brzycki &middot; Try it</span>
+              </div>
+              <span class="demo__gear" aria-hidden="true">&#x2699;</span>
+            </div>
+            <div class="demo-strength__body">
+              <div class="demo-strength__field">
+                <div class="demo-strength__row">
+                  <label for="demo-weight">Load</label>
+                  <span class="demo-strength__val" data-demo="weight-val">100.0 kg</span>
+                </div>
+                <input id="demo-weight" type="range" min="20" max="250" step="2.5" value="100" data-demo="weight" aria-label="Weight lifted in kilograms">
+              </div>
+              <div class="demo-strength__field">
+                <div class="demo-strength__row">
+                  <label for="demo-reps">Reps</label>
+                  <span class="demo-strength__val" data-demo="reps-val">5 reps</span>
+                </div>
+                <input id="demo-reps" type="range" min="1" max="12" step="1" value="5" data-demo="reps" aria-label="Number of reps completed">
+              </div>
+              <div class="demo-strength__result">
+                <span class="demo-strength__result-label">Estimated 1RM</span>
+                <span class="demo-strength__result-value" data-demo="one-rm" aria-live="polite">112.5 kg</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -134,8 +162,37 @@
             <li>Race predictor: 5K, 10K, Half Marathon, Marathon (Riegel formula)</li>
           </ul>
         </div>
-        <div class="feature-deep__visual">
-          Cardio tracking screenshot
+        <div class="feature-deep__visual feature-deep__visual--demo">
+          <div class="demo demo-cardio">
+            <div class="demo__header">
+              <div class="demo__titles">
+                <span class="demo__title">Morning Run</span>
+                <span class="demo__subtitle">Outdoor &middot; Playback</span>
+              </div>
+              <span class="demo__gear" aria-hidden="true">&#x2699;</span>
+            </div>
+            <div class="demo-cardio__map">
+              <svg viewBox="0 0 200 140" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                <path class="demo-cardio__path" fill="none" d="M 20 118 C 34 112, 48 102, 52 86 S 44 52, 68 44 S 108 54, 134 42 S 170 56, 180 84 S 164 120, 138 124 S 106 116, 84 128"/>
+                <circle class="demo-cardio__dot" cx="20" cy="118" r="4"/>
+              </svg>
+            </div>
+            <div class="demo-cardio__stats">
+              <div class="demo-cardio__stat">
+                <span class="demo-cardio__stat-label">Distance</span>
+                <span class="demo-cardio__stat-value" data-stat="distance" aria-live="polite">0.00 km</span>
+              </div>
+              <div class="demo-cardio__stat">
+                <span class="demo-cardio__stat-label">Time</span>
+                <span class="demo-cardio__stat-value" data-stat="time" aria-live="polite">0:00</span>
+              </div>
+              <div class="demo-cardio__stat">
+                <span class="demo-cardio__stat-label">Pace</span>
+                <span class="demo-cardio__stat-value" data-stat="pace" aria-live="polite">&mdash;:&mdash; /km</span>
+              </div>
+            </div>
+            <button type="button" class="demo-cardio__play" aria-label="Play run animation">&#9654; Play Run</button>
+          </div>
         </div>
       </div>
     </section>
@@ -170,8 +227,69 @@
             <li>Macro pie charts</li>
           </ul>
         </div>
-        <div class="feature-deep__visual">
-          Nutrition tracking screenshot
+        <div class="feature-deep__visual feature-deep__visual--demo">
+          <div class="demo demo-nutrition">
+            <div class="demo__header">
+              <div class="demo__titles">
+                <span class="demo__title">Daily Summary</span>
+                <span class="demo__subtitle">Today &middot; Build a meal</span>
+              </div>
+              <span class="demo__gear" aria-hidden="true">&#x2699;</span>
+            </div>
+            <div class="demo-nutrition__top">
+              <div class="demo-nutrition__ring-wrap">
+                <div class="demo-nutrition__ring">
+                  <div class="demo-nutrition__ring-inner">
+                    <span class="demo-nutrition__kcal" data-stat="kcal" aria-live="polite">0</span>
+                    <span class="demo-nutrition__goal">/ 2,200</span>
+                  </div>
+                </div>
+              </div>
+              <div class="demo-nutrition__macros">
+                <div class="demo-nutrition__macro">
+                  <div class="demo-nutrition__macro-head">
+                    <span class="demo-nutrition__macro-label"><span class="demo-nutrition__macro-dot demo-nutrition__macro-dot--protein"></span>Protein</span>
+                    <span class="demo-nutrition__macro-val" data-val="protein">0 g</span>
+                  </div>
+                  <div class="demo-nutrition__bar-track">
+                    <div class="demo-nutrition__bar" data-bar="protein"></div>
+                  </div>
+                </div>
+                <div class="demo-nutrition__macro">
+                  <div class="demo-nutrition__macro-head">
+                    <span class="demo-nutrition__macro-label"><span class="demo-nutrition__macro-dot demo-nutrition__macro-dot--carbs"></span>Carbs</span>
+                    <span class="demo-nutrition__macro-val" data-val="carbs">0 g</span>
+                  </div>
+                  <div class="demo-nutrition__bar-track">
+                    <div class="demo-nutrition__bar" data-bar="carbs"></div>
+                  </div>
+                </div>
+                <div class="demo-nutrition__macro">
+                  <div class="demo-nutrition__macro-head">
+                    <span class="demo-nutrition__macro-label"><span class="demo-nutrition__macro-dot demo-nutrition__macro-dot--fat"></span>Fat</span>
+                    <span class="demo-nutrition__macro-val" data-val="fat">0 g</span>
+                  </div>
+                  <div class="demo-nutrition__bar-track">
+                    <div class="demo-nutrition__bar" data-bar="fat"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="demo-nutrition__chips-wrap">
+              <div class="demo-nutrition__chips-header">
+                <span class="demo-label">Tap to add</span>
+                <button type="button" class="demo-nutrition__reset">Clear</button>
+              </div>
+              <div class="demo-nutrition__chips">
+                <button type="button" class="demo-nutrition__chip" data-food="oats"><span class="demo-nutrition__chip-emoji">&#x1F963;</span> Oats</button>
+                <button type="button" class="demo-nutrition__chip" data-food="chicken"><span class="demo-nutrition__chip-emoji">&#x1F357;</span> Chicken</button>
+                <button type="button" class="demo-nutrition__chip" data-food="rice"><span class="demo-nutrition__chip-emoji">&#x1F35A;</span> Rice</button>
+                <button type="button" class="demo-nutrition__chip" data-food="egg"><span class="demo-nutrition__chip-emoji">&#x1F95A;</span> Egg</button>
+                <button type="button" class="demo-nutrition__chip" data-food="avocado"><span class="demo-nutrition__chip-emoji">&#x1F951;</span> Avocado</button>
+                <button type="button" class="demo-nutrition__chip" data-food="banana"><span class="demo-nutrition__chip-emoji">&#x1F34C;</span> Banana</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -204,15 +322,54 @@
             <li>Side-by-side photo comparison</li>
           </ul>
         </div>
-        <div class="feature-deep__visual">
-          Body composition screenshot
+        <div class="feature-deep__visual feature-deep__visual--demo">
+          <div class="demo demo-body">
+            <div class="demo__header">
+              <div class="demo__titles">
+                <span class="demo__title">Bodyweight</span>
+                <span class="demo__subtitle">12 weeks &middot; Drag to scrub</span>
+              </div>
+              <span class="demo__gear" aria-hidden="true">&#x2699;</span>
+            </div>
+            <div class="demo-body__chart-wrap">
+              <div class="demo-body__chart">
+                <svg viewBox="0 0 240 100" preserveAspectRatio="xMidYMid meet">
+                  <defs>
+                    <linearGradient id="demoBodyArea" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#E4572E" stop-opacity="0.25"/>
+                      <stop offset="100%" stop-color="#E4572E" stop-opacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <line class="demo-body__grid-line" x1="14" y1="28" x2="226" y2="28"/>
+                  <line class="demo-body__grid-line" x1="14" y1="58" x2="226" y2="58"/>
+                  <line class="demo-body__grid-line" x1="14" y1="88" x2="226" y2="88"/>
+                  <polygon class="demo-body__area" points=""/>
+                  <polyline class="demo-body__line" fill="none" points=""/>
+                  <rect class="demo-body__hit" x="0" y="0" width="240" height="100" fill="transparent"/>
+                  <circle class="demo-body__dot" cx="0" cy="0" r="5.5" tabindex="0" role="slider" aria-valuemin="1" aria-valuemax="12" aria-valuenow="6" aria-label="Scrub through 12 weeks of bodyweight data"/>
+                </svg>
+              </div>
+              <div class="demo-body__axis" aria-hidden="true">
+                <span>W1</span>
+                <span>W4</span>
+                <span>W7</span>
+                <span>W10</span>
+                <span>W12</span>
+              </div>
+            </div>
+            <div class="demo-body__label" aria-live="polite">
+              <span class="demo-body__week" data-label="week">Week 6</span>
+              <span class="demo-body__weight" data-label="weight">82.4 kg</span>
+              <span class="demo-body__delta demo-body__delta--neg" data-label="delta">&minus;2.3 kg from W1</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
   </main>
 
-  <!-- â•â•â• CTA Section â•â•â• -->
+  <!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CTA Section Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
   <section class="section cta-section" id="notify">
     <div class="container">
       <div class="cta-section__box reveal">
@@ -229,7 +386,7 @@
     </div>
   </section>
 
-  <!-- â•â•â• Footer â•â•â• -->
+  <!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â Footer Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
   <footer class="footer">
     <div class="container">
       <div class="footer__grid">
@@ -265,6 +422,7 @@
     </div>
   </footer>
 
-  <script src="assets/js/main.js"></script>
+  <script src="assets/js/main.js?v=20260422a"></script>
+  <script src="assets/js/demos.js?v=20260422a" defer></script>
 </body>
 </html>
