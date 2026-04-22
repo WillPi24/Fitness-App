@@ -98,28 +98,4 @@
     });
   });
 
-  // ─── Email Form Handler ───
-  document.querySelectorAll('.email-form').forEach(function (form) {
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var input = form.querySelector('input[type="email"]');
-      var btn = form.querySelector('button');
-
-      if (input && input.value && input.checkValidity()) {
-        var originalText = btn.textContent;
-        btn.textContent = 'You\'re on the list!';
-        btn.style.background = '#2A9D8F';
-        input.value = '';
-        input.disabled = true;
-        btn.disabled = true;
-
-        setTimeout(function () {
-          btn.textContent = originalText;
-          btn.style.background = '';
-          input.disabled = false;
-          btn.disabled = false;
-        }, 3000);
-      }
-    });
-  });
 })();

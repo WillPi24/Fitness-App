@@ -1,0 +1,8 @@
+{
+  "devDependencies": {
+    "puppeteer": "^24.40.0"
+  },
+  "dependencies": {
+    "expo": "^55.0.9"
+  }
+}
