@@ -1,3 +1,7 @@
 # App store redirects -enable once the app is published and real IDs are known.
 # /download  https://apps.apple.com/app/helm-fitness/id000000000  302
 # /android   https://play.google.com/store/apps/details?id=com.helmfit.app  302
+
+# Compare index route -send to the hub page (no compare/index.html exists)
+/compare  /compare/all-in-one-fitness-app  301
+/compare/  /compare/all-in-one-fitness-app  301

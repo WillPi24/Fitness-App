@@ -3310,3 +3310,19 @@ button, input {
 @property --p-end { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 @property --c-end { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 @property --f-end { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+
+/* Compare-page disclaimer */
+.footer__compare-disclaimer {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--color-muted);
+  opacity: 0.8;
+  padding: var(--space-md) 0;
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-md);
+}
+
+.footer__compare-disclaimer p {
+  margin: 0;
+  max-width: 960px;
+}
