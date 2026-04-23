@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Import Your Data | Helm - Switch from Any Fitness App</title>
-  <meta name="description" content="Switch to Helm from Strong, Hevy, Fitbod, FitNotes, Strava, Garmin, MyFitnessPal, or Cronometer. Step-by-step guides to import all your workout and nutrition data.">
+  <meta name="description" content="Switch to Helm from Strong, Hevy, Fitbod, FitNotes, Strava, Garmin, MyFitnessPal, or Cronometer. Drop in a CSV export and Helm auto-detects the format.">
   <link rel="canonical" href="https://helmfit.com/import">
 
   <!-- Open Graph -->
   <meta property="og:title" content="Import Your Data | Helm - Switch from Any Fitness App">
-  <meta property="og:description" content="Switch to Helm from Strong, Hevy, Fitbod, FitNotes, Strava, Garmin, MyFitnessPal, or Cronometer. Step-by-step import guides for every app.">
+  <meta property="og:description" content="Switch to Helm from Strong, Hevy, Fitbod, FitNotes, Strava, Garmin, MyFitnessPal, or Cronometer. Drop in a CSV export and Helm auto-detects the format.">
   <meta property="og:url" content="https://helmfit.com/import">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://helmfit.com/assets/images/helm-app-icon.png">
@@ -18,14 +18,14 @@
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Import Your Data | Helm - Switch from Any Fitness App">
-  <meta name="twitter:description" content="Switch to Helm from Strong, Hevy, Fitbod, FitNotes, Strava, Garmin, MyFitnessPal, or Cronometer. Step-by-step import guides for every app.">
+  <meta name="twitter:description" content="Switch to Helm from Strong, Hevy, Fitbod, FitNotes, Strava, Garmin, MyFitnessPal, or Cronometer. Drop in a CSV export and Helm auto-detects the format.">
 
   <link rel="icon" type="image/png" href="assets/images/helm-app-icon.png">
-  <link rel="stylesheet" href="assets/css/style.css?v=20260422a">
+  <link rel="stylesheet" href="assets/css/style.css?v=20260423a">
 </head>
 <body>
 
-  <!-- ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â Navigation ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â -->
+  <!-- Navigation -->
   <nav class="nav">
     <div class="nav__inner">
       <a href="/" class="nav__logo">
@@ -56,193 +56,176 @@
     </div>
   </nav>
 
-  <!-- ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â Page Header ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â -->
+  <!-- Page Header -->
   <header class="page-header">
     <div class="container">
-      <h1 class="t-display">Switch to Helm in seconds</h1>
-      <p class="t-body-lg">Bring all your workout history, nutrition logs, and run data with you. We support imports from 8 popular fitness apps.</p>
+      <h1 class="t-display">Bring your training with you</h1>
+      <p class="t-body-lg">Export from your old app, drop the file into Helm, and everything maps to the right place. No lost history, no re-entry.</p>
     </div>
   </header>
 
-  <!-- ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â Import Guides ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â -->
-  <main class="container">
-
-    <!-- 1. Strong -->
-    <div class="import-guide__item reveal">
-      <div class="import-guide__header">
-        <h2 class="import-guide__name">Strong</h2>
-        <span class="import-guide__badge">CSV</span>
+  <!-- 1. How it works -->
+  <section class="section section--tight">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="t-label">How it works</span>
+        <h2 class="t-title">Three steps. No source-app picker.</h2>
       </div>
-      <div class="import-guide__steps">
-        <div class="import-guide__step">
-          <p>Open <strong>Strong</strong> and go to <strong>Settings &rarr; Export Workout Data</strong>. Choose CSV format and save the file.</p>
+      <div class="import-steps">
+        <div class="import-step reveal">
+          <span class="import-step__number">1</span>
+          <h3 class="import-step__title">Export your data</h3>
+          <p class="import-step__desc">Use your current app's own export feature. Helm reads standard CSV exports from the apps listed below, plus its own JSON backup file. Each app handles export differently &mdash; see their help page for the current steps.</p>
         </div>
-        <div class="import-guide__step">
-          <p>Open <strong>Helm</strong> and navigate to <strong>Settings &rarr; Import Data</strong>.</p>
+        <div class="import-step reveal reveal-delay-1">
+          <span class="import-step__number">2</span>
+          <h3 class="import-step__title">Drop the file into Helm</h3>
+          <p class="import-step__desc">Open Helm &rarr; Account &rarr; Import Data &rarr; choose your file. Helm detects the format automatically, so you don't need to tell it which app the file came from.</p>
         </div>
-        <div class="import-guide__step">
-          <p>Select <strong>Strong</strong> as the source app and pick the CSV file you exported.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>Helm maps your exercises, sets, and PRs automatically. Review the summary and tap <strong>Import</strong>.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- 2. Hevy -->
-    <div class="import-guide__item reveal">
-      <div class="import-guide__header">
-        <h2 class="import-guide__name">Hevy</h2>
-        <span class="import-guide__badge">CSV</span>
-      </div>
-      <div class="import-guide__steps">
-        <div class="import-guide__step">
-          <p>In <strong>Hevy</strong>, go to <strong>Settings &rarr; Account &rarr; Export Data</strong>. A CSV file will be emailed to your account address.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>Download the CSV from your email and save it to your device.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>In <strong>Helm</strong>, go to <strong>Settings &rarr; Import Data</strong>, select <strong>Hevy</strong>, and choose the CSV file.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>Helm parses your workout history, templates, and records. Confirm and tap <strong>Import</strong>.</p>
+        <div class="import-step reveal reveal-delay-2">
+          <span class="import-step__number">3</span>
+          <h3 class="import-step__title">Review and confirm</h3>
+          <p class="import-step__desc">Helm maps exercises, units, and dates into your library and shows a preview before anything is saved. Duplicates are flagged and unrecognised entries pass through as-is.</p>
         </div>
       </div>
     </div>
+  </section>
 
-    <!-- 3. Fitbod -->
-    <div class="import-guide__item reveal">
-      <div class="import-guide__header">
-        <h2 class="import-guide__name">Fitbod</h2>
-        <span class="import-guide__badge">CSV</span>
+  <!-- 2. Supported sources -->
+  <section class="section section--tight">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="t-label">Supported sources</span>
+        <h2 class="t-title">Eight apps, one import flow.</h2>
+        <p class="t-body-lg">Each app controls its own export UI, and those UIs change over time. Tap a card to open that app's own help page in a new tab &mdash; always the most current source for export instructions.</p>
       </div>
-      <div class="import-guide__steps">
-        <div class="import-guide__step">
-          <p>Open <strong>Fitbod</strong> and go to <strong>Settings &rarr; Export Workout History</strong>. Save the CSV file to your device.</p>
+      <div class="import-sources">
+
+        <a class="import-source reveal" href="https://help.strongapp.io/article/235-export-workout-data" target="_blank" rel="noopener noreferrer">
+          <span class="import-source__category import-source__category--strength">Strength</span>
+          <h3 class="import-source__name">Strong</h3>
+          <span class="import-source__format">CSV export</span>
+          <span class="import-source__link">Strong's export guide &rarr;</span>
+        </a>
+
+        <a class="import-source reveal reveal-delay-1" href="https://help.hevyapp.com/" target="_blank" rel="noopener noreferrer">
+          <span class="import-source__category import-source__category--strength">Strength</span>
+          <h3 class="import-source__name">Hevy</h3>
+          <span class="import-source__format">CSV export</span>
+          <span class="import-source__link">Hevy's help center &rarr;</span>
+        </a>
+
+        <a class="import-source reveal reveal-delay-2" href="https://fitbod.zendesk.com/hc/en-us" target="_blank" rel="noopener noreferrer">
+          <span class="import-source__category import-source__category--strength">Strength</span>
+          <h3 class="import-source__name">Fitbod</h3>
+          <span class="import-source__format">CSV export</span>
+          <span class="import-source__link">Fitbod's help center &rarr;</span>
+        </a>
+
+        <a class="import-source reveal reveal-delay-3" href="https://play.google.com/store/apps/details?id=com.github.jamesgay.fitnotes" target="_blank" rel="noopener noreferrer">
+          <span class="import-source__category import-source__category--strength">Strength</span>
+          <h3 class="import-source__name">FitNotes</h3>
+          <span class="import-source__format">CSV export (Android)</span>
+          <span class="import-source__link">FitNotes on Google Play &rarr;</span>
+        </a>
+
+        <a class="import-source reveal" href="https://support.strava.com/hc/en-us/articles/216918437-Exporting-your-Data-and-Bulk-Export" target="_blank" rel="noopener noreferrer">
+          <span class="import-source__category import-source__category--cardio">Cardio</span>
+          <h3 class="import-source__name">Strava</h3>
+          <span class="import-source__format">CSV bulk archive</span>
+          <span class="import-source__link">Strava's export guide &rarr;</span>
+        </a>
+
+        <a class="import-source reveal reveal-delay-1" href="https://support.garmin.com/en-US/?faq=W1TvTPW8JZ6LfJSfK512Q8" target="_blank" rel="noopener noreferrer">
+          <span class="import-source__category import-source__category--cardio">Cardio</span>
+          <h3 class="import-source__name">Garmin</h3>
+          <span class="import-source__format">CSV export via Garmin Connect</span>
+          <span class="import-source__link">Garmin's export guide &rarr;</span>
+        </a>
+
+        <a class="import-source reveal reveal-delay-2" href="https://support.myfitnesspal.com/hc/en-us/articles/360032273352-Data-Export-FAQs" target="_blank" rel="noopener noreferrer">
+          <span class="import-source__category import-source__category--nutrition">Nutrition</span>
+          <h3 class="import-source__name">MyFitnessPal</h3>
+          <span class="import-source__format">CSV export</span>
+          <span class="import-source__link">MyFitnessPal's export guide &rarr;</span>
+        </a>
+
+        <a class="import-source reveal reveal-delay-3" href="https://support.cronometer.com/hc/en-us/articles/360018760151-Account-Settings" target="_blank" rel="noopener noreferrer">
+          <span class="import-source__category import-source__category--nutrition">Nutrition</span>
+          <h3 class="import-source__name">Cronometer</h3>
+          <span class="import-source__format">CSV export</span>
+          <span class="import-source__link">Cronometer's export guide &rarr;</span>
+        </a>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. What Helm does -->
+  <section class="section section--tight">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="t-label">Under the hood</span>
+        <h2 class="t-title">What Helm does with your file.</h2>
+      </div>
+      <div class="import-capabilities">
+        <div class="import-capability reveal">
+          <h3 class="import-capability__title">Auto-format detection</h3>
+          <p class="import-capability__desc">No "select your source" dropdown. Helm inspects the file header and picks the right parser automatically.</p>
         </div>
-        <div class="import-guide__step">
-          <p>In <strong>Helm</strong>, open <strong>Settings &rarr; Import Data</strong> and select <strong>Fitbod</strong> as the source.</p>
+        <div class="import-capability reveal reveal-delay-1">
+          <h3 class="import-capability__title">Smart exercise mapping</h3>
+          <p class="import-capability__desc">Over 150 exercise name variations across the supported apps fold into a single Helm entry, so your PR history stays intact.</p>
         </div>
-        <div class="import-guide__step">
-          <p>Pick the exported CSV. Helm converts Fitbod exercises to matching Helm entries and imports your full history.</p>
+        <div class="import-capability reveal reveal-delay-2">
+          <h3 class="import-capability__title">Unit detection</h3>
+          <p class="import-capability__desc">Kilograms vs pounds is read from the file where possible. Helm only asks when the source file is ambiguous.</p>
+        </div>
+        <div class="import-capability reveal reveal-delay-3">
+          <h3 class="import-capability__title">Duplicate protection</h3>
+          <p class="import-capability__desc">Workouts, runs, and meals with the same signature aren't re-imported, so you can safely import the same file twice.</p>
         </div>
       </div>
     </div>
+  </section>
 
-    <!-- 4. FitNotes -->
-    <div class="import-guide__item reveal">
-      <div class="import-guide__header">
-        <h2 class="import-guide__name">FitNotes</h2>
-        <span class="import-guide__badge">CSV</span>
+  <!-- 4. FAQ -->
+  <section class="section section--tight">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="t-label">FAQ</span>
+        <h2 class="t-title">Common questions</h2>
       </div>
-      <div class="import-guide__steps">
-        <div class="import-guide__step">
-          <p>In <strong>FitNotes</strong>, tap the menu and go to <strong>Settings &rarr; Backup &rarr; Export to CSV</strong>.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>Save the exported CSV file to a location you can access (Downloads, Google Drive, etc.).</p>
-        </div>
-        <div class="import-guide__step">
-          <p>In <strong>Helm</strong>, go to <strong>Settings &rarr; Import Data</strong>, select <strong>FitNotes</strong>, and pick the file.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>Helm reads your exercise names, sets, reps, and weight &mdash; then imports everything. Tap <strong>Import</strong> to confirm.</p>
-        </div>
+      <div class="import-faq">
+        <details class="import-faq__item reveal">
+          <summary class="import-faq__question">What if my app isn't in the list?</summary>
+          <div class="import-faq__answer">
+            <p>A CSV with Date, Exercise, Reps, and Weight columns usually works for strength. Helm also accepts its own JSON backup, so if you can persuade your current tool to produce a close-enough CSV, Helm will try to import it.</p>
+          </div>
+        </details>
+        <details class="import-faq__item reveal">
+          <summary class="import-faq__question">What if my export is missing some fields?</summary>
+          <div class="import-faq__answer">
+            <p>Helm imports whatever is present in the file. Fields that aren't in the export just stay blank &mdash; they won't block the import. You can always fill things in later.</p>
+          </div>
+        </details>
+        <details class="import-faq__item reveal">
+          <summary class="import-faq__question">What happens to exercises Helm doesn't recognise?</summary>
+          <div class="import-faq__answer">
+            <p>They're imported under the exact name from the source file. You can rename, merge, or hide them later from your exercise library.</p>
+          </div>
+        </details>
+        <details class="import-faq__item reveal">
+          <summary class="import-faq__question">Can I import the same file more than once?</summary>
+          <div class="import-faq__answer">
+            <p>Yes. Helm detects duplicates by matching the signature of each workout, run, or meal, so a second import of the same file won't duplicate your history.</p>
+          </div>
+        </details>
       </div>
     </div>
+  </section>
 
-    <!-- 5. Strava -->
-    <div class="import-guide__item reveal">
-      <div class="import-guide__header">
-        <h2 class="import-guide__name">Strava</h2>
-        <span class="import-guide__badge">CSV</span>
-      </div>
-      <div class="import-guide__steps">
-        <div class="import-guide__step">
-          <p>Log into <strong>Strava</strong> on the web. Go to <strong>Settings &rarr; My Account &rarr; Download or Delete Your Account &rarr; Request Your Archive</strong>.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>Strava emails you a ZIP file. Download it and extract the <strong>activities.csv</strong> file.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>In <strong>Helm</strong>, go to <strong>Settings &rarr; Import Data</strong>, select <strong>Strava</strong>, and choose the CSV.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>Helm imports your runs, rides, and activity data including distance, duration, and pace. Tap <strong>Import</strong>.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- 6. Garmin -->
-    <div class="import-guide__item reveal">
-      <div class="import-guide__header">
-        <h2 class="import-guide__name">Garmin</h2>
-        <span class="import-guide__badge">CSV</span>
-      </div>
-      <div class="import-guide__steps">
-        <div class="import-guide__step">
-          <p>Log into <strong>Garmin Connect</strong> on the web. Go to the <strong>Activities</strong> page and use the <strong>Export CSV</strong> option to download your activity list.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>Save the CSV file to your device.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>In <strong>Helm</strong>, open <strong>Settings &rarr; Import Data</strong>, select <strong>Garmin</strong>, and pick the CSV.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>Helm imports your activity history including heart rate zones, distance, and pace data. Tap <strong>Import</strong> to finish.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- 7. MyFitnessPal -->
-    <div class="import-guide__item reveal">
-      <div class="import-guide__header">
-        <h2 class="import-guide__name">MyFitnessPal</h2>
-        <span class="import-guide__badge">CSV</span>
-      </div>
-      <div class="import-guide__steps">
-        <div class="import-guide__step">
-          <p>Log into <strong>MyFitnessPal</strong> on the web. Go to <strong>Settings &rarr; Download Your Data</strong> and request a food diary export.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>Download the CSV file when MyFitnessPal emails you the export link.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>In <strong>Helm</strong>, go to <strong>Settings &rarr; Import Data</strong>, select <strong>MyFitnessPal</strong>, and pick the CSV.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>Helm imports your food diary including meals, calories, and macros. Review and tap <strong>Import</strong>.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- 8. Cronometer -->
-    <div class="import-guide__item reveal">
-      <div class="import-guide__header">
-        <h2 class="import-guide__name">Cronometer</h2>
-        <span class="import-guide__badge">CSV</span>
-      </div>
-      <div class="import-guide__steps">
-        <div class="import-guide__step">
-          <p>In <strong>Cronometer</strong>, go to <strong>Settings &rarr; Account &rarr; Export Data</strong>. Select the date range and export as CSV.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>Save the CSV file to your device.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>In <strong>Helm</strong>, open <strong>Settings &rarr; Import Data</strong>, select <strong>Cronometer</strong>, and choose the file.</p>
-        </div>
-        <div class="import-guide__step">
-          <p>Helm imports your full nutrition log &mdash; calories, macros, and all 21 tracked micronutrients. Tap <strong>Import</strong>.</p>
-        </div>
-      </div>
-    </div>
-
-  </main>
-
-  <!-- ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â CTA Section ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â -->
+  <!-- CTA Section -->
   <section class="section cta-section" id="notify">
     <div class="container">
       <div class="cta-section__box reveal">
@@ -259,7 +242,7 @@
     </div>
   </section>
 
-  <!-- ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â Footer ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â -->
+  <!-- Footer -->
   <footer class="footer">
     <div class="container">
       <div class="footer__grid">
@@ -288,6 +271,9 @@
           <a href="/terms">Terms of Service</a>
         </div>
       </div>
+      <div class="footer__compare-disclaimer">
+        <p>Strong, Hevy, Fitbod, FitNotes, Strava, Garmin, MyFitnessPal, and Cronometer are trademarks of their respective owners. Helm is not affiliated with, endorsed by, or sponsored by these companies. Outbound links on this page point to each provider's own help center; their export flows are controlled by them and may change.</p>
+      </div>
       <div class="footer__bottom">
         <span>&copy; 2026 Helm. All rights reserved.</span>
         <span>Built for lifters, runners, and everyone in between.</span>
@@ -295,6 +281,6 @@
     </div>
   </footer>
 
-  <script src="assets/js/main.js?v=20260422a"></script>
+  <script src="assets/js/main.js?v=20260423a"></script>
 </body>
 </html>
