@@ -1,0 +1,57 @@
+name: Supabase Keep-Alive
+
+# Supabase free-tier projects pause after 7 days of inactivity.
+# This workflow makes a lightweight DB query every 3 days so the project
+# never trips the inactivity timer. Row-level security means the anon key
+# can't read any data; the query is just a heartbeat.
+
+on:
+  schedule:
+    - cron: '17 7 */3 * *'   # every 3 days at 07:17 UTC (odd minute to avoid cron-storm)
+  workflow_dispatch:         # allow manual runs from the Actions tab
+
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Missing SUPABASE_URL or SUPABASE_ANON_KEY secret"
+            exit 1
+          fi
+
+          # Query a real table with limit=1. RLS will return an empty array
+          # for an unauthenticated request, but the query still hits Postgres
+          # and resets the inactivity timer.
+          url="${SUPABASE_URL%/}/rest/v1/user_data?select=user_id&limit=1"
+
+          echo "Pinging: $url"
+          status=$(curl -sS -o /tmp/body.txt -w "%{http_code}" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$url")
+
+          echo "HTTP $status"
+          echo "Body: $(cat /tmp/body.txt)"
+
+          # 2xx = fine, 401/403 = RLS rejected (still hit DB, counts), 404 = table gone
+          case "$status" in
+            2??|401|403)
+              echo "Keep-alive successful"
+              ;;
+            *)
+              echo "::error::Unexpected status $status -- project may be paused or misconfigured"
+              exit 1
+              ;;
+          esac
