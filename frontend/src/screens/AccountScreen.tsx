@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BodyMeasurements } from '../components/BodyMeasurements';
@@ -495,6 +495,40 @@ export function AccountScreen() {
           <Feather name="trash-2" size={18} color={colors.danger} />
           <Text style={styles.deleteAccountText}>Delete Account</Text>
         </Pressable>
+
+        <View style={styles.creditsSection}>
+          <Text style={styles.creditsHeading}>Credits</Text>
+          <Text style={styles.creditsLine}>
+            Maps &copy;{' '}
+            <Text style={styles.creditsLink} onPress={() => Linking.openURL('https://www.openstreetmap.org/copyright')}>
+              OpenStreetMap
+            </Text>{' '}
+            contributors, served by{' '}
+            <Text style={styles.creditsLink} onPress={() => Linking.openURL('https://openfreemap.org/')}>
+              OpenFreeMap
+            </Text>
+            .
+          </Text>
+          <Text style={styles.creditsLine}>
+            Food data from{' '}
+            <Text style={styles.creditsLink} onPress={() => Linking.openURL('https://fdc.nal.usda.gov/')}>
+              USDA FoodData Central
+            </Text>{' '}
+            and{' '}
+            <Text style={styles.creditsLink} onPress={() => Linking.openURL('https://world.openfoodfacts.org/')}>
+              Open Food Facts
+            </Text>
+            .
+          </Text>
+          <Text style={styles.creditsLine}>
+            Subscriptions managed by{' '}
+            <Text style={styles.creditsLink} onPress={() => Linking.openURL('https://www.revenuecat.com/')}>
+              RevenueCat
+            </Text>
+            .
+          </Text>
+          <Text style={styles.creditsVersion}>Helm v1.0.0</Text>
+        </View>
       </ScrollView>
 
       {/* Edit Profile Modal */}
@@ -994,6 +1028,42 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     ...typography.body,
     color: colors.danger,
     fontSize: 14,
+  },
+  creditsSection: {
+    marginTop: spacing.xl * 1.5,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 6,
+    alignItems: 'center',
+  },
+  creditsHeading: {
+    ...typography.label,
+    color: colors.muted,
+    textTransform: 'uppercase',
+    fontSize: 11,
+    letterSpacing: 1.2,
+    marginBottom: spacing.xs,
+  },
+  creditsLine: {
+    ...typography.body,
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    maxWidth: 320,
+  },
+  creditsLink: {
+    color: colors.accent,
+    fontWeight: '500',
+  },
+  creditsVersion: {
+    ...typography.body,
+    color: colors.muted,
+    fontSize: 11,
+    opacity: 0.6,
+    marginTop: spacing.md,
+    letterSpacing: 0.5,
   },
   modalBackdrop: {
     flex: 1,
