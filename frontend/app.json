@@ -15,6 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Allow Helm to access your location to track outdoor runs.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow Helm to track your run route even when the screen is locked.",
         "NSLocationAlwaysUsageDescription": "Allow Helm to track your run route even when the screen is locked.",

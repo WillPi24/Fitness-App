@@ -16,6 +16,11 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://helmfit.com/support</loc>
+    <lastmod>2026-04-23</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://helmfit.com/events.html</loc>
     <lastmod>2026-04-22</lastmod>
     <priority>0.7</priority>

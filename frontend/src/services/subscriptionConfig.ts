@@ -1,6 +1,6 @@
 import type { FeatureId } from './featureRegistry';
 
-// Test key — replace with platform-specific keys for production
+// Test key - replace with platform-specific keys for production
 export const REVENUECAT_API_KEY_IOS = 'test_eedplghnocURrbvHMfsjoeDsQWn';
 export const REVENUECAT_API_KEY_ANDROID = 'test_eedplghnocURrbvHMfsjoeDsQWn';
 

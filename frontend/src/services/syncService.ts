@@ -36,7 +36,7 @@ async function saveSyncTimestamps(timestamps: Record<string, string>): Promise<v
   await AsyncStorage.setItem(SYNC_TIMESTAMPS_KEY, JSON.stringify(timestamps)).catch(() => {});
 }
 
-/** Upsert a single data blob to Supabase. Fire-and-forget — never throws. */
+/** Upsert a single data blob to Supabase. Fire-and-forget - never throws. */
 export async function pushKey(dataKey: SyncedDataKey, data: unknown): Promise<boolean> {
   try {
     const { data: session } = await supabase.auth.getSession();
@@ -157,7 +157,7 @@ export async function pullChanged(): Promise<Record<string, unknown> | null> {
 }
 
 /**
- * Smart sync — used by stores on app launch.
+ * Smart sync - used by stores on app launch.
  * On first sign-in (no local timestamps): does a full pullAll.
  * On subsequent launches: does a lightweight pullChanged.
  * Cached so all stores share a single request.

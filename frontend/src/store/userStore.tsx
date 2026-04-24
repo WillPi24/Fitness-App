@@ -183,7 +183,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.multiRemove(STALE_KEYS).catch(() => {});
     await clearSyncTimestamps();
 
-    // Don't set user profile yet — wait for email verification
+    // Don't set user profile yet - wait for email verification
     setPendingSignUp({ name: name.trim(), email: email.trim().toLowerCase() });
     setError(null);
     return true;
@@ -201,7 +201,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    // Email verified — now create the user profile
+    // Email verified - now create the user profile
     const name = pendingSignUp?.name ?? '';
     setUser({
       name,
