@@ -52,3 +52,6 @@ frontend/ios/*
 
 # Wrangler / Miniflare local state
 website/workers/events-worker/.wrangler/
+
+# Test artifacts
+test-output/

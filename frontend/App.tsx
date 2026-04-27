@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { PaywallModal } from './src/components/PaywallModal';
+import { PurchaseSuccessOverlay } from './src/components/PurchaseSuccessOverlay';
 import { AccountScreen } from './src/screens/AccountScreen';
 import { BodyweightProvider } from './src/store/bodyweightStore';
 import { CustomExerciseProvider } from './src/store/customExerciseStore';
@@ -342,6 +343,7 @@ function AppContent() {
                 <MeasurementProvider>
                   <ProgressPhotoProvider>
                     <PaywallModal />
+                    <PurchaseSuccessOverlay />
                     <MainApp />
                   </ProgressPhotoProvider>
                 </MeasurementProvider>

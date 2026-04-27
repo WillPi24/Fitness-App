@@ -17,6 +17,8 @@ type SubscriptionContextValue = {
   hidePaywall: () => void;
   purchasePackage: (pkg: PurchasesPackage) => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
+  purchaseCelebrationVisible: boolean;
+  dismissPurchaseCelebration: () => void;
 };
 
 const SubscriptionContext = createContext<SubscriptionContextValue | undefined>(undefined);
@@ -30,6 +32,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [isLoading, setIsLoading] = useState(true);
   const [offerings, setOfferings] = useState<PurchasesOfferings | null>(null);
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const [purchaseCelebrationVisible, setPurchaseCelebrationVisible] = useState(false);
 
   useEffect(() => {
     // In dev mode, bypass RevenueCat entirely
@@ -120,12 +123,16 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const hidePaywall = useCallback(() => setPaywallVisible(false), []);
 
   const purchasePackage = useCallback(async (pkg: PurchasesPackage): Promise<boolean> => {
-    if (__DEV__) return true;
+    if (__DEV__) {
+      setPurchaseCelebrationVisible(true);
+      return true;
+    }
     try {
       const { customerInfo } = await Purchases.purchasePackage(pkg);
       const active = checkEntitlement(customerInfo);
       setIsSubscribed(active);
       await AsyncStorage.setItem(SUBSCRIPTION_CACHE_KEY, String(active));
+      if (active) setPurchaseCelebrationVisible(true);
       return active;
     } catch (e: unknown) {
       const err = e as { userCancelled?: boolean };
@@ -134,6 +141,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       }
       return false;
     }
+  }, []);
+
+  const dismissPurchaseCelebration = useCallback(() => {
+    setPurchaseCelebrationVisible(false);
   }, []);
 
   const restorePurchases = useCallback(async (): Promise<boolean> => {
@@ -160,8 +171,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       hidePaywall,
       purchasePackage,
       restorePurchases,
+      purchaseCelebrationVisible,
+      dismissPurchaseCelebration,
     }),
-    [isSubscribed, isLoading, offerings, paywallVisible, showPaywall, hidePaywall, purchasePackage, restorePurchases],
+    [isSubscribed, isLoading, offerings, paywallVisible, showPaywall, hidePaywall, purchasePackage, restorePurchases, purchaseCelebrationVisible, dismissPurchaseCelebration],
   );
 
   return (
