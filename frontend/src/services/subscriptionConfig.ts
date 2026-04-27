@@ -1,10 +1,11 @@
 import type { FeatureId } from './featureRegistry';
 
-// Test key - replace with platform-specific keys for production
-export const REVENUECAT_API_KEY_IOS = 'test_eedplghnocURrbvHMfsjoeDsQWn';
-export const REVENUECAT_API_KEY_ANDROID = 'test_eedplghnocURrbvHMfsjoeDsQWn';
+export const REVENUECAT_API_KEY_IOS =
+  process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? 'appl_dlPWYCpfkFXqVnzQURnNcsgipRl';
+export const REVENUECAT_API_KEY_ANDROID =
+  process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? 'test_eedplghnocURrbvHMfsjoeDsQWn';
 
-export const ENTITLEMENT_ID = 'Helm+';
+export const ENTITLEMENT_ID = 'Helm_Full_Sail';
 
 export const PAID_FEATURE_IDS: readonly FeatureId[] = [
   // Registry features (toggleable in More Tools)

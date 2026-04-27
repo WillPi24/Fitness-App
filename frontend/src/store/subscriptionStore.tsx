@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { AppState, Platform } from 'react-native';
 import Purchases, { type CustomerInfo, type PurchasesOfferings, type PurchasesPackage } from 'react-native-purchases';
 
+import { supabase } from '../services/supabase';
 import { ENTITLEMENT_ID, REVENUECAT_API_KEY_ANDROID, REVENUECAT_API_KEY_IOS, isPaidFeature } from '../services/subscriptionConfig';
 
 const SUBSCRIPTION_CACHE_KEY = 'fitnessapp.subscriptionActive.v1';
@@ -51,6 +52,17 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         const apiKey = Platform.OS === 'ios' ? REVENUECAT_API_KEY_IOS : REVENUECAT_API_KEY_ANDROID;
         Purchases.configure({ apiKey });
 
+        // Alias the RC customer to the Supabase user ID if signed in,
+        // so the subscription follows the user across devices/reinstalls.
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          try {
+            await Purchases.logIn(session.user.id);
+          } catch (e) {
+            console.warn('[subscription] initial logIn failed:', e);
+          }
+        }
+
         const info = await Purchases.getCustomerInfo();
         const active = checkEntitlement(info);
         setIsSubscribed(active);
@@ -74,6 +86,19 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       AsyncStorage.setItem(SUBSCRIPTION_CACHE_KEY, String(active)).catch(() => {});
     });
 
+    // Keep RC's app-user-id in sync with Supabase auth state
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user?.id) {
+        Purchases.logIn(session.user.id).catch((e) => {
+          console.warn('[subscription] logIn failed:', e);
+        });
+      } else if (event === 'SIGNED_OUT') {
+        Purchases.logOut().catch((e) => {
+          console.warn('[subscription] logOut failed:', e);
+        });
+      }
+    });
+
     // Re-check on app foreground
     const appStateListener = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
@@ -86,6 +111,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     });
 
     return () => {
+      authSubscription.unsubscribe();
       appStateListener.remove();
     };
   }, []);

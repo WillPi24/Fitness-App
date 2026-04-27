@@ -60,77 +60,157 @@ ports across.
 ### App configuration
 - `ITSAppUsesNonExemptEncryption: false` in `frontend/app.json`
   (iOS export-compliance exemption self-declared)
+- Bundle identifier set to `com.william.helm` (iOS + Android)
+- `NSPhotoLibraryUsageDescription` + `NSPhotoLibraryAddUsageDescription`
+  added to iOS infoPlist (required for progress-photos feature)
 - Unused `RECORD_AUDIO` Android permission removed
 - Duplicate Android location permissions cleaned up
 - RevenueCat plugin entries in app.json: re-added
 - Credits section in Account screen:
   OSM, OpenFreeMap, USDA FoodData Central, Open Food Facts, RevenueCat
 
+### In-App Purchase: Full Sail
+App Store Connect:
+- Subscription Group `Helm Full Sail` (ID 22039665)
+- `com.william.helm.monthly` — Ready to Submit
+- `com.william.helm.yearly` — Ready to Submit
+- Localization, screenshot, pricing, tax, availability all set
+- Will be attached to the v1.0 binary submission via the
+  "In-App Purchases and Subscriptions" section on the version page
+
+RevenueCat:
+- Entitlement `Helm_Full_Sail` (display: Helm Full Sail)
+- Products `com.william.helm.monthly` + `com.william.helm.yearly` linked
+- Offering `default` created with monthly + annual packages, set current
+- `ENTITLEMENT_ID` in `subscriptionConfig.ts` set to `'Helm_Full_Sail'`
+- iOS public SDK key (`appl_...`) wired in via env-var fallback
+
 ---
 
 ## ❌ Still to do — blockers for submission
 
-### 1. Bundle identifier (critical)
-Current value in `frontend/app.json`:
-```
-"bundleIdentifier": "com.anonymous.FitnessApp"
-```
-- Default Expo placeholder — embarrassing to ship
-- Cannot be changed once the app is live
-- Change to `com.helmfit.app` (or similar) before the production build
-- Must also be registered in the Apple Developer portal under
-  Certificates, Identifiers & Profiles
-
-### 2. `NSPhotoLibraryUsageDescription` missing from app.json
-- The progress-photos feature uses `expo-image-picker`
-- iOS rejects any build that reads the photo library without a usage string
-- One-line fix inside `ios.infoPlist`
-
-### 3. RevenueCat keys still on test values
+### 1. RevenueCat Android key still on test value
 File: `frontend/src/services/subscriptionConfig.ts`
-- Currently hardcoded as `test_eedplghnocURrbvHMfsjoeDsQWn` (iOS + Android)
-- Needs production iOS key and production Android key before the
-  production build
-- Move to env vars (`EXPO_PUBLIC_REVENUECAT_IOS_KEY`, etc.) for cleanliness
+- iOS key updated to `appl_dlPWYCpfkFXqVnzQURnNcsgipRl` (production)
+- Android key still on test value — set up Android app in RevenueCat
+  dashboard once an Android device is available
+- Both readable via env vars (`EXPO_PUBLIC_REVENUECAT_IOS_KEY`,
+  `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY`) with hardcoded fallback
 
-### 4. Demo account for Apple reviewers
-- Create a dedicated account (e.g. `apple-review@helmfit.com`)
-- Use Supabase dashboard → Authentication → Add user → Auto Confirm User
-  (skips email verification)
-- Log into the account via the app and add: 1 sample workout, 1 run,
-  a few food entries, 1 bodyweight reading
-- Grant the account Full Sail entitlement via RevenueCat dashboard,
-  so reviewers can test pro features
+### 2. Demo account for Apple reviewers (needs Mac)
+- ✅ Account created in Supabase: `helmfitness@outlook.com` / `AppleTest123`
+- ✅ Credentials entered in App Store Connect Sign-In Information
+- ✅ Code change shipped: `Purchases.logIn(supabaseUserId)` is now called
+  on auth state change (subscriptionStore.tsx). RC customer ID will
+  equal the Supabase user UUID for any signed-in user.
+- ✅ `Helm_Full_Sail` entitlement granted (lifetime promo) to the demo
+  user UUID `528f94ac-b124-4dc3-98da-8c5b83518fd7` via the
+  RevenueCat REST API. Expires year 2226.
 
-### 5. App Review Information
-In App Store Connect → App Review Information:
-- Contact first name, last name, phone, email
-- **Sign-In Information**:
-  - Username: (demo email)
-  - Password: (demo pass)
-- **Notes** field: step-by-step walkthrough for reviewers so they
-  don't have to guess at the app's core flows
+NOTE: `__DEV__` bypasses RevenueCat entirely (subscriptionStore.tsx:36).
+The steps below need a **release-style build** (TestFlight, EAS preview,
+or production) so the SDK actually initialises. They cannot be done
+from `expo start` / Metro.
 
-### 6. In-App Purchase: Full Sail
-In App Store Connect → your app → Subscriptions:
-- Create a subscription group
-- Create the Full Sail product with:
-  - Reference name
-  - Display name + localized description
-  - Subscription duration (monthly / annual)
-  - Price tier
-  - Review screenshot of the paywall
-- Submit the IAP alongside the app binary for review
-  (IAP goes through its own review)
+- ⏳ **On Mac**: do an EAS build (preview or production profile) →
+  install on simulator or device → open the app and log in as the
+  demo user. The entitlement is already attached server-side, so
+  `Purchases.getCustomerInfo` should immediately return
+  `Helm_Full_Sail` as active and unlock paid features.
+- ⏳ **In the app, still logged in as the demo user** (Mac):
+  - Log 1 workout (upper-body session, 3–4 exercises, a few sets each)
+  - Log 1 run (press start, walk a minute, save — gives reviewers a route)
+  - Log 1 day of food entries (breakfast / lunch / dinner)
+  - Log 1 bodyweight reading
+  - Reason: empty app = "we couldn't evaluate the core feature" rejection
+- ⏳ **Test before submission**: log in as the demo user on a fresh
+  device, confirm Full Sail unlocks the gated features end-to-end.
 
-### 7. Pricing and Availability
+To find the Supabase UUID for the demo user:
+Supabase dashboard → Authentication → Users → click the helmfitness
+row → copy the UUID at the top of the detail panel.
+
+### 3. App Review Information
+In App Store Connect → version page → App Review Information.
+
+**Contact Information**: William Patterson, phone with country code,
+email you check daily (Apple may email questions during review).
+
+**Sign-In Information** (toggle on):
+- Username: `helmfitness@outlook.com`
+- Password: `AppleTest123`
+
+**Notes** field — paste this draft (edit if any tab/feature names are
+off):
+
+```
+Hi reviewer,
+
+Thanks for reviewing Helm. Below is a quick walkthrough of the
+core flows so you can evaluate the app efficiently.
+
+DEMO ACCOUNT
+The provided account (helmfitness@outlook.com) has been granted
+the "Helm_Full_Sail" entitlement via RevenueCat, so all premium
+features are unlocked without making a real purchase. The account
+is pre-loaded with a sample workout, a sample run, food entries,
+and a bodyweight reading.
+
+CORE FLOWS TO TEST
+
+1. Strength training (free)
+   - Tap the Strength tab, then "Start Workout"
+   - Add an exercise from the library, log a set, mark a PR
+
+2. Cardio with GPS (free)
+   - Tap the Cardio tab, then "Start Run"
+   - The app will request "Always" location permission so GPS
+     tracking works when the screen is off (used only during
+     active runs, never in the background otherwise)
+
+3. Nutrition logging (free, with paid extras)
+   - Tap the Nutrition tab, then add a meal
+   - Premium: barcode scanner (camera permission) and
+     micronutrient tracking — both unlocked for this account
+
+4. Progress tracking (free, with paid extras)
+   - Tap the Progress tab to view weight + measurements
+   - Premium: progress photos (photo library permission) — unlocked
+
+5. Paywall flow (the "Full Sail" subscription)
+   - Tap Account → Subscription, or any locked feature in
+     "More Tools" — opens the paywall with monthly + annual options
+   - This account already has the entitlement, so a real purchase
+     is not required to test the paid features
+
+DATA SOURCES (attribution in-app on the Account screen)
+- Maps: OpenStreetMap data, OpenFreeMap tiles
+- Food: USDA FoodData Central + Open Food Facts
+- Subscriptions: RevenueCat (StoreKit 2)
+
+PERMISSIONS RATIONALE
+- Location (always): outdoor run GPS tracking; only active during runs
+- Camera: barcode scanning for food logging
+- Photo Library: progress photos feature
+
+If you have any questions or need additional info during the review,
+please email helmfitness@outlook.com — I respond within 24 hours.
+
+Thanks,
+William
+```
+
+**Attachment**: skip (you can attach a screen recording later if a
+review note asks for one).
+
+### 4. Pricing and Availability ✅
 - Price: Free
-- Territories: UK + US minimum; worldwide unless there's a reason not to
-- Pre-orders: off (first release)
-- Manual vs Automatic release: recommend Manual for v1 so you control
-  the go-live moment after approval
+- Availability: all countries except mainland China
+  (China deselected due to ICP/PIPL compliance burden for indie devs)
+- Pre-orders: off
+- Release: manual (we press the go-live button after Apple approval)
 
-### 8. Screenshots (the biggest time sink)
+### 5. Screenshots (the biggest time sink)
 Required sizes:
 - **iPhone 6.9"** (iPhone 16 Pro Max, 1290×2796) — at least 1, up to 10
 - **iPad 13"** (2064×2752) — required because `supportsTablet: true`
@@ -140,12 +220,12 @@ Can be:
 - Device-framed screenshots with marketing copy overlays
 - Some mix of the two
 
-### 9. Production build
+### 6. Production build
 Upload the actual IPA to App Store Connect:
 - Expo path: `eas build -p ios --profile production`
 - Upload via EAS auto-submit or Transporter
-- Build must have the new bundle ID, the photo library permission,
-  and production RevenueCat keys
+- Build must have the photo library permission and production
+  RevenueCat keys
 
 ---
 

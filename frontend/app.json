@@ -19,13 +19,15 @@
         "NSLocationWhenInUseUsageDescription": "Allow Helm to access your location to track outdoor runs.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow Helm to track your run route even when the screen is locked.",
         "NSLocationAlwaysUsageDescription": "Allow Helm to track your run route even when the screen is locked.",
+        "NSPhotoLibraryUsageDescription": "Allow Helm to access your photo library so you can attach progress photos to your tracking entries.",
+        "NSPhotoLibraryAddUsageDescription": "Allow Helm to save progress photos you capture to your photo library.",
         "UIBackgroundModes": [
           "audio",
           "location",
           "fetch"
         ]
       },
-      "bundleIdentifier": "com.anonymous.FitnessApp"
+      "bundleIdentifier": "com.william.helm"
     },
     "android": {
       "permissions": [
@@ -42,7 +44,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.FitnessApp"
+      "package": "com.william.helm"
     },
     "web": {
       "favicon": "./assets/favicon.png"
