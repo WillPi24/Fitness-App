@@ -255,8 +255,18 @@
   }
 
   // ─── Init ───
+  // Idempotent: callable on initial start, on bfcache restore, and on
+  // tab-visibility resume. Always clears any previous interval and fully
+  // resets each screen's inline styles (Motion leaves transforms and
+  // opacities behind that survive bfcache and would otherwise produce
+  // overlapping screens on return).
   function startDemo() {
-    // Reset all screens
+    if (interval) {
+      clearInterval(interval);
+      interval = null;
+    }
+    currentScreen = 0;
+
     screens.forEach(function (s, i) {
       if (i === 0) {
         s.classList.add('demo-screen--active');
@@ -265,6 +275,7 @@
       } else {
         s.classList.remove('demo-screen--active');
         s.style.opacity = '0';
+        s.style.transform = '';
       }
     });
 
@@ -291,4 +302,24 @@
   }, { threshold: 0.3 });
 
   observer.observe(demoContainer);
+
+  // Handle browser back-forward cache restore. When you navigate away from
+  // helmfit.com and come back, the page is restored with all DOM + inline
+  // styles intact but JS animation state is stale -- this resets cleanly.
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) startDemo();
+  });
+
+  // Pause cycling when the tab is hidden; restart on return so the
+  // interval doesn't drift out of sync with the visible screen state.
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    } else if (!interval && demoContainer) {
+      startDemo();
+    }
+  });
 })();

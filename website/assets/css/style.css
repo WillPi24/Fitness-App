@@ -203,7 +203,14 @@ button, input {
 /* ─── Navigation ─── */
 .nav {
   position: fixed;
-  top: 0;
+  /* Anchor the nav BELOW the iOS safe area. A separate fixed cover
+     (.nav-safe-area-cover, defined further down in this file) paints
+     the same blurred cream over the status-bar zone so the two read
+     as one continuous bar. Splitting them avoids a known iOS Safari
+     bug where a single fixed element whose HEIGHT depends on
+     env(safe-area-inset-top) can briefly drift on URL-bar transitions,
+     leaving a visible gap at the very top of the screen. */
+  top: env(safe-area-inset-top, 0px);
   left: 0;
   right: 0;
   height: var(--nav-height);
@@ -213,6 +220,22 @@ button, input {
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--color-border);
   transition: box-shadow 0.3s ease;
+}
+
+/* Status-bar / notch cover. Independent fixed element so iOS Safari
+   doesn't desync it from the nav on URL-bar collapse transitions.
+   Solid opaque cream + forced compositor layer (translateZ) so the
+   3D-transformed phone mockup can't render through it on iOS Safari. */
+.nav-safe-area-cover {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--color-bg);
+  z-index: 1001;
+  transform: translateZ(0);
+  pointer-events: none;
 }
 
 .nav.scrolled {
@@ -329,7 +352,7 @@ button, input {
 .nav__mobile {
   display: none;
   position: fixed;
-  top: var(--nav-height);
+  top: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
   background: var(--color-bg);
@@ -357,6 +380,31 @@ button, input {
 }
 
 @media (max-width: 768px) {
+  /* On mobile, the nav scrolls with the page (not fixed). Avoids the
+     iOS Safari fixed-element/safe-area glitch where the phone-mockup
+     bleeds through the status-bar zone. Body gets padding-top so the
+     nav (now in normal flow) doesn't sit under the iOS status bar. */
+  body {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .nav {
+    position: static;
+    top: auto;
+    height: var(--nav-height);
+  }
+  .nav-safe-area-cover {
+    display: none;
+  }
+  .nav__mobile {
+    top: var(--nav-height);
+  }
+  .hero {
+    padding-top: var(--space-2xl);
+  }
+  .page-header {
+    padding-top: var(--space-xl);
+  }
+
   .nav__links {
     display: none;
   }
@@ -471,7 +519,7 @@ button, input {
 
 /* ─── Hero ─── */
 .hero {
-  padding-top: calc(var(--nav-height) + var(--space-4xl));
+  padding-top: calc(var(--nav-height) + env(safe-area-inset-top, 0px) + var(--space-4xl));
   padding-bottom: var(--space-4xl);
   position: relative;
   overflow: hidden;
@@ -601,30 +649,132 @@ button, input {
 .phone-mockup {
   width: 280px;
   height: 580px;
-  background: var(--color-text);
-  border-radius: 40px;
-  padding: 12px;
-  box-shadow: var(--shadow-xl), 0 0 0 1px rgba(0,0,0,0.1);
+  /* Vertical gradient: dark at top/bottom, slightly lighter in the middle.
+     Suggests a brushed/anodized frame catching light. */
+  background: linear-gradient(180deg,
+    var(--color-text) 0%,
+    #2a2d33 50%,
+    var(--color-text) 100%);
+  border-radius: 44px;
+  padding: 16px;
+  box-shadow:
+    var(--shadow-xl),
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   position: relative;
-  transform: perspective(1000px) rotateY(-5deg) rotateX(2deg);
+  /* Default: faces forward. JS in main.js applies rotation on mousemove and
+     clears the inline transform on mouseleave, letting this rule win again
+     with a smooth 0.4s ease back to neutral. */
+  transform: perspective(1000px);
   transition: transform 0.4s ease;
 }
 
-.phone-mockup:hover {
-  transform: perspective(1000px) rotateY(0deg) rotateX(0deg);
+/* Right-side power button */
+.phone-mockup::before {
+  content: "";
+  position: absolute;
+  top: 110px;
+  right: -2px;
+  width: 4px;
+  height: 50px;
+  background: #26282d;
+  border-radius: 2px 0 0 2px;
+}
+
+/* Left-side volume rocker */
+.phone-mockup::after {
+  content: "";
+  position: absolute;
+  top: 130px;
+  left: -2px;
+  width: 4px;
+  height: 80px;
+  background: #26282d;
+  border-radius: 0 2px 2px 0;
 }
 
 .phone-mockup__screen {
   width: 100%;
   height: 100%;
   background: var(--color-bg);
-  border-radius: 30px;
+  border-radius: 28px;
   overflow: hidden;
+  position: relative;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 2px 8px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--space-md);
+}
+
+/* Status bar (time + battery) flanking the camera pill */
+.phone-mockup__statusbar {
+  position: absolute;
+  top: 16px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 22px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  color: var(--color-text);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.phone-mockup__battery {
+  position: relative;
+  display: inline-block;
+  width: 22px;
+  height: 11px;
+  border: 1.5px solid var(--color-text);
+  border-radius: 3px;
+  /* Green fill at 75% (looks "charged"). Outline stays dark for contrast. */
+  background:
+    linear-gradient(to right,
+      var(--color-success) 0%,
+      var(--color-success) 75%,
+      transparent 75%,
+      transparent 100%);
+  background-clip: content-box;
+  padding: 1px;
+}
+
+/* Battery positive terminal nub on the right edge */
+.phone-mockup__battery::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -3px;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 5px;
+  background: var(--color-text);
+  border-radius: 0 1px 1px 0;
+}
+
+/* Camera / sensor pill at the top of the screen — abstract, not a
+   specific manufacturer's notch shape. */
+.phone-mockup__screen::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 84px;
+  height: 22px;
+  border-radius: 14px;
+  background: #000;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  z-index: 2;
+  pointer-events: none;
 }
 
 .phone-mockup__screen img {
@@ -697,6 +847,7 @@ button, input {
   .phone-mockup {
     width: 240px;
     height: 500px;
+    padding: 14px;
     transform: none;
   }
 
@@ -1220,7 +1371,7 @@ button, input {
 
 /* ─── Page Styles ─── */
 .page-header {
-  padding-top: calc(var(--nav-height) + var(--space-3xl));
+  padding-top: calc(var(--nav-height) + env(safe-area-inset-top, 0px) + var(--space-3xl));
   padding-bottom: var(--space-2xl);
   text-align: center;
 }
@@ -1849,7 +2000,8 @@ button, input {
   bottom: 44px;
   display: flex;
   flex-direction: column;
-  padding: 14px 10px 0;
+  /* 40px top padding leaves room for the camera/sensor pill (~12 + 22 + 6). */
+  padding: 40px 10px 0;
   opacity: 0;
   pointer-events: none;
   overflow-y: auto;

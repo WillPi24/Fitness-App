@@ -37,24 +37,6 @@
     }, { passive: true });
   }
 
-  // ─── Sticky Mobile CTA ───
-  var stickyCta = document.querySelector('.sticky-cta');
-  var hero = document.querySelector('.hero');
-
-  if (stickyCta && hero) {
-    var stickyObserver = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          stickyCta.classList.remove('visible');
-        } else {
-          stickyCta.classList.add('visible');
-        }
-      });
-    }, { threshold: 0 });
-
-    stickyObserver.observe(hero);
-  }
-
   // ─── Scroll Reveal Animations ───
   var reveals = document.querySelectorAll('.reveal');
 
@@ -73,6 +55,46 @@
 
     reveals.forEach(function (el) {
       revealObserver.observe(el);
+    });
+  }
+
+  // ─── Phone Mockup Tilt ───
+  // Default state: phone faces forward (CSS).
+  // On mousemove: phone tilts so the area near the cursor leans back (rotates
+  //   away from the user). Mouse top-right -> top-right edge tilts back.
+  //   To flip to "face-the-mouse" (area under cursor leans forward), invert
+  //   both signs in the applyTilt() call below.
+  // On mouseleave: clear inline transform; CSS transition smoothly returns.
+  // Skipped on touch / no-hover devices so we don't fight a tap.
+  var phoneMockup = document.querySelector('.phone-mockup');
+  if (phoneMockup && window.matchMedia('(hover: hover)').matches) {
+    var TILT_MAX_DEG = 12;
+    var tiltRaf = null;
+
+    phoneMockup.addEventListener('mousemove', function (e) {
+      var rect = phoneMockup.getBoundingClientRect();
+      var halfW = rect.width / 2;
+      var halfH = rect.height / 2;
+      var normX = (e.clientX - rect.left - halfW) / halfW;
+      var normY = (e.clientY - rect.top - halfH) / halfH;
+      var rx = -normY * TILT_MAX_DEG; // top back when mouse near top
+      var ry = normX * TILT_MAX_DEG;  // right back when mouse near right
+
+      if (tiltRaf) cancelAnimationFrame(tiltRaf);
+      tiltRaf = requestAnimationFrame(function () {
+        // Short ease so the first move (and every subsequent move) animates
+        // gradually instead of snapping. On mouseleave we clear the inline
+        // style so the CSS 0.4s ease takes over for the slower return.
+        phoneMockup.style.transition = 'transform 0.18s ease-out';
+        phoneMockup.style.transform =
+          'perspective(1000px) rotateX(' + rx + 'deg) rotateY(' + ry + 'deg)';
+      });
+    });
+
+    phoneMockup.addEventListener('mouseleave', function () {
+      if (tiltRaf) cancelAnimationFrame(tiltRaf);
+      phoneMockup.style.transition = '';
+      phoneMockup.style.transform = '';
     });
   }
 
