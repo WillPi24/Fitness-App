@@ -72,7 +72,7 @@ export async function fetchParkrun() {
 
       const normalized = await normalizeEvent({
         source: 'parkrun',
-        type: 'running',
+        type: 'parkrun',
         name: props.EventLongName || props.eventname || 'parkrun',
         startDate: saturday,
         endDate: saturday,

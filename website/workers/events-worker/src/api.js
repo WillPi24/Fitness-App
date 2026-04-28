@@ -13,8 +13,14 @@
 import { corsHeaders } from './lib/cors.js';
 import { haversineFilter } from './lib/geo.js';
 
-const VALID_TYPES = new Set(['powerlifting', 'bodybuilding', 'running', 'all']);
-const VALID_COUNTRIES = new Set(['US', 'GB']);
+const VALID_TYPES = new Set(['powerlifting', 'bodybuilding', 'races', 'hyrox', 'parkrun', 'all']);
+// Backward-compat alias for the old 'running' type. Maps to the new 'races'
+// bucket (which holds organized races; parkrun is now its own type).
+const TYPE_ALIASES = { running: 'races' };
+// Country code: any ISO 3166-1 alpha-2 (e.g. US, GB, FR, DE, JP) or "WORLD"
+// for the cross-country bucket used primarily by global event types like HYROX.
+const COUNTRY_REGEX = /^[A-Z]{2}$/;
+const WORLD_COUNTRY = 'WORLD';
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
 const DEFAULT_RADIUS = 100;
@@ -28,12 +34,19 @@ export async function handleEventsRequest(request, env) {
   };
 
   // Parse query params
-  const type = (url.searchParams.get('type') || 'all').toLowerCase();
+  const rawType = (url.searchParams.get('type') || 'all').toLowerCase();
+  const type = TYPE_ALIASES[rawType] || rawType;
   const country = (url.searchParams.get('country') || 'US').toUpperCase();
   const latParam = url.searchParams.get('lat');
   const lonParam = url.searchParams.get('lon');
   const radiusParam = url.searchParams.get('radius');
   const limitParam = url.searchParams.get('limit');
+  // Date range filter -- both optional, both YYYY-MM-DD.
+  const fromParam = url.searchParams.get('from');
+  const toParam = url.searchParams.get('to');
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  const fromDate = fromParam && dateRe.test(fromParam) ? fromParam : null;
+  const toDate = toParam && dateRe.test(toParam) ? toParam : null;
 
   // Validate type
   if (!VALID_TYPES.has(type)) {
@@ -43,10 +56,10 @@ export async function handleEventsRequest(request, env) {
     );
   }
 
-  // Validate country
-  if (!VALID_COUNTRIES.has(country)) {
+  // Validate country: ISO-2 code or the special WORLD bucket.
+  if (country !== WORLD_COUNTRY && !COUNTRY_REGEX.test(country)) {
     return new Response(
-      JSON.stringify({ error: `Invalid country. Must be one of: ${[...VALID_COUNTRIES].join(', ')}` }),
+      JSON.stringify({ error: `Invalid country. Use a 2-letter ISO code (e.g. "US", "GB") or "WORLD" for cross-country.` }),
       { status: 400, headers }
     );
   }
@@ -83,6 +96,10 @@ export async function handleEventsRequest(request, env) {
   // Filter to future events only (in case cache has stale data)
   const today = new Date().toISOString().slice(0, 10);
   events = events.filter((e) => e.startDate && e.startDate >= today);
+
+  // Apply user-supplied date range. Inclusive on both ends.
+  if (fromDate) events = events.filter((e) => e.startDate >= fromDate);
+  if (toDate) events = events.filter((e) => e.startDate <= toDate);
 
   // Geo filtering
   if (latParam && lonParam) {
@@ -128,13 +145,20 @@ export async function handleEventsRequest(request, env) {
       filters: {
         type,
         country,
+        ...(fromDate ? { from: fromDate } : {}),
+        ...(toDate ? { to: toDate } : {}),
         ...(latParam && lonParam
           ? { lat: parseFloat(latParam), lon: parseFloat(lonParam), radius: radiusParam ? parseFloat(radiusParam) : DEFAULT_RADIUS }
           : {}),
         limit,
       },
       meta: meta
-        ? { lastFetch: meta.timestamp, totalEvents: meta.totalEvents }
+        ? {
+            lastFetch: meta.timestamp,
+            totalEvents: meta.totalEvents,
+            sourceCounts: meta.sourceCounts || {},
+            byCountry: meta.byCountry || {},
+          }
         : null,
     }),
     { status: 200, headers }

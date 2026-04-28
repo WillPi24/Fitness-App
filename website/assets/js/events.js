@@ -11,10 +11,19 @@ const API_BASE = LOCAL_API_OVERRIDE || '';
   const status = document.getElementById('events-status');
   const pills = document.querySelectorAll('.events-pill');
   const countrySelect = document.getElementById('events-country');
+  const dateFromInput = document.getElementById('events-date-from');
+  const dateToInput = document.getElementById('events-date-to');
+  const datesResetButton = document.getElementById('events-dates-reset');
 
   let activeType = '';
   let currentRequestId = 0;
   let activeController = null;
+
+  function updateDatesResetVisibility() {
+    if (!datesResetButton) return;
+    const hasDates = (dateFromInput && dateFromInput.value) || (dateToInput && dateToInput.value);
+    datesResetButton.classList.toggle('is-visible', !!hasDates);
+  }
 
   // ── Helpers ──
 
@@ -113,11 +122,21 @@ const API_BASE = LOCAL_API_OVERRIDE || '';
   function fetchEvents() {
     var country = countrySelect.value;
     var type = activeType;
+    var fromValue = dateFromInput ? dateFromInput.value : '';
+    var toValue = dateToInput ? dateToInput.value : '';
     var params = new URLSearchParams();
     params.set('country', country);
     if (type) {
       params.set('type', type);
     }
+    if (fromValue) {
+      params.set('from', fromValue);
+    }
+    if (toValue) {
+      params.set('to', toValue);
+    }
+
+    updateDatesResetVisibility();
 
     var url = (API_BASE || '') + '/api/events?' + params.toString();
     var requestId = ++currentRequestId;
@@ -193,6 +212,24 @@ const API_BASE = LOCAL_API_OVERRIDE || '';
   countrySelect.addEventListener('change', function () {
     fetchEvents();
   });
+
+  if (dateFromInput) {
+    dateFromInput.addEventListener('change', function () {
+      fetchEvents();
+    });
+  }
+  if (dateToInput) {
+    dateToInput.addEventListener('change', function () {
+      fetchEvents();
+    });
+  }
+  if (datesResetButton) {
+    datesResetButton.addEventListener('click', function () {
+      if (dateFromInput) dateFromInput.value = '';
+      if (dateToInput) dateToInput.value = '';
+      fetchEvents();
+    });
+  }
 
   // ── Init ──
   fetchEvents();

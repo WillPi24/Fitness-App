@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Find Fitness Events Near You | Helm</title>
-  <meta name="description" content="Search upcoming powerlifting meets, bodybuilding shows, and running races in the US and UK. Find your next competition.">
+  <meta name="description" content="Search upcoming powerlifting meets, bodybuilding shows, marathons, halfs, ultras, HYROX races, and weekly parkruns in the US and UK. Find your next competition.">
   <link rel="canonical" href="https://helmfit.com/events.html">
 
   <!-- Open Graph -->
   <meta property="og:title" content="Find Fitness Events Near You | Helm">
-  <meta property="og:description" content="Search upcoming powerlifting meets, bodybuilding shows, and running races in the US and UK. Find your next competition.">
+  <meta property="og:description" content="Search upcoming powerlifting meets, bodybuilding shows, marathons, halfs, ultras, HYROX races, and weekly parkruns in the US and UK. Find your next competition.">
   <meta property="og:url" content="https://helmfit.com/events.html">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://helmfit.com/assets/images/helm-app-icon.png">
@@ -18,7 +18,7 @@
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Find Fitness Events Near You | Helm">
-  <meta name="twitter:description" content="Search upcoming powerlifting meets, bodybuilding shows, and running races in the US and UK. Find your next competition.">
+  <meta name="twitter:description" content="Search upcoming powerlifting meets, bodybuilding shows, marathons, halfs, ultras, HYROX races, and weekly parkruns in the US and UK. Find your next competition.">
 
   <link rel="icon" type="image/png" href="assets/images/helm-app-icon.png">
   <link rel="stylesheet" href="assets/css/style.css?v=20260422a">
@@ -66,6 +66,51 @@
       font-size: 0.9375rem;
       background: #F7F3EE;
       font-family: 'Space Grotesk', sans-serif;
+    }
+    .events-filters__dates {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .events-date {
+      padding: 9px 14px;
+      border-radius: 999px;
+      border: 1px solid #E4DDD5;
+      font-size: 0.9375rem;
+      background: #F7F3EE;
+      font-family: 'Space Grotesk', sans-serif;
+      color: #1B1F24;
+      min-width: 0;
+    }
+    .events-date:focus {
+      outline: none;
+      border-color: #E4572E;
+    }
+    .events-dates__sep {
+      font-size: 0.875rem;
+      color: #5C6670;
+    }
+    .events-dates__reset {
+      display: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid #E4DDD5;
+      background: #F7F3EE;
+      color: #5C6670;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0;
+      align-items: center;
+      justify-content: center;
+    }
+    .events-dates__reset.is-visible {
+      display: inline-flex;
+    }
+    .events-dates__reset:hover {
+      color: #E4572E;
+      border-color: #E4572E;
     }
     .events-grid {
       display: grid;
@@ -136,6 +181,9 @@
       .events-grid { grid-template-columns: 1fr; }
       .events-filters__bar { flex-direction: column; }
     }
+    /* Tighten the gap between the page header and the filter bar. */
+    .page-header { padding-bottom: 16px; }
+    .page-header + .section { padding-top: 16px; }
   </style>
 </head>
 <body>
@@ -176,7 +224,7 @@
     <div class="container">
       <span class="t-label">EVENTS</span>
       <h1 class="t-display">Find your next competition</h1>
-      <p class="t-body-lg">Search upcoming powerlifting meets, bodybuilding shows, and running races near you.</p>
+      <p class="t-body-lg">Search upcoming powerlifting meets, bodybuilding shows, marathons, halfs, ultras, HYROX races, and weekly parkruns.</p>
     </div>
   </header>
 
@@ -190,7 +238,9 @@
             <button class="events-pill active" data-type="">All</button>
             <button class="events-pill" data-type="powerlifting">Powerlifting</button>
             <button class="events-pill" data-type="bodybuilding">Bodybuilding</button>
-            <button class="events-pill" data-type="running">Running</button>
+            <button class="events-pill" data-type="races">Races</button>
+            <button class="events-pill" data-type="hyrox">HYROX</button>
+            <button class="events-pill" data-type="parkrun">parkrun</button>
           </div>
         </div>
         <div class="events-filters__group">
@@ -199,6 +249,15 @@
             <option value="US">United States</option>
             <option value="GB">United Kingdom</option>
           </select>
+        </div>
+        <div class="events-filters__group">
+          <label class="t-label" style="font-size: 0.75rem;">Date range</label>
+          <div class="events-filters__dates">
+            <input type="date" class="events-date" id="events-date-from" aria-label="From date">
+            <span class="events-dates__sep">to</span>
+            <input type="date" class="events-date" id="events-date-to" aria-label="To date">
+            <button type="button" class="events-dates__reset" id="events-dates-reset" aria-label="Clear dates" title="Clear dates">&times;</button>
+          </div>
         </div>
       </div>
 
@@ -267,6 +326,6 @@
   </footer>
 
   <script src="assets/js/main.js?v=7"></script>
-  <script src="assets/js/events.js?v=7"></script>
+  <script src="assets/js/events.js?v=9"></script>
 </body>
 </html>

@@ -11,11 +11,17 @@ import { fetchNPC } from './fetchers/npc.js';
 import { fetchIFBBPro } from './fetchers/ifbbpro.js';
 import { fetchBritishPL } from './fetchers/britishpl.js';
 import { fetchUKBFF } from './fetchers/ukbff.js';
+import { fetchFrontDouble } from './fetchers/frontdouble.js';
+import { fetchRoxRadar } from './fetchers/roxradar.js';
+import { fetchProPhysiques } from './fetchers/prophysiques.js';
+import { fetchRunSignup } from './fetchers/runsignup.js';
+import { fetchRunningCalendar } from './fetchers/runningcalendar.js';
 
-// Countries we support
-const COUNTRIES = ['US', 'GB'];
+// Country buckets we always write KV keys for (so the API never 404s on these).
+// Other countries (FR, DE, JP, etc.) get buckets too if any event lands there.
+const DEFAULT_COUNTRIES = ['US', 'GB'];
 // Event types we support
-const TYPES = ['powerlifting', 'bodybuilding', 'running'];
+const TYPES = ['powerlifting', 'bodybuilding', 'races', 'hyrox', 'parkrun'];
 
 /**
  * Run all fetchers, deduplicate, filter, sort, and write to KV.
@@ -35,6 +41,11 @@ export async function collectEvents(env) {
     fetchIFBBPro(),
     fetchBritishPL(),
     fetchUKBFF(),
+    fetchFrontDouble(),
+    fetchRoxRadar(),
+    fetchProPhysiques(),
+    fetchRunSignup(),
+    fetchRunningCalendar(),
 
     // RSS feed
     fetchRPS(),
@@ -87,11 +98,17 @@ export async function collectEvents(env) {
     return 0;
   });
 
-  // Group by type and country, then write to KV
+  // Group by type and country, then write to KV.
+  // Always write buckets for DEFAULT_COUNTRIES (US/GB) so the API never 404s
+  // on those, plus any other country that actually has events this run
+  // (e.g. HYROX races in FR/DE/JP). Also write a "WORLD" bucket per type
+  // containing every event of that type globally — used by the events page's
+  // "Worldwide" filter for global event series like HYROX.
+  const seenCountries = new Set(allEvents.map((e) => e.country).filter(Boolean));
+  const allCountries = new Set([...DEFAULT_COUNTRIES, ...seenCountries]);
   const kvWrites = [];
 
-  for (const country of COUNTRIES) {
-    // All events for this country
+  for (const country of allCountries) {
     const countryEvents = allEvents.filter((e) => e.country === country);
 
     kvWrites.push(
@@ -102,7 +119,6 @@ export async function collectEvents(env) {
       )
     );
 
-    // Per-type events
     for (const type of TYPES) {
       const typed = countryEvents.filter((e) => e.type === type);
       kvWrites.push(
@@ -115,7 +131,26 @@ export async function collectEvents(env) {
     }
   }
 
-  // Write metadata
+  // WORLD buckets: every event of a given type, regardless of country.
+  kvWrites.push(
+    env.EVENTS_KV.put(
+      `events:all:WORLD`,
+      JSON.stringify(allEvents),
+      { expirationTtl: 604800 }
+    )
+  );
+  for (const type of TYPES) {
+    const typed = allEvents.filter((e) => e.type === type);
+    kvWrites.push(
+      env.EVENTS_KV.put(
+        `events:${type}:WORLD`,
+        JSON.stringify(typed),
+        { expirationTtl: 604800 }
+      )
+    );
+  }
+
+  // Write metadata. byCountry covers every country we wrote a bucket for.
   kvWrites.push(
     env.EVENTS_KV.put(
       'meta:last-fetch',
@@ -124,7 +159,7 @@ export async function collectEvents(env) {
         totalEvents: allEvents.length,
         sourceCounts,
         byCountry: Object.fromEntries(
-          COUNTRIES.map((c) => [c, allEvents.filter((e) => e.country === c).length])
+          [...allCountries].map((c) => [c, allEvents.filter((e) => e.country === c).length])
         ),
       }),
       { expirationTtl: 604800 }
