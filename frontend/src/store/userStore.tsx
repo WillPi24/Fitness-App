@@ -32,6 +32,7 @@ export function fromDisplayWeight(value: number, unit: WeightUnit): number {
 }
 
 type PendingSignUp = { name: string; email: string };
+type SignUpNextStep = 'verify-email' | 'bodyinfo';
 
 type UserContextValue = {
   user: UserProfile | null;
@@ -39,7 +40,7 @@ type UserContextValue = {
   isLoading: boolean;
   error: string | null;
   clearError: () => void;
-  signUp: (name: string, email: string, password: string) => Promise<boolean>;
+  signUp: (name: string, email: string, password: string) => Promise<SignUpNextStep | false>;
   verifySignUpOtp: (email: string, token: string) => Promise<boolean>;
   resendSignUpOtp: (email: string) => Promise<boolean>;
   setBodyInfo: (sex: UserSex, bodyweightKg: number, weightUnit: WeightUnit) => void;
@@ -95,6 +96,14 @@ function isUserProfile(value: unknown): value is UserProfile {
   return false;
 }
 
+function deriveProfileName(email: string, preferredName?: string | null): string {
+  if (preferredName && preferredName.trim().length > 0) {
+    return preferredName.trim();
+  }
+  const localPart = email.split('@')[0] ?? 'User';
+  return localPart.trim() || 'User';
+}
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [pendingSignUp, setPendingSignUp] = useState<PendingSignUp | null>(null);
@@ -102,19 +111,76 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const hasLoadedRef = useRef(false);
 
+  const resolveProfileForAuthUser = useCallback(
+    async (
+      authUser: { email?: string | null; user_metadata?: Record<string, unknown> | null } | null | undefined,
+      preferredName?: string,
+    ): Promise<UserProfile | null> => {
+      const email = authUser?.email?.trim().toLowerCase();
+      if (!email) {
+        return null;
+      }
+
+      if (supabase) {
+        try {
+          const { data } = await supabase
+            .from('user_data')
+            .select('data')
+            .eq('data_key', 'userProfile')
+            .single();
+
+          if (data?.data && isUserProfile(data.data)) {
+            return data.data;
+          }
+        } catch {}
+      }
+
+      const metadataName =
+        typeof authUser?.user_metadata?.name === 'string'
+          ? authUser.user_metadata.name
+          : typeof authUser?.user_metadata?.full_name === 'string'
+            ? authUser.user_metadata.full_name
+            : undefined;
+
+      return {
+        name: deriveProfileName(email, preferredName ?? metadataName),
+        email,
+        sex: 'male',
+        bodyweightKg: 0,
+        weightUnit: 'kg',
+        createdAt: Date.now(),
+      };
+    },
+    [],
+  );
+
   // On mount: check Supabase session, then load local profile
   useEffect(() => {
     const load = async () => {
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const session = sessionData?.session;
-
         const raw = await AsyncStorage.getItem(USER_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (isUserProfile(parsed)) {
-            if (session) {
+            if (!supabase) {
               setUser(parsed);
+            } else {
+              const { data: sessionData } = await supabase.auth.getSession();
+              const session = sessionData?.session;
+              if (session) {
+                setUser(parsed);
+              }
+            }
+          }
+        }
+
+        if (supabase) {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const session = sessionData?.session;
+          if (session && !raw) {
+            const profile = await resolveProfileForAuthUser(session.user);
+            if (profile) {
+              setUser(profile);
             }
           }
         }
@@ -127,6 +193,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     };
     load();
 
+    if (!supabase) {
+      return;
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         setUser(null);
@@ -134,7 +204,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [resolveProfileForAuthUser]);
 
   // Save to AsyncStorage + push to Supabase whenever profile changes
   useEffect(() => {
@@ -154,7 +224,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     save();
   }, [user]);
 
-  const signUp = useCallback(async (name: string, email: string, password: string) => {
+  const signUp = useCallback(async (name: string, email: string, password: string): Promise<SignUpNextStep | false> => {
     if (!name.trim()) {
       setError('Please enter your name.');
       return false;
@@ -168,8 +238,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    const { error: authError } = await supabase.auth.signUp({
-      email: email.trim().toLowerCase(),
+    if (!supabase) {
+      setError('Authentication is unavailable because Supabase is not configured in this build.');
+      return false;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: normalizedEmail,
       password,
       options: { data: { name: name.trim() } },
     });
@@ -183,14 +259,29 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.multiRemove(STALE_KEYS).catch(() => {});
     await clearSyncTimestamps();
 
-    // Don't set user profile yet - wait for email verification
-    setPendingSignUp({ name: name.trim(), email: email.trim().toLowerCase() });
+    if (authData.session?.user) {
+      const profile = await resolveProfileForAuthUser(authData.session.user, name.trim());
+      if (profile) {
+        setUser(profile);
+      }
+      setPendingSignUp(null);
+      setError(null);
+      return 'bodyinfo';
+    }
+
+    // Verification is required before the session exists.
+    setPendingSignUp({ name: name.trim(), email: normalizedEmail });
     setError(null);
-    return true;
-  }, []);
+    return 'verify-email';
+  }, [resolveProfileForAuthUser]);
 
   const verifySignUpOtp = useCallback(async (email: string, token: string) => {
-    const { error: authError } = await supabase.auth.verifyOtp({
+    if (!supabase) {
+      setError('Authentication is unavailable because Supabase is not configured in this build.');
+      return false;
+    }
+
+    const { data: authData, error: authError } = await supabase.auth.verifyOtp({
       email,
       token,
       type: 'signup',
@@ -201,22 +292,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    // Email verified - now create the user profile
-    const name = pendingSignUp?.name ?? '';
-    setUser({
-      name,
-      email,
-      sex: 'male',
-      bodyweightKg: 0,
-      weightUnit: 'kg',
-      createdAt: Date.now(),
-    });
+    const profile = await resolveProfileForAuthUser(authData.user, pendingSignUp?.name);
+    if (profile) {
+      setUser(profile);
+    }
     setPendingSignUp(null);
     setError(null);
     return true;
-  }, [pendingSignUp]);
+  }, [pendingSignUp, resolveProfileForAuthUser]);
 
   const resendSignUpOtp = useCallback(async (email: string) => {
+    if (!supabase) {
+      setError('Authentication is unavailable because Supabase is not configured in this build.');
+      return false;
+    }
+
     const { error: authError } = await supabase.auth.resend({
       type: 'signup',
       email,
@@ -238,7 +328,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    if (!supabase) {
+      setError('Authentication is unavailable because Supabase is not configured in this build.');
+      return false;
+    }
+
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
     });
@@ -248,46 +343,36 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    // Pull profile from Supabase if it exists
-    try {
-      const { data } = await supabase
-        .from('user_data')
-        .select('data')
-        .eq('data_key', 'userProfile')
-        .single();
-
-      if (data?.data && isUserProfile(data.data)) {
-        setUser(data.data);
-        setError(null);
-        return true;
-      }
-    } catch {}
-
-    // Fall back to local profile
-    try {
-      const raw = await AsyncStorage.getItem(USER_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (isUserProfile(parsed)) {
-          setUser(parsed);
-          setError(null);
-          return true;
-        }
-      }
-    } catch {}
+    const profile = await resolveProfileForAuthUser(authData.user);
+    if (profile) {
+      setUser(profile);
+      setError(null);
+      return true;
+    }
 
     setError('No profile found. Please sign up.');
     return false;
-  }, []);
+  }, [resolveProfileForAuthUser]);
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
     resetPullCache();
     await clearSyncTimestamps();
     setUser(null);
   }, []);
 
   const deleteAccount = useCallback(async () => {
+    if (!supabase) {
+      await AsyncStorage.multiRemove([USER_KEY, ...STALE_KEYS]).catch(() => {});
+      await clearSyncTimestamps();
+      resetPullCache();
+      setUser(null);
+      setError('Account deletion is unavailable because Supabase is not configured in this build.');
+      return false;
+    }
+
     try {
       const { error: rpcError } = await supabase.rpc('delete_own_account');
       if (rpcError) {
@@ -308,6 +393,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const sendPasswordReset = useCallback(async (email: string) => {
+    if (!supabase) {
+      setError('Authentication is unavailable because Supabase is not configured in this build.');
+      return false;
+    }
     const { error: authError } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
 
     if (authError) {
@@ -319,6 +408,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const verifyPasswordResetOtp = useCallback(async (email: string, token: string) => {
+    if (!supabase) {
+      setError('Authentication is unavailable because Supabase is not configured in this build.');
+      return false;
+    }
     const { error: authError } = await supabase.auth.verifyOtp({
       email,
       token,
@@ -336,6 +429,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const updatePassword = useCallback(async (newPassword: string) => {
     if (newPassword.length < 6) {
       setError('Password must be at least 6 characters.');
+      return false;
+    }
+
+    if (!supabase) {
+      setError('Authentication is unavailable because Supabase is not configured in this build.');
       return false;
     }
 

@@ -10,7 +10,7 @@ import type { ThemeColors } from '../theme';
 
 type SignUpScreenProps = {
   onBack: () => void;
-  onNext: (email: string) => void;
+  onNext: (email: string, nextStep: 'verify-email' | 'bodyinfo') => void;
   onPrivacy: () => void;
   onTerms: () => void;
 };
@@ -30,8 +30,8 @@ export function SignUpScreen({ onBack, onNext, onPrivacy, onTerms }: SignUpScree
     clearError();
     setLoading(true);
     try {
-      const ok = await signUp(name, email, password);
-      if (ok) onNext(email.trim().toLowerCase());
+      const nextStep = await signUp(name, email, password);
+      if (nextStep) onNext(email.trim().toLowerCase(), nextStep);
     } finally {
       setLoading(false);
     }

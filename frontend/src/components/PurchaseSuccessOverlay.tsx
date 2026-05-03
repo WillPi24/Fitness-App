@@ -10,13 +10,11 @@ import type { ThemeColors } from '../theme';
 const AUTO_DISMISS_MS = 9000;
 const WHEEL_SIZE = 200;
 
-const AnimatedG = Animated.createAnimatedComponent(G);
-
 function HelmWheel({ colors, rotation }: { colors: ThemeColors; rotation: Animated.AnimatedInterpolation<string> }) {
   return (
-    <Svg width={WHEEL_SIZE} height={WHEEL_SIZE} viewBox="0 0 200 200">
-      <AnimatedG style={{ transform: [{ rotate: rotation }] }} originX={100} originY={100}>
-        {/* 8 spokes — drawn first so the rim covers their middles, leaving handles outside */}
+    <Animated.View style={{ width: WHEEL_SIZE, height: WHEEL_SIZE, transform: [{ rotate: rotation }] }}>
+      <Svg width={WHEEL_SIZE} height={WHEEL_SIZE} viewBox="0 0 200 200">
+        {/* 8 spokes - drawn first so the rim covers their middles, leaving handles outside */}
         <G stroke={colors.accent} strokeWidth={14} strokeLinecap="round">
           <Line x1={100} y1={100} x2={100} y2={14} />
           <Line x1={100} y1={100} x2={100} y2={186} />
@@ -28,18 +26,18 @@ function HelmWheel({ colors, rotation }: { colors: ThemeColors; rotation: Animat
           <Line x1={100} y1={100} x2={161} y2={161} />
         </G>
 
-        {/* Outer rim — donut shape via fill-rule="evenodd" */}
+        {/* Outer rim - donut shape via fill-rule="evenodd" */}
         <Path
           d="M 100 30 A 70 70 0 1 0 100 170 A 70 70 0 1 0 100 30 Z M 100 46 A 54 54 0 1 1 100 154 A 54 54 0 1 1 100 46 Z"
           fill={colors.accent}
           fillRule="evenodd"
         />
 
-        {/* Hub — solid disc with hollow centre matching card surface */}
+        {/* Hub - solid disc with hollow centre matching card surface */}
         <Circle cx={100} cy={100} r={18} fill={colors.accent} />
         <Circle cx={100} cy={100} r={9} fill={colors.surface} />
-      </AnimatedG>
-    </Svg>
+      </Svg>
+    </Animated.View>
   );
 }
 

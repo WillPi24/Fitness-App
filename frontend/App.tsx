@@ -48,10 +48,14 @@ const Tab = createMaterialTopTabNavigator<RootTabParamList>();
 
 type AuthStep = 'welcome' | 'signup' | 'verify-email' | 'bodyinfo' | 'focus' | 'login' | 'forgot-password' | 'privacy' | 'terms';
 
-function AuthFlow({ onComplete }: { onComplete: () => void }) {
-  const [step, setStep] = useState<AuthStep>('welcome');
+function AuthFlow({ initialStep = 'welcome', onComplete }: { initialStep?: AuthStep; onComplete: () => void }) {
+  const [step, setStep] = useState<AuthStep>(initialStep);
   const [returnStep, setReturnStep] = useState<AuthStep>('signup');
   const [signUpEmail, setSignUpEmail] = useState('');
+
+  useEffect(() => {
+    setStep(initialStep);
+  }, [initialStep]);
 
   const openLegal = (type: 'privacy' | 'terms', from: AuthStep) => {
     setReturnStep(from);
@@ -70,9 +74,9 @@ function AuthFlow({ onComplete }: { onComplete: () => void }) {
       return (
         <SignUpScreen
           onBack={() => setStep('welcome')}
-          onNext={(email: string) => {
+          onNext={(email: string, nextStep: 'verify-email' | 'bodyinfo') => {
             setSignUpEmail(email);
-            setStep('verify-email');
+            setStep(nextStep);
           }}
           onPrivacy={() => openLegal('privacy', 'signup')}
           onTerms={() => openLegal('terms', 'signup')}
@@ -312,7 +316,6 @@ function MainApp() {
 function AppContent() {
   const { user, isLoading } = useUserStore();
   const { colors } = useTheme();
-  const [authComplete, setAuthComplete] = useState(false);
 
   if (isLoading) {
     return (
@@ -322,13 +325,23 @@ function AppContent() {
     );
   }
 
-  const isSignedIn = user && user.bodyweightKg > 0 && user.focus;
+  const needsBodyInfo = Boolean(user && user.bodyweightKg <= 0);
+  const needsFocus = Boolean(user && user.bodyweightKg > 0 && !user.focus);
+  const isSignedIn = Boolean(user && user.bodyweightKg > 0 && user.focus);
 
   if (!isSignedIn) {
+    const initialStep: AuthStep = !user
+      ? 'welcome'
+      : needsBodyInfo
+        ? 'bodyinfo'
+        : needsFocus
+          ? 'focus'
+          : 'welcome';
+
     return (
       <>
         <StatusBar style="dark" />
-        <AuthFlow onComplete={() => setAuthComplete(true)} />
+        <AuthFlow initialStep={initialStep} onComplete={() => {}} />
       </>
     );
   }

@@ -57,7 +57,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
         // Alias the RC customer to the Supabase user ID if signed in,
         // so the subscription follows the user across devices/reinstalls.
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = supabase ? (await supabase.auth.getSession()).data.session : null;
         if (session?.user?.id) {
           try {
             await Purchases.logIn(session.user.id);
@@ -90,17 +90,19 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     });
 
     // Keep RC's app-user-id in sync with Supabase auth state
-    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user?.id) {
-        Purchases.logIn(session.user.id).catch((e) => {
-          console.warn('[subscription] logIn failed:', e);
-        });
-      } else if (event === 'SIGNED_OUT') {
-        Purchases.logOut().catch((e) => {
-          console.warn('[subscription] logOut failed:', e);
-        });
-      }
-    });
+    const authSubscription = supabase
+      ? supabase.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_IN' && session?.user?.id) {
+            Purchases.logIn(session.user.id).catch((e) => {
+              console.warn('[subscription] logIn failed:', e);
+            });
+          } else if (event === 'SIGNED_OUT') {
+            Purchases.logOut().catch((e) => {
+              console.warn('[subscription] logOut failed:', e);
+            });
+          }
+        }).data.subscription
+      : null;
 
     // Re-check on app foreground
     const appStateListener = AppState.addEventListener('change', (state) => {
@@ -114,7 +116,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     });
 
     return () => {
-      authSubscription.unsubscribe();
+      authSubscription?.unsubscribe();
       appStateListener.remove();
     };
   }, []);

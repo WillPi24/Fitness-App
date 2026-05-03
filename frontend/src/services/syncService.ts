@@ -38,6 +38,7 @@ async function saveSyncTimestamps(timestamps: Record<string, string>): Promise<v
 
 /** Upsert a single data blob to Supabase. Fire-and-forget - never throws. */
 export async function pushKey(dataKey: SyncedDataKey, data: unknown): Promise<boolean> {
+  if (!supabase) return false;
   try {
     const { data: session } = await supabase.auth.getSession();
     const userId = session?.session?.user?.id;
@@ -72,6 +73,7 @@ export async function pushKey(dataKey: SyncedDataKey, data: unknown): Promise<bo
 
 /** Fetch all synced data for the current user. Returns a map of dataKey → data. */
 export async function pullAll(): Promise<Record<string, unknown> | null> {
+  if (!supabase) return null;
   try {
     const { data: session } = await supabase.auth.getSession();
     const userId = session?.session?.user?.id;
@@ -106,6 +108,7 @@ export async function pullAll(): Promise<Record<string, unknown> | null> {
  * Returns a map of changed dataKey → data, or null if nothing changed / error.
  */
 export async function pullChanged(): Promise<Record<string, unknown> | null> {
+  if (!supabase) return null;
   try {
     const { data: session } = await supabase.auth.getSession();
     const userId = session?.session?.user?.id;
