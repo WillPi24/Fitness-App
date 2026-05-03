@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
+  InteractionManager,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -146,7 +147,7 @@ function getFoodSelectionValues(food: FoodSearchResult) {
 
 export function CalorieScreen() {
   const { colors } = useTheme();
-  const { isSubscribed, showPaywall } = useSubscription();
+  const { isSubscribed, showPaywall, hidePaywall } = useSubscription();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const {
     calorieDays,
@@ -509,6 +510,7 @@ export function CalorieScreen() {
 
   const handleSelectSearchResult = async (food: FoodSearchResult) => {
     const servingScale = applyFoodSelectionToDraft(food);
+    hidePaywall();
     setFoodPickerOpen(false);
     setEntryModalOpen(true);
 
@@ -526,8 +528,18 @@ export function CalorieScreen() {
     }
   };
 
+  const handleShowPaywallFromFoodPicker = useCallback(() => {
+    setFoodPickerOpen(false);
+    InteractionManager.runAfterInteractions(() => {
+      showPaywall();
+    });
+  }, [showPaywall]);
+
   const handleOpenScanner = () => {
-    if (!isSubscribed) { showPaywall(); return; }
+    if (!isSubscribed) {
+      handleShowPaywallFromFoodPicker();
+      return;
+    }
     setFoodPickerOpen(false);
     barcodeScanInFlightRef.current = false;
     setBarcodeLookupOpen(false);
@@ -749,7 +761,10 @@ export function CalorieScreen() {
   };
 
   const handleOpenSavedMeals = () => {
-    if (!isSubscribed) { showPaywall(); return; }
+    if (!isSubscribed) {
+      handleShowPaywallFromFoodPicker();
+      return;
+    }
     setFoodPickerOpen(false);
     setSavedMealEditMode('list');
     setSavedMealsOpen(true);

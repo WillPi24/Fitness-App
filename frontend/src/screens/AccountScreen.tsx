@@ -1,12 +1,13 @@
 import { Feather } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BodyMeasurements } from '../components/BodyMeasurements';
 import { BodyweightTracker } from '../components/BodyweightTracker';
 import { Card } from '../components/Card';
 import RevenueCatUI from 'react-native-purchases-ui';
+import Purchases, { type CustomerInfo } from 'react-native-purchases';
 import { FeatureGate } from '../components/FeatureGate';
 import { ProgressPhotos } from '../components/ProgressPhotos';
 import { MoreToolsScreen } from './MoreToolsScreen';
@@ -19,6 +20,7 @@ import { useWorkoutStore } from '../store/workoutStore';
 import { spacing, typography } from '../theme';
 import type { ThemeColors } from '../theme';
 import { exportToJSON, exportWorkoutsToCSV, exportRunsToCSV, exportCaloriesToCSV } from '../services/exportData';
+import { ENTITLEMENT_ID } from '../services/subscriptionConfig';
 import {
   detectFileType,
   detectGarminDistanceUnit,
@@ -53,13 +55,24 @@ type ImportOptions = {
   garminDistanceUnit?: GarminDistanceUnit;
 };
 
+function formatSubscriptionDate(dateString: string | null) {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 export function AccountScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark, toggleColorMode } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const switchTrackOff = isDark ? '#4B5563' : '#B8ADA0';
   const { user, updateProfile, setFocus, signOut, deleteAccount, error: userError } = useUserStore();
-  const { restorePurchases } = useSubscription();
+  const { isSubscribed, isLoading: subscriptionLoading, restorePurchases, showPaywall } = useSubscription();
   const { workouts, importWorkouts } = useWorkoutStore();
   const { runs, importRuns } = useRunStore();
   const { calorieDays, importCalorieDays } = useCalorieStore();
@@ -89,6 +102,9 @@ export function AccountScreen() {
   const [strongImportUnit, setStrongImportUnit] = useState<WeightUnit>(user?.weightUnit ?? 'kg');
   const [garminUnitModalOpen, setGarminUnitModalOpen] = useState(false);
   const [garminDistanceUnit, setGarminDistanceUnit] = useState<GarminDistanceUnit>('km');
+  const [subscriptionInfo, setSubscriptionInfo] = useState<CustomerInfo | null>(null);
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
+  const [subscriptionActionLoading, setSubscriptionActionLoading] = useState(false);
 
   if (!user) return null;
 
@@ -140,6 +156,46 @@ export function AccountScreen() {
     }
     setEditModalOpen(false);
   };
+
+  const handleRestorePurchases = async () => {
+    setSubscriptionActionLoading(true);
+    const restored = await restorePurchases();
+    setSubscriptionActionLoading(false);
+
+    if (restored) {
+      Alert.alert('Purchases Restored', 'Your Full Sail access has been restored.');
+    } else {
+      Alert.alert('No Purchases Found', 'We could not find an active subscription for this account.');
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    if (subscriptionLoading) {
+      return;
+    }
+
+    if (!isSubscribed) {
+      showPaywall();
+      return;
+    }
+
+    setSubscriptionActionLoading(true);
+    try {
+      const info = await Purchases.getCustomerInfo();
+      setSubscriptionInfo(info);
+      setSubscriptionModalOpen(true);
+    } catch (error) {
+      console.error('Failed to load subscription info', error);
+      Alert.alert('Unavailable', 'We could not load your subscription details right now.');
+    } finally {
+      setSubscriptionActionLoading(false);
+    }
+  };
+
+  const activeEntitlement = subscriptionInfo?.entitlements.active[ENTITLEMENT_ID];
+  const renewalDateText = formatSubscriptionDate(activeEntitlement?.expirationDate ?? null);
+  const billingIssueDateText = formatSubscriptionDate(activeEntitlement?.billingIssueDetectedAt ?? null);
+  const cancellationDateText = formatSubscriptionDate(activeEntitlement?.unsubscribeDetectedAt ?? null);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -478,12 +534,28 @@ export function AccountScreen() {
           </Pressable>
         </Card>
 
-        <Pressable style={styles.restoreButton} onPress={restorePurchases}>
-          <Text style={styles.restoreText}>Restore Purchases</Text>
+        <Pressable
+          style={[styles.subscriptionButton, subscriptionActionLoading && styles.buttonDisabled]}
+          onPress={handleManageSubscription}
+          disabled={subscriptionActionLoading}
+        >
+          <Feather name="credit-card" size={18} color={colors.accent} />
+          <Text style={styles.subscriptionButtonText}>Manage Subscription</Text>
         </Pressable>
 
-        <Pressable style={styles.restoreButton} onPress={() => RevenueCatUI.presentCustomerCenter()}>
-          <Text style={styles.restoreText}>Manage Subscription</Text>
+        <Pressable
+          style={[styles.subscriptionButton, styles.subscriptionButtonSecondary, subscriptionActionLoading && styles.buttonDisabled]}
+          onPress={handleRestorePurchases}
+          disabled={subscriptionActionLoading}
+        >
+          {subscriptionActionLoading ? (
+            <ActivityIndicator color={colors.accent} size="small" />
+          ) : (
+            <>
+              <Feather name="refresh-cw" size={18} color={colors.accent} />
+              <Text style={styles.subscriptionButtonText}>Restore Purchases</Text>
+            </>
+          )}
         </Pressable>
 
         <Pressable style={styles.signOutButton} onPress={() => setConfirmSignOut(true)}>
@@ -803,6 +875,50 @@ export function AccountScreen() {
         </View>
       </Modal>
 
+      <Modal visible={subscriptionModalOpen} transparent animationType="fade" onRequestClose={() => setSubscriptionModalOpen(false)}>
+        <View style={styles.confirmBackdrop}>
+          <Card style={styles.confirmModal}>
+            <Text style={styles.modalTitle}>Subscription</Text>
+
+            {activeEntitlement ? (
+              <View style={styles.subscriptionSummary}>
+                <Text style={styles.confirmText}>
+                  Plan: Full Sail
+                </Text>
+                <Text style={styles.confirmText}>
+                  Status: {activeEntitlement.willRenew ? 'Active and renewing' : 'Active, not renewing'}
+                </Text>
+                {renewalDateText ? (
+                  <Text style={styles.confirmText}>
+                    {activeEntitlement.willRenew ? 'Next charge' : 'Access until'}: {renewalDateText}
+                  </Text>
+                ) : null}
+                {cancellationDateText ? (
+                  <Text style={styles.confirmText}>
+                    Cancellation detected: {cancellationDateText}
+                  </Text>
+                ) : null}
+                {billingIssueDateText ? (
+                  <Text style={styles.errorText}>
+                    Billing issue detected: {billingIssueDateText}
+                  </Text>
+                ) : null}
+              </View>
+            ) : (
+              <Text style={styles.confirmText}>
+                We could not find an active Full Sail subscription on this account.
+              </Text>
+            )}
+
+            <View style={styles.confirmActions}>
+              <Pressable style={styles.confirmCancelCentered} onPress={() => setSubscriptionModalOpen(false)}>
+                <Text style={styles.confirmCancelText}>Close</Text>
+              </Pressable>
+            </View>
+          </Card>
+        </View>
+      </Modal>
+
       {/* Sign Out Confirmation */}
       <Modal visible={confirmSignOut} transparent animationType="fade" onRequestClose={() => setConfirmSignOut(false)}>
         <View style={styles.confirmBackdrop}>
@@ -980,15 +1096,29 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  restoreButton: {
+  subscriptionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     alignSelf: 'center',
+    gap: spacing.sm,
+    minWidth: 240,
     paddingVertical: 12,
+    paddingHorizontal: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: 14,
+    backgroundColor: colors.accentSoft,
     marginTop: spacing.lg,
   },
-  restoreText: {
-    ...typography.body,
-    color: colors.muted,
-    fontSize: 14,
+  subscriptionButtonSecondary: {
+    marginTop: spacing.sm,
+  },
+  subscriptionButtonText: {
+    ...typography.headline,
+    color: colors.accent,
+    fontSize: 16,
+    textAlign: 'center',
   },
   signOutButton: {
     flexDirection: 'row',
@@ -1196,6 +1326,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     ...typography.body,
     color: colors.muted,
   },
+  subscriptionSummary: {
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
   confirmActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -1209,9 +1343,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
+  confirmCancelCentered: {
+    minWidth: 120,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   confirmCancelText: {
     ...typography.body,
     color: colors.text,
+    textAlign: 'center',
   },
   confirmDanger: {
     backgroundColor: colors.danger,
