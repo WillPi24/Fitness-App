@@ -21,6 +21,12 @@ const FEATURES = [
   { icon: 'trending-up' as const, label: 'Race predictor' },
 ];
 
+function getFallbackPackageTypeLabel(identifier: string) {
+  return identifier
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export function PaywallModal() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -30,11 +36,21 @@ export function PaywallModal() {
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
-  const yearlyPackage = offerings?.current?.annual ?? null;
-  const monthlyPackage = offerings?.current?.monthly ?? null;
+  const currentOffering = offerings?.current ?? null;
+  const availablePackages = currentOffering?.availablePackages ?? [];
+  const fallbackPackage = availablePackages[0] ?? null;
+  const yearlyPackage = currentOffering?.annual ?? fallbackPackage;
+  const monthlyPackage = currentOffering?.monthly ?? availablePackages.find((pkg) => pkg.identifier !== yearlyPackage?.identifier) ?? fallbackPackage;
+  const hasStandardPackages = Boolean(currentOffering?.annual || currentOffering?.monthly);
+  const subscribePackage =
+    selectedPlan === 'yearly'
+      ? yearlyPackage ?? monthlyPackage
+      : monthlyPackage ?? yearlyPackage;
 
   const yearlyPrice = yearlyPackage?.product.priceString ?? '£29.99/year';
   const monthlyPrice = monthlyPackage?.product.priceString ?? '£2.99/month';
+  const yearlyLabel = currentOffering?.annual ? 'Yearly' : yearlyPackage ? getFallbackPackageTypeLabel(yearlyPackage.identifier) : 'Yearly';
+  const monthlyLabel = currentOffering?.monthly ? 'Monthly' : monthlyPackage ? getFallbackPackageTypeLabel(monthlyPackage.identifier) : 'Monthly';
 
   // £30/year vs £2.99*12=£35.88/year = ~16% savings
 
@@ -44,9 +60,15 @@ export function PaywallModal() {
     : '£2.50/mo'; // £30/12
 
   const handlePurchase = async () => {
-    const pkg: PurchasesPackage | null = selectedPlan === 'yearly' ? yearlyPackage : monthlyPackage;
+    const pkg: PurchasesPackage | null = subscribePackage;
     if (!pkg) {
-      Alert.alert('Unavailable', 'Subscriptions are not available right now. Please try again later.');
+      const availablePackageIds = availablePackages.map((item) => item.identifier).join(', ');
+      const reason = !currentOffering
+        ? 'RevenueCat has no current offering configured.'
+        : availablePackages.length === 0
+          ? `Current offering "${currentOffering.identifier}" has no packages.`
+          : `Current offering "${currentOffering.identifier}" has packages, but none are exposed to the paywall. Found: ${availablePackageIds}.`;
+      Alert.alert('Unavailable', reason);
       return;
     }
     setLoading(true);
@@ -95,10 +117,12 @@ export function PaywallModal() {
               onPress={() => setSelectedPlan('yearly')}
             >
               <View style={styles.planHeader}>
-                <Text style={[styles.planName, selectedPlan === 'yearly' && styles.planNameSelected]}>Yearly</Text>
-                <View style={styles.saveBadge}>
-                  <Text style={styles.saveBadgeText}>SAVE 17%</Text>
-                </View>
+                <Text style={[styles.planName, selectedPlan === 'yearly' && styles.planNameSelected]}>{yearlyLabel}</Text>
+                {hasStandardPackages ? (
+                  <View style={styles.saveBadge}>
+                    <Text style={styles.saveBadgeText}>SAVE 17%</Text>
+                  </View>
+                ) : null}
               </View>
               <Text style={[styles.planPrice, selectedPlan === 'yearly' && styles.planPriceSelected]}>{yearlyPrice}</Text>
               <Text style={[styles.planSubtext, selectedPlan === 'yearly' && styles.planSubtextSelected]}>{yearlyMonthly}</Text>
@@ -108,10 +132,16 @@ export function PaywallModal() {
               style={[styles.planOption, selectedPlan === 'monthly' && styles.planOptionSelected]}
               onPress={() => setSelectedPlan('monthly')}
             >
-              <Text style={[styles.planName, selectedPlan === 'monthly' && styles.planNameSelected]}>Monthly</Text>
+              <Text style={[styles.planName, selectedPlan === 'monthly' && styles.planNameSelected]}>{monthlyLabel}</Text>
               <Text style={[styles.planPrice, selectedPlan === 'monthly' && styles.planPriceSelected]}>{monthlyPrice}</Text>
             </Pressable>
           </View>
+
+          {!hasStandardPackages && currentOffering ? (
+            <Text style={styles.packageHint}>
+              RevenueCat current offering "{currentOffering.identifier}" is using fallback package mapping.
+            </Text>
+          ) : null}
 
           <Pressable style={[styles.subscribeButton, loading && { opacity: 0.6 }]} onPress={handlePurchase} disabled={loading || restoring}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.subscribeButtonText}>Subscribe</Text>}
@@ -255,6 +285,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.muted,
     fontSize: 11,
     lineHeight: 16,
+    textAlign: 'center',
+  },
+  packageHint: {
+    ...typography.body,
+    color: colors.muted,
+    fontSize: 12,
     textAlign: 'center',
   },
 });
