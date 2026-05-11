@@ -51,7 +51,11 @@ frontend/ios/*
 !frontend/ios/FitnessApp/NativePaceKeeperModule.m
 
 # Wrangler / Miniflare local state
+.wrangler/
 website/workers/events-worker/.wrangler/
+
+# Claude Code local-only permission allowlist
+.claude/settings.local.json
 
 # Test artifacts
 test-output/
