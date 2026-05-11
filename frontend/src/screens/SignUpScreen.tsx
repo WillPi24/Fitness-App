@@ -92,7 +92,7 @@ export function SignUpScreen({ onBack, onNext, onPrivacy, onTerms }: SignUpScree
                   style={[styles.input, styles.passwordInput]}
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="At least 6 characters"
+                  placeholder="At least 8 characters"
                   placeholderTextColor={colors.muted}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"

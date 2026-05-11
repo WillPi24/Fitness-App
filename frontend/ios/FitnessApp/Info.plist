@@ -52,14 +52,11 @@
 	<string>Allow Helm to track your run route even when the screen is locked.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Allow Helm to access your location to track outdoor runs.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Allow $(PRODUCT_NAME) to access your microphone</string>
 	<key>RCTNewArchEnabled</key>
 	<false/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
-		<string>location</string>
 		<string>location</string>
 		<string>fetch</string>
 	</array>

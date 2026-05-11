@@ -1,8 +1,12 @@
-import type { CalorieDay } from '../store/calorieStore';
+import type { BodyweightEntry } from '../store/bodyweightStore';
+import type { CalorieDay, SavedMeal } from '../store/calorieStore';
+import type { CustomExercise } from '../store/customExerciseStore';
+import type { MeasurementEntry } from '../store/measurementStore';
+import type { ProgressPhoto } from '../store/progressPhotoStore';
 import type { RunSession } from '../store/runStore';
-import type { WeightUnit } from '../store/userStore';
+import type { UserProfile, WeightUnit } from '../store/userStore';
 import { toDisplayWeight } from '../store/userStore';
-import type { WorkoutSession } from '../store/workoutStore';
+import type { WorkoutSession, WorkoutTemplate } from '../store/workoutStore';
 
 function escapeCSV(value: string): string {
   if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes(';')) {
@@ -11,19 +15,40 @@ function escapeCSV(value: string): string {
   return value;
 }
 
-export function exportToJSON(
-  workouts: WorkoutSession[],
-  runs: RunSession[],
-  calorieDays: CalorieDay[],
-): string {
+// Full snapshot of user-owned data. Used to satisfy UK GDPR Art 20
+// (right to data portability) and the in-app "Export your data"
+// promise. Every user-owned store should be represented here.
+export type ExportData = {
+  workouts: WorkoutSession[];
+  workoutTemplates: WorkoutTemplate[];
+  runs: RunSession[];
+  calorieDays: CalorieDay[];
+  savedMeals: SavedMeal[];
+  bodyweightLog: BodyweightEntry[];
+  measurements: MeasurementEntry[];
+  progressPhotos: ProgressPhoto[];
+  customPoses: string[];
+  customExercises: CustomExercise[];
+  userProfile: UserProfile | null;
+};
+
+export function exportToJSON(data: ExportData): string {
   const payload = {
-    version: 1,
+    version: 2,
     app: 'helm',
     exportedAt: new Date().toISOString(),
     data: {
-      workouts,
-      runs,
-      calorieDays,
+      workouts: data.workouts,
+      workoutTemplates: data.workoutTemplates,
+      runs: data.runs,
+      calorieDays: data.calorieDays,
+      savedMeals: data.savedMeals,
+      bodyweightLog: data.bodyweightLog,
+      measurements: data.measurements,
+      progressPhotos: data.progressPhotos,
+      customPoses: data.customPoses,
+      customExercises: data.customExercises,
+      userProfile: data.userProfile,
     },
   };
   return JSON.stringify(payload, null, 2);

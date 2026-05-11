@@ -11,7 +11,11 @@ import Purchases, { type CustomerInfo } from 'react-native-purchases';
 import { FeatureGate } from '../components/FeatureGate';
 import { ProgressPhotos } from '../components/ProgressPhotos';
 import { MoreToolsScreen } from './MoreToolsScreen';
+import { useBodyweightStore } from '../store/bodyweightStore';
 import { useCalorieStore, CalorieDay } from '../store/calorieStore';
+import { useCustomExerciseStore } from '../store/customExerciseStore';
+import { useMeasurementStore } from '../store/measurementStore';
+import { useProgressPhotoStore } from '../store/progressPhotoStore';
 import { useRunStore } from '../store/runStore';
 import { useSubscription } from '../store/subscriptionStore';
 import { TrainingFocus, UserSex, WeightUnit, toDisplayWeight, fromDisplayWeight, useUserStore, useFeatureEnabled } from '../store/userStore';
@@ -73,9 +77,13 @@ export function AccountScreen() {
   const switchTrackOff = isDark ? '#4B5563' : '#B8ADA0';
   const { user, updateProfile, setFocus, signOut, deleteAccount, error: userError } = useUserStore();
   const { isSubscribed, isLoading: subscriptionLoading, restorePurchases, showPaywall } = useSubscription();
-  const { workouts, importWorkouts } = useWorkoutStore();
+  const { workouts, workoutTemplates, importWorkouts } = useWorkoutStore();
   const { runs, importRuns } = useRunStore();
-  const { calorieDays, importCalorieDays } = useCalorieStore();
+  const { calorieDays, savedMeals, importCalorieDays } = useCalorieStore();
+  const { entries: bodyweightLog } = useBodyweightStore();
+  const { measurements } = useMeasurementStore();
+  const { photos: progressPhotos, customPoses } = useProgressPhotoStore();
+  const { customExercises } = useCustomExerciseStore();
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editWeight, setEditWeight] = useState('');
@@ -201,7 +209,19 @@ export function AccountScreen() {
     setIsExporting(true);
     try {
       if (exportFormat === 'json') {
-        const json = exportToJSON(workouts, runs, calorieDays);
+        const json = exportToJSON({
+          workouts,
+          workoutTemplates,
+          runs,
+          calorieDays,
+          savedMeals,
+          bodyweightLog,
+          measurements,
+          progressPhotos,
+          customPoses,
+          customExercises,
+          userProfile: user,
+        });
         await writeAndShareFile('helm-export.json', json, 'application/json');
       } else {
         const workoutCSV = exportWorkoutsToCSV(workouts, user.weightUnit);

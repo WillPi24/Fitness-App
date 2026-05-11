@@ -233,8 +233,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setError('Please enter a valid email.');
       return false;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
       return false;
     }
 
@@ -339,7 +339,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (authError) {
-      setError(authError.message);
+      // Map Supabase errors to user-facing messages. Keep "Email not
+      // confirmed" distinct so users know to check their inbox; map every
+      // other auth failure to a single generic message so we don't leak
+      // whether an account exists for a given email (account enumeration).
+      const raw = (authError.message || '').toLowerCase();
+      if (raw.includes('not confirmed') || raw.includes('email_not_confirmed')) {
+        setError('Email not confirmed. Please check your inbox.');
+      } else {
+        setError('Email or password incorrect.');
+      }
       return false;
     }
 
@@ -360,6 +369,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
     resetPullCache();
     await clearSyncTimestamps();
+    await AsyncStorage.multiRemove(STALE_KEYS).catch(() => {});
     setUser(null);
   }, []);
 
@@ -427,8 +437,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updatePassword = useCallback(async (newPassword: string) => {
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters.');
       return false;
     }
 

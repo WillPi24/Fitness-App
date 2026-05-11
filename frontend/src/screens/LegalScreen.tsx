@@ -154,6 +154,7 @@ function PrivacyContent({ colors }: { colors: ThemeColors }) {
         <Bullet colors={colors}>RevenueCat (subscription management) -processes subscription status, purchase receipts, and a device identifier to validate your Full Sail entitlement.</Bullet>
         <Bullet colors={colors}>Apple App Store (iOS) and Google Play (Android) -process subscription payments directly. Your payment card details are never received by us.</Bullet>
         <Bullet colors={colors}>OpenFreeMap -provides map tiles during cardio tracking. Tile requests include the viewport region; no account data is shared.</Bullet>
+        <Bullet colors={colors}>OSRM (Open Source Routing Machine) -snaps GPS routes to road networks during cardio tracking. Route coordinates are sent; no account data is shared.</Bullet>
         <Bullet colors={colors}>USDA FoodData Central -used to look up nutritional information. No personal data is sent.</Bullet>
         <Bullet colors={colors}>Open Food Facts -used for barcode-based food lookups. Only the barcode number is sent.</Bullet>
       </BulletGroup>
@@ -309,6 +310,7 @@ function TermsContent({ colors }: { colors: ThemeColors }) {
         <Bullet colors={colors}>RevenueCat -subscription management</Bullet>
         <Bullet colors={colors}>Apple App Store and Google Play -payment processing for subscriptions</Bullet>
         <Bullet colors={colors}>OpenFreeMap -map tile rendering</Bullet>
+        <Bullet colors={colors}>OSRM -GPS route snapping during cardio tracking</Bullet>
         <Bullet colors={colors}>USDA FoodData Central -nutritional information lookups</Bullet>
         <Bullet colors={colors}>Open Food Facts -barcode-based food lookups</Bullet>
       </BulletGroup>

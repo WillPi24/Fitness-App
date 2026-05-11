@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Directory, File, Paths } from 'expo-file-system';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ensurePulled, pushKey } from '../services/syncService';
@@ -54,8 +55,41 @@ function isProgressPhoto(value: unknown): value is ProgressPhoto {
   );
 }
 
+// Copies a captured / picked photo into the app's private document
+// directory so the file is owned by Helm. Photos taken with expo-camera
+// land in the volatile app cache; photos picked from the OS library are
+// referenced by a system URI that may be revoked or invalidated. Copying
+// to documentDirectory protects both privacy (no other app can read it)
+// and reliability (the file survives library deletions and cache purges).
 export async function savePhotoFile(sourceUri: string): Promise<string> {
-  return sourceUri;
+  const photoDir = new Directory(Paths.document, 'progressPhotos');
+  if (!photoDir.exists) {
+    photoDir.create({ intermediates: true });
+  }
+  // Skip the copy if the source is already in our private directory.
+  if (sourceUri.startsWith(photoDir.uri)) {
+    return sourceUri;
+  }
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.jpg`;
+  const dest = new File(photoDir, filename);
+  const source = new File(sourceUri);
+  source.copy(dest);
+  return dest.uri;
+}
+
+// Removes a photo file from the private directory. No-op for URIs outside
+// our directory so we never accidentally delete a system asset.
+export async function deletePhotoFile(uri: string): Promise<void> {
+  const photoDir = new Directory(Paths.document, 'progressPhotos');
+  if (!uri.startsWith(photoDir.uri)) return;
+  try {
+    const file = new File(uri);
+    if (file.exists) {
+      file.delete();
+    }
+  } catch {
+    // ignore — file may already have been removed
+  }
 }
 
 export function ProgressPhotoProvider({ children }: { children: React.ReactNode }) {
@@ -125,7 +159,14 @@ export function ProgressPhotoProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const deletePhoto = useCallback(async (id: string) => {
-    setPhotos((prev) => prev.filter((p) => p.id !== id));
+    setPhotos((prev) => {
+      const target = prev.find((p) => p.id === id);
+      if (target) {
+        // Fire-and-forget; failing to delete the file is not fatal.
+        void deletePhotoFile(target.uri);
+      }
+      return prev.filter((p) => p.id !== id);
+    });
   }, []);
 
   const addCustomPose = useCallback((name: string) => {

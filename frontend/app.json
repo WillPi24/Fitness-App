@@ -3,6 +3,7 @@
     "name": "Helm",
     "slug": "Helm",
     "version": "1.0.0",
+    "scheme": "helm",
     "orientation": "portrait",
     "icon": "./assets/helm-app-icon.png",
     "userInterfaceStyle": "light",
