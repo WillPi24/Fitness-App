@@ -3853,3 +3853,52 @@ button, input {
 .support-legal a:hover {
   color: var(--color-accent);
 }
+
+/* ── Utility helpers ─────────────────────────────────────────
+   Replacements for inline style="" attributes so the CSP can
+   drop 'unsafe-inline' from style-src. */
+.u-hidden { display: none !important; }
+
+.u-text-accent { color: var(--color-accent); }
+.u-text-accent-bold { color: var(--color-accent); font-weight: 600; }
+.u-text-protein { color: #E4572E; }
+.u-text-carbs { color: #2A9D8F; }
+.u-text-fat { color: #E9C46A; }
+
+.u-fs-xs { font-size: 0.75rem; }
+.u-fs-lg { font-size: 1.25rem; }
+
+.u-mb-4 { margin-bottom: 4px; }
+.u-mb-6 { margin-bottom: 6px; }
+.u-mb-sm { margin-bottom: var(--space-sm); }
+.u-mb-lg { margin-bottom: var(--space-lg); }
+.u-mt-sm { margin-top: var(--space-sm); }
+.u-mt-md { margin-top: var(--space-md); }
+.u-mt-2xl { margin-top: var(--space-2xl); }
+.u-pt-0 { padding-top: 0; }
+.u-pb-0 { padding-bottom: 0; }
+.u-pt-nav { padding-top: var(--nav-height); }
+
+.u-cursor-pointer { cursor: pointer; }
+.u-text-left { text-align: left; }
+.u-flex-1 { flex: 1; }
+.u-flex-1-140 { flex: 1; min-width: 140px; }
+
+.u-blog-section-header { text-align: left; margin-bottom: var(--space-lg); }
+
+.u-calc-row-lg { gap: var(--space-lg); }
+.u-calc-row-wrap { gap: var(--space-md); flex-wrap: wrap; }
+
+.u-calc-radio-group {
+  display: flex;
+  gap: var(--space-lg);
+  padding-top: var(--space-xs);
+}
+.u-calc-radio-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  cursor: pointer;
+  font-size: 0.9375rem;
+}
+.u-calc-radio-label > input { accent-color: var(--color-accent); }

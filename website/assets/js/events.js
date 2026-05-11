@@ -62,22 +62,22 @@ const API_BASE = LOCAL_API_OVERRIDE || '';
   // ── Rendering ──
 
   function showLoading() {
-    loading.style.display = '';
-    if (status) status.style.display = 'none';
+    loading.classList.remove('u-hidden');
+    if (status) status.classList.add('u-hidden');
     grid.innerHTML = '';
-    grid.style.display = 'none';
+    grid.classList.add('u-hidden');
   }
 
   function hideLoading() {
-    loading.style.display = 'none';
-    grid.style.display = '';
+    loading.classList.add('u-hidden');
+    grid.classList.remove('u-hidden');
   }
 
   function renderEmpty(message) {
     hideLoading();
-    if (status) status.style.display = 'none';
+    if (status) status.classList.add('u-hidden');
     grid.innerHTML = '<div class="events-empty">' + escapeHTML(message) + '</div>';
-    grid.style.display = 'block';
+    grid.classList.remove('u-hidden');
   }
 
   function renderEvents(events, context) {
@@ -93,10 +93,10 @@ const API_BASE = LOCAL_API_OVERRIDE || '';
       var countryLabel = context && context.country ? context.country : countrySelect.value;
       status.textContent = 'Showing ' + events.length + ' event' + (events.length === 1 ? '' : 's') +
         ' for ' + typeLabel + ' in ' + countryLabel + '.';
-      status.style.display = 'block';
+      status.classList.remove('u-hidden');
     }
 
-    grid.style.display = '';
+    grid.classList.remove('u-hidden');
     grid.innerHTML = events.map(function (ev) {
       var url = ev.url ? escapeHTML(ev.url) : '#';
       var badge = escapeHTML(ev.type || 'Event');
