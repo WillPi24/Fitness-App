@@ -250,7 +250,7 @@ function TermsContent({ colors }: { colors: ThemeColors }) {
       <Para colors={colors}>The Service is provided on an "as-is" and "as-available" basis without warranties of any kind, whether express or implied, including but not limited to implied warranties of merchantability, fitness for a particular purpose, or non-infringement.</Para>
 
       <Heading colors={colors}>4. Subscriptions and Billing</Heading>
-      <Para colors={colors}>Helm is free to download and use. A paid tier called Full Sail unlocks additional features (including advanced strength tools, advanced cardio tools, progress photos, barcode scanning, saved meals, workout templates, and micronutrient tracking). Subscription durations, pricing, and any free trial terms are shown in the app at the time of purchase.</Para>
+      <Para colors={colors}>Helm is free to download and use. A paid tier called Full Sail unlocks additional features (including advanced strength tools, advanced cardio tools, unlimited progress photos and side-by-side photo comparison, barcode scanning, saved meals, workout templates, and micronutrient tracking). Free accounts include a limited number of progress photos per month, as stated in the app. Subscription durations, pricing, and any free trial terms are shown in the app at the time of purchase.</Para>
       <Para colors={colors}>
         <Text style={{ fontFamily: 'SpaceGrotesk_600SemiBold' }}>Auto-renewal. </Text>
         Subscriptions automatically renew at the end of each billing period at the then-current price unless cancelled at least 24 hours before the end of the current period. Your account will be charged within 24 hours prior to the end of the current period.
@@ -367,7 +367,9 @@ export function LegalScreen({ type, onBack }: LegalScreenProps) {
         <Text style={styles.title}>
           {type === 'privacy' ? 'Privacy Policy' : 'Terms of Service'}
         </Text>
-        <Text style={styles.effectiveDate}>Effective date: 21 April 2026</Text>
+        <Text style={styles.effectiveDate}>
+          {type === 'privacy' ? 'Effective date: 21 April 2026' : 'Effective date: 2 July 2026'}
+        </Text>
 
         {type === 'privacy' ? (
           <PrivacyContent colors={colors} />

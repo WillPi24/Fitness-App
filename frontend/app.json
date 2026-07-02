@@ -56,7 +56,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Helm to scan food barcodes for calorie tracking."
+          "cameraPermission": "Allow Helm to use the camera to scan food barcodes for calorie tracking and to capture progress photos."
         }
       ],
       [
