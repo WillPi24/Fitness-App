@@ -15,7 +15,6 @@ export const PAID_FEATURE_IDS: readonly FeatureId[] = [
   'paceKeeper',
   'splitTimes',
   'racePredictor',
-  'progressPhotos',
   // Non-registry features (always-on when subscribed)
   'barcodeScanning',
   'savedMeals',
@@ -26,3 +25,7 @@ export const PAID_FEATURE_IDS: readonly FeatureId[] = [
 export function isPaidFeature(featureId: string): boolean {
   return (PAID_FEATURE_IDS as readonly string[]).includes(featureId);
 }
+
+// Progress photos are the physique-tracking hook: free users get a monthly
+// taste, while unlimited photos and side-by-side compare require Full Sail.
+export const FREE_PROGRESS_PHOTOS_PER_MONTH = 1;

@@ -23,10 +23,10 @@ type FocusOption = {
 
 const focusOptions: FocusOption[] = [
   {
-    key: 'general',
-    title: 'General Fitness',
-    description: 'A bit of everything - no specific specialisation',
-    renderIcon: (color) => <MaterialCommunityIcons name="heart-pulse" size={32} color={color} />,
+    key: 'bodybuilding',
+    title: 'Bodybuilding',
+    description: 'Hypertrophy, physique development, and muscle balance',
+    renderIcon: (color) => <MaterialCommunityIcons name="arm-flex" size={32} color={color} />,
   },
   {
     key: 'strength',
@@ -35,16 +35,16 @@ const focusOptions: FocusOption[] = [
     renderIcon: (color) => <MaterialCommunityIcons name="dumbbell" size={32} color={color} />,
   },
   {
-    key: 'bodybuilding',
-    title: 'Bodybuilding',
-    description: 'Hypertrophy, physique development, and muscle balance',
-    renderIcon: (color) => <MaterialCommunityIcons name="arm-flex" size={32} color={color} />,
-  },
-  {
     key: 'cardio',
     title: 'Cardio',
     description: 'Running, endurance, and improving your pace',
     renderIcon: (color) => <MaterialCommunityIcons name="shoe-sneaker" size={32} color={color} />,
+  },
+  {
+    key: 'general',
+    title: 'General Fitness',
+    description: 'A bit of everything - no specific specialisation',
+    renderIcon: (color) => <MaterialCommunityIcons name="heart-pulse" size={32} color={color} />,
   },
 ];
 

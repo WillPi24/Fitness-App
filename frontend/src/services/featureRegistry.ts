@@ -97,10 +97,10 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
   {
     id: 'progressPhotos',
     name: 'Progress Photos',
-    description: 'Take or import photos tagged by date and pose, with side-by-side comparison.',
+    description: 'Take or import photos tagged by date and pose. Free includes 1 photo per month; Full Sail unlocks unlimited photos and side-by-side comparison.',
     screen: 'Account',
     defaultFocus: ['bodybuilding'],
-    tier: 'pro',
+    tier: 'free',
     showInToolsScreen: true,
   },
   {

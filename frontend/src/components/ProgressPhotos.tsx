@@ -18,12 +18,14 @@ import {
   View,
 } from 'react-native';
 
+import { FREE_PROGRESS_PHOTOS_PER_MONTH } from '../services/subscriptionConfig';
 import {
   DEFAULT_POSES,
   type ProgressPhoto,
   savePhotoFile,
   useProgressPhotoStore,
 } from '../store/progressPhotoStore';
+import { useSubscription } from '../store/subscriptionStore';
 import { spacing, typography } from '../theme';
 import type { ThemeColors } from '../theme';
 import { useTheme } from '../store/themeStore';
@@ -35,6 +37,7 @@ export function ProgressPhotos() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { photos, addPhoto, deletePhoto, customPoses, addCustomPose, removeCustomPose, allPoses } = useProgressPhotoStore();
+  const { isSubscribed, showPaywall } = useSubscription();
   const [captureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const [selectedPose, setSelectedPose] = useState(DEFAULT_POSES[0] as string);
@@ -96,7 +99,26 @@ export function ProgressPhotos() {
     setCaptureModalOpen(false);
   };
 
+  const photosThisMonth = useMemo(() => {
+    const now = new Date();
+    return photos.filter((p) => {
+      const d = new Date(p.timestamp);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    }).length;
+  }, [photos]);
+
   const handleOpenCapture = async () => {
+    if (!isSubscribed && photosThisMonth >= FREE_PROGRESS_PHOTOS_PER_MONTH) {
+      Alert.alert(
+        'Monthly photo used',
+        `Free includes ${FREE_PROGRESS_PHOTOS_PER_MONTH} progress photo per month. Unlock unlimited photos and side-by-side comparison with Full Sail.`,
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Unlock', onPress: showPaywall },
+        ],
+      );
+      return;
+    }
     if (!cameraPermission?.granted) {
       await requestCameraPermission();
     }
@@ -120,6 +142,10 @@ export function ProgressPhotos() {
   };
 
   const startCompare = () => {
+    if (!isSubscribed) {
+      showPaywall();
+      return;
+    }
     setCompareMode(true);
     setComparePhotos([]);
   };
