@@ -1,9 +1,20 @@
+import { Platform } from 'react-native';
+
 import type { FeatureId } from './featureRegistry';
 
 export const REVENUECAT_API_KEY_IOS =
   process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? 'appl_dlPWYCpfkFXqVnzQURnNcsgipRl';
-export const REVENUECAT_API_KEY_ANDROID =
-  process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? 'test_eedplghnocURrbvHMfsjoeDsQWn';
+
+// The Android fallback is a SANDBOX key — shipping it in a release build
+// means real purchases silently fail (audit finding M3). Fail loudly at
+// startup instead so a misconfigured build can't reach the store.
+const androidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
+if (!androidKey && Platform.OS === 'android' && !__DEV__) {
+  throw new Error(
+    'RevenueCat Android production key missing: set EXPO_PUBLIC_REVENUECAT_ANDROID_KEY before building a release.',
+  );
+}
+export const REVENUECAT_API_KEY_ANDROID = androidKey ?? 'test_eedplghnocURrbvHMfsjoeDsQWn';
 
 export const ENTITLEMENT_ID = 'Helm_Full_Sail';
 
