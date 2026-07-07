@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -11,6 +12,7 @@ import {
   Text,
   TextInput,
   useWindowDimensions,
+  Vibration,
   View,
 } from 'react-native';
 import { CalendarList } from 'react-native-calendars';
@@ -103,6 +105,11 @@ function formatDuration(ms: number) {
 function monthsBetween(start: Date, end: Date) {
   return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
 }
+
+const REST_TIMER_SECONDS_KEY = 'fitnessapp.restTimerSeconds.v1';
+const REST_TIMER_MIN_SECONDS = 15;
+const REST_TIMER_MAX_SECONDS = 600;
+const REST_TIMER_DEFAULT_SECONDS = 120;
 
 const bodyPartAliases: Record<string, CanonicalBodyPart> = {
   chest: 'chest',
@@ -409,6 +416,103 @@ export function LogScreen() {
   const isSelectedDateToday = selectedDate === todayIso;
 
   const elapsedMs = activeWorkout ? timerTick - activeWorkout.startedAt : 0;
+
+  // ─── Rest timer ───
+
+  const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
+  const [restSeconds, setRestSeconds] = useState(REST_TIMER_DEFAULT_SECONDS);
+
+  useEffect(() => {
+    AsyncStorage.getItem(REST_TIMER_SECONDS_KEY)
+      .then((raw) => {
+        const parsed = Number(raw);
+        if (raw && Number.isFinite(parsed) && parsed >= REST_TIMER_MIN_SECONDS && parsed <= REST_TIMER_MAX_SECONDS) {
+          setRestSeconds(parsed);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const restRemainingMs = restEndsAt != null ? restEndsAt - timerTick : null;
+
+  useEffect(() => {
+    if (restEndsAt != null && timerTick >= restEndsAt) {
+      Vibration.vibrate(Platform.OS === 'android' ? [0, 300, 200, 300] : undefined);
+      setRestEndsAt(null);
+    }
+  }, [timerTick, restEndsAt]);
+
+  useEffect(() => {
+    if (!activeWorkout) {
+      setRestEndsAt(null);
+    }
+  }, [activeWorkout?.id]);
+
+  const startRest = () => setRestEndsAt(Date.now() + restSeconds * 1000);
+  const stopRest = () => setRestEndsAt(null);
+
+  // Called when the lifter finishes typing reps for a working set. Only
+  // starts a fresh countdown when idle so editing an earlier set doesn't
+  // stomp a rest already in progress.
+  const autoStartRest = (repsValue: string, isWarmup: boolean) => {
+    if (!isWarmup && repsValue.trim() && restEndsAt == null) {
+      startRest();
+    }
+  };
+
+  // While resting, ±15 shifts the running countdown; while idle it changes
+  // (and remembers) the default rest duration.
+  const adjustRest = (deltaSeconds: number) => {
+    if (restEndsAt != null) {
+      setRestEndsAt((current) => (current != null ? current + deltaSeconds * 1000 : current));
+      return;
+    }
+    setRestSeconds((current) => {
+      const next = Math.min(REST_TIMER_MAX_SECONDS, Math.max(REST_TIMER_MIN_SECONDS, current + deltaSeconds));
+      AsyncStorage.setItem(REST_TIMER_SECONDS_KEY, String(next)).catch(() => {});
+      return next;
+    });
+  };
+
+  // ─── Last-session values for the active workout ───
+  // For every exercise in the active workout, the working (non-warmup) sets
+  // from the most recent completed session of that exercise. Weights are in
+  // kg (storage unit) — convert with toDisplayWeight at render time.
+  const lastSessionByExercise = useMemo(() => {
+    const map = new Map<
+      string,
+      { sets: Array<{ weight: number; reps: number; weightR?: number; repsR?: number }>; startedAt: number }
+    >();
+    if (!activeWorkoutForSelected) {
+      return map;
+    }
+    const targetNames = new Set(
+      activeWorkoutForSelected.exercises
+        .map((exercise) => normalizeExerciseName(exercise.name))
+        .filter(Boolean),
+    );
+    if (targetNames.size === 0) {
+      return map;
+    }
+    workouts.forEach((workout) => {
+      workout.exercises.forEach((exercise) => {
+        const key = normalizeExerciseName(exercise.name);
+        if (!targetNames.has(key)) {
+          return;
+        }
+        const existing = map.get(key);
+        if (existing && existing.startedAt >= workout.startedAt) {
+          return;
+        }
+        const workingSets = exercise.sets.filter((set) => !isWarmupSet(set, exercise));
+        if (workingSets.length === 0) {
+          return;
+        }
+        map.set(key, { sets: workingSets, startedAt: workout.startedAt });
+      });
+    });
+    return map;
+  }, [workouts, activeWorkoutForSelected]);
 
   const allExerciseOptions = useMemo(() => {
     const customAsOptions: ExerciseOption[] = customExercises
@@ -794,6 +898,7 @@ export function LogScreen() {
   const renderWorkoutExercise = (exercise: DraftWorkout['exercises'][number], index: number) => {
     const latestSet = exercise.sets[exercise.sets.length - 1];
     const latestSetIsWarmup = latestSet ? isWarmupSet(latestSet, exercise) : false;
+    const prevSession = lastSessionByExercise.get(normalizeExerciseName(exercise.name));
 
     return (
       <View key={exercise.id} style={styles.exerciseCard}>
@@ -816,11 +921,31 @@ export function LogScreen() {
             </Pressable>
           </View>
         </View>
+        {prevSession ? (
+          <Text style={styles.lastSessionHint}>
+            Last session:{' '}
+            {prevSession.sets
+              .slice(0, 6)
+              .map((prevSet) => `${toDisplayWeight(prevSet.weight, weightUnit)}×${prevSet.reps}`)
+              .join('  ')}
+            {prevSession.sets.length > 6 ? ' …' : ''} {weightUnit}
+          </Text>
+        ) : null}
         {exercise.sets.map((set, setIndex) => {
           const setIsWarmup = isWarmupSet(set, exercise);
           const warmupNumber = exercise.sets
             .slice(0, setIndex + 1)
             .filter((candidate) => isWarmupSet(candidate, exercise)).length;
+          const workingNumber = exercise.sets
+            .slice(0, setIndex + 1)
+            .filter((candidate) => !isWarmupSet(candidate, exercise)).length;
+          const prevSet = !setIsWarmup ? prevSession?.sets[workingNumber - 1] : undefined;
+          const ghostWeight = prevSet ? String(toDisplayWeight(prevSet.weight, weightUnit)) : '0';
+          const ghostReps = prevSet ? String(prevSet.reps) : '0';
+          const ghostWeightR = prevSet
+            ? String(toDisplayWeight(prevSet.weightR ?? prevSet.weight, weightUnit))
+            : '0';
+          const ghostRepsR = prevSet ? String(prevSet.repsR ?? prevSet.reps) : '0';
 
           return (
             <View key={set.id} style={[styles.setRow, setIsWarmup && styles.setRowWarmup]}>
@@ -837,7 +962,7 @@ export function LogScreen() {
                           style={styles.setInput}
                           value={set.weight}
                           onChangeText={(value) => updateSet(exercise.id, set.id, 'weight', value)}
-                          placeholder="0"
+                          placeholder={ghostWeight}
                           placeholderTextColor={colors.muted}
                           keyboardType="numeric"
                         />
@@ -848,7 +973,8 @@ export function LogScreen() {
                           style={styles.setInput}
                           value={set.reps}
                           onChangeText={(value) => updateSet(exercise.id, set.id, 'reps', value)}
-                          placeholder="0"
+                          onEndEditing={() => autoStartRest(set.reps, setIsWarmup)}
+                          placeholder={ghostReps}
                           placeholderTextColor={colors.muted}
                           keyboardType="numeric"
                         />
@@ -862,7 +988,7 @@ export function LogScreen() {
                           style={styles.setInput}
                           value={set.weightR ?? ''}
                           onChangeText={(value) => updateSet(exercise.id, set.id, 'weightR', value)}
-                          placeholder="0"
+                          placeholder={ghostWeightR}
                           placeholderTextColor={colors.muted}
                           keyboardType="numeric"
                         />
@@ -873,7 +999,8 @@ export function LogScreen() {
                           style={styles.setInput}
                           value={set.repsR ?? ''}
                           onChangeText={(value) => updateSet(exercise.id, set.id, 'repsR', value)}
-                          placeholder="0"
+                          onEndEditing={() => autoStartRest(set.repsR ?? '', setIsWarmup)}
+                          placeholder={ghostRepsR}
                           placeholderTextColor={colors.muted}
                           keyboardType="numeric"
                         />
@@ -893,7 +1020,7 @@ export function LogScreen() {
                         style={styles.setInput}
                         value={set.weight}
                         onChangeText={(value) => updateSet(exercise.id, set.id, 'weight', value)}
-                        placeholder="0"
+                        placeholder={ghostWeight}
                         placeholderTextColor={colors.muted}
                         keyboardType="numeric"
                       />
@@ -904,7 +1031,8 @@ export function LogScreen() {
                         style={styles.setInput}
                         value={set.reps}
                         onChangeText={(value) => updateSet(exercise.id, set.id, 'reps', value)}
-                        placeholder="0"
+                        onEndEditing={() => autoStartRest(set.reps, setIsWarmup)}
+                        placeholder={ghostReps}
                         placeholderTextColor={colors.muted}
                         keyboardType="numeric"
                       />
@@ -1430,6 +1558,43 @@ export function LogScreen() {
             ) : null
           ) : activeWorkoutForSelected ? (
             <View style={styles.activeWorkout}>
+              <View style={[styles.restTimerRow, restRemainingMs != null && styles.restTimerRowActive]}>
+                {restRemainingMs != null ? (
+                  <>
+                    <View style={styles.restTimerStatus}>
+                      <Feather name="clock" size={16} color={colors.accent} />
+                      <Text style={styles.restTimerCountdown}>{formatDuration(restRemainingMs)}</Text>
+                      <Text style={styles.restTimerStatusLabel}>rest</Text>
+                    </View>
+                    <View style={styles.restTimerControls}>
+                      <Pressable style={styles.restAdjustButton} onPress={() => adjustRest(-15)}>
+                        <Text style={styles.restAdjustText}>-15</Text>
+                      </Pressable>
+                      <Pressable style={styles.restAdjustButton} onPress={() => adjustRest(15)}>
+                        <Text style={styles.restAdjustText}>+15</Text>
+                      </Pressable>
+                      <Pressable style={styles.restAdjustButton} onPress={stopRest}>
+                        <Text style={styles.restAdjustText}>Skip</Text>
+                      </Pressable>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Pressable style={styles.restStartButton} onPress={startRest}>
+                      <Feather name="clock" size={16} color={colors.accent} />
+                      <Text style={styles.restStartText}>Rest {formatDuration(restSeconds * 1000)}</Text>
+                    </Pressable>
+                    <View style={styles.restTimerControls}>
+                      <Pressable style={styles.restAdjustButton} onPress={() => adjustRest(-15)}>
+                        <Text style={styles.restAdjustText}>-15</Text>
+                      </Pressable>
+                      <Pressable style={styles.restAdjustButton} onPress={() => adjustRest(15)}>
+                        <Text style={styles.restAdjustText}>+15</Text>
+                      </Pressable>
+                    </View>
+                  </>
+                )}
+              </View>
               {activeWorkoutForSelected.exercises.length > 0
                 ? activeWorkoutForSelected.exercises.map(renderWorkoutExercise)
                 : null}
@@ -1842,6 +2007,67 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: spacing.xs,
     borderRadius: 12,
     backgroundColor: colors.accentSoft,
+  },
+  lastSessionHint: {
+    ...typography.label,
+    color: colors.muted,
+    fontSize: 12,
+  },
+  restTimerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.surface,
+  },
+  restTimerRowActive: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  restTimerStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  restTimerCountdown: {
+    ...typography.headline,
+    color: colors.accent,
+    fontSize: 18,
+    fontVariant: ['tabular-nums'],
+  },
+  restTimerStatusLabel: {
+    ...typography.label,
+    color: colors.muted,
+  },
+  restTimerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  restAdjustButton: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.surface,
+  },
+  restAdjustText: {
+    ...typography.label,
+    color: colors.accent,
+  },
+  restStartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  restStartText: {
+    ...typography.body,
+    color: colors.accent,
   },
   setInputsWithRemove: {
     flexDirection: 'row',
